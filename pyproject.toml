@@ -33,6 +33,7 @@ classifiers = [
 [project.urls]
 Homepage = "https://github.com/mick-gsk/DevCD"
 Repository = "https://github.com/mick-gsk/DevCD"
+Documentation = "https://mick-gsk.github.io/DevCD/"
 Issues = "https://github.com/mick-gsk/DevCD/issues"
 Changelog = "https://github.com/mick-gsk/DevCD/blob/main/CHANGELOG.md"
 dependencies = [
@@ -52,6 +53,10 @@ dev = [
   "pytest>=8.2",
   "pytest-asyncio>=0.23",
   "ruff>=0.5",
+]
+docs = [
+  "mkdocs-material>=9.5",
+  "pymdown-extensions>=10.8",
 ]
 
 [project.scripts]

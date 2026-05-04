@@ -1,0 +1,49 @@
+site_name: DevCD
+site_description: Local-first Developer Context Daemon
+site_url: https://mick-gsk.github.io/DevCD/
+repo_url: https://github.com/mick-gsk/DevCD
+repo_name: mick-gsk/DevCD
+edit_uri: edit/main/docs/
+
+theme:
+  name: material
+  palette:
+    - media: "(prefers-color-scheme: light)"
+      scheme: default
+      primary: indigo
+      accent: indigo
+      toggle:
+        icon: material/brightness-7
+        name: Switch to dark mode
+    - media: "(prefers-color-scheme: dark)"
+      scheme: slate
+      primary: indigo
+      accent: indigo
+      toggle:
+        icon: material/brightness-4
+        name: Switch to light mode
+  features:
+    - navigation.tabs
+    - navigation.sections
+    - navigation.top
+    - content.code.copy
+    - content.action.edit
+
+markdown_extensions:
+  - admonition
+  - tables
+  - toc:
+      permalink: true
+  - pymdownx.highlight:
+      anchor_linenums: true
+  - pymdownx.inlinehilite
+  - pymdownx.superfences
+
+nav:
+  - Home: index.md
+  - Architecture:
+      - Overview: devcd/architecture.md
+      - Memory Model: devcd/memory.md
+      - Policy Layer: devcd/policy.md
+  - Decisions:
+      - ADR-001 Vertical Slice Architecture: decisions/ADR-001-vertical-slice-architecture.md

@@ -1,4 +1,4 @@
-.PHONY: help install lint format typecheck test check run
+.PHONY: help install lint format typecheck test check run docs docs-serve
 
 help:
 	@echo "Targets: install lint format typecheck test check run"
@@ -24,3 +24,9 @@ check: lint typecheck test
 
 run:
 	python -m devcd.cli serve --host 127.0.0.1 --port 8765
+
+docs:
+	mkdocs build --strict
+
+docs-serve:
+	mkdocs serve
