@@ -1,15 +1,20 @@
 from __future__ import annotations
 
+import json
 from collections.abc import Iterable
 from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
+from pathlib import Path
 from typing import Any, Literal
 
 from devcd.slices.ambient_context.models import (
     AgentContextSurface,
     BlockerSignal,
     ContextBrief,
+    ContextFeedback,
+    ContextFeedbackKind,
     ContextMemoryItem,
+    ContextQualityReport,
     DetailLevel,
     EvidenceItem,
     FreshnessState,
@@ -30,6 +35,7 @@ from devcd.slices.ambient_context.models import (
     WithheldContext,
     WorkState,
 )
+from devcd.slices.events.models import DevEvent, EventSensitivity, EventSource
 from devcd.slices.host_state_engine.service import StateEngine
 from devcd.slices.memory_layer.models import MemoryEntry, MemoryScope
 from devcd.slices.memory_layer.service import MemoryStore
@@ -137,10 +143,12 @@ class AmbientContextService:
         state_engine: StateEngine,
         memory_store: MemoryStore,
         policy_engine: PolicyEngine,
+        feedback_path: Path | None = None,
     ) -> None:
         self.state_engine = state_engine
         self.memory_store = memory_store
         self.policy_engine = policy_engine
+        self.feedback_path = feedback_path or Path(".devcd/context-feedback.jsonl")
         self._dismissed_suggestions: dict[str, ProactiveSuggestion] = {}
         self._suggestion_cooldown = timedelta(minutes=30)
 
@@ -223,6 +231,74 @@ class AmbientContextService:
             return existing
         raise KeyError(suggestion_id)
 
+    def record_feedback(
+        self,
+        brief_id: str,
+        kind: str | ContextFeedbackKind,
+        note: str,
+    ) -> ContextFeedback:
+        feedback_kind = ContextFeedbackKind(kind)
+        control_reason = self._context_control_reason("record_feedback")
+        note_event = DevEvent(
+            source=EventSource.NOTES,
+            type="context_feedback",
+            payload=self._feedback_payload(
+                brief_id=brief_id,
+                feedback_kind=feedback_kind,
+                note=note,
+            ),
+            sensitivity=EventSensitivity.SENSITIVE
+            if feedback_kind is ContextFeedbackKind.TOO_SENSITIVE
+            else EventSensitivity.NORMAL,
+        )
+        observation_decision = self.policy_engine.decide_observation(note_event)
+        storage_decision = self.policy_engine.decide_local_storage(note_event)
+        withheld: list[WithheldContext] = []
+        stored_note: str | None = note
+        note_decision = (
+            observation_decision if not observation_decision.allowed else storage_decision
+        )
+        if not note_decision.allowed:
+            explanation = self.policy_engine.explain_decision(note_decision, note_event)
+            stored_note = None
+            withheld.append(
+                WithheldContext(
+                    kind="feedback_note",
+                    reason=explanation.reason,
+                    category=explanation.category,
+                    policy_reason=explanation.reason,
+                    safe_summary=explanation.safe_summary,
+                )
+            )
+
+        feedback = ContextFeedback(
+            brief_id=brief_id,
+            kind=feedback_kind,
+            note=stored_note,
+            note_withheld=stored_note is None,
+            withheld_context=withheld,
+            policy_reason=(
+                f"{control_reason}; {observation_decision.reason}; {storage_decision.reason}"
+            ),
+        )
+        self._append_feedback(feedback)
+        return feedback
+
+    def get_context_quality(self) -> ContextQualityReport:
+        return ContextQualityReport(feedback=self._read_feedback())
+
+    def _feedback_payload(
+        self,
+        *,
+        brief_id: str,
+        feedback_kind: ContextFeedbackKind,
+        note: str,
+    ) -> dict[str, str]:
+        payload = {"brief_id": brief_id, "kind": feedback_kind.value}
+        if feedback_kind is not ContextFeedbackKind.TOO_SENSITIVE:
+            payload["text"] = note
+        return payload
+
     def list_context_memory(
         self,
         scope: str | MemoryScope | None = None,
@@ -281,6 +357,25 @@ class AmbientContextService:
             raise KeyError(item_id)
         self._context_control_reason("delete_memory")
         self.memory_store.delete(item_id)
+
+    def _append_feedback(self, feedback: ContextFeedback) -> None:
+        self.feedback_path.parent.mkdir(parents=True, exist_ok=True)
+        with self.feedback_path.open("a", encoding="utf-8") as handle:
+            handle.write(json.dumps(feedback.model_dump(mode="json"), sort_keys=True))
+            handle.write("\n")
+
+    def _read_feedback(self) -> list[ContextFeedback]:
+        if not self.feedback_path.exists():
+            return []
+        feedback_items: list[ContextFeedback] = []
+        for line in self.feedback_path.read_text(encoding="utf-8").splitlines():
+            if not line.strip():
+                continue
+            try:
+                feedback_items.append(ContextFeedback.model_validate_json(line))
+            except ValueError:
+                continue
+        return feedback_items
 
     def create_context_brief(self, surface: AgentContextSurface | None = None) -> ContextBrief:
         requested_surface = surface or AgentContextSurface()
@@ -938,6 +1033,8 @@ class AmbientContextService:
 
 def render_context_brief_markdown(brief: ContextBrief) -> str:
     lines = ["# DevCD Agent Handoff Brief", ""]
+    lines.extend(["## brief_id", brief.id, ""])
+
     lines.extend(["## active_goal", brief.active_goal or "No active goal available.", ""])
 
     lines.extend(["## relevant_artifacts"])

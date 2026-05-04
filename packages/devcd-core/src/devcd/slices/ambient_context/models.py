@@ -3,6 +3,7 @@ from __future__ import annotations
 from datetime import UTC, datetime
 from enum import StrEnum
 from typing import Literal
+from uuid import uuid4
 
 from pydantic import BaseModel, Field
 
@@ -61,6 +62,14 @@ class ProactiveSuggestionStatus(StrEnum):
     ACTIVE = "active"
     DISMISSED = "dismissed"
     EXPIRED = "expired"
+
+
+class ContextFeedbackKind(StrEnum):
+    MISSING = "missing"
+    WRONG = "wrong"
+    STALE = "stale"
+    TOO_BROAD = "too_broad"
+    TOO_SENSITIVE = "too_sensitive"
 
 
 class FreshnessState(BaseModel):
@@ -189,6 +198,24 @@ class MemoryCorrection(BaseModel):
     reason: str = Field(min_length=1)
 
 
+class ContextFeedback(BaseModel):
+    id: str = Field(default_factory=lambda: str(uuid4()), min_length=1)
+    brief_id: str = Field(min_length=1)
+    kind: ContextFeedbackKind
+    note: str | None = None
+    note_withheld: bool = False
+    withheld_context: list[WithheldContext] = Field(default_factory=list)
+    policy_reason: str
+    created_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
+
+
+class ContextQualityReport(BaseModel):
+    feedback: list[ContextFeedback] = Field(default_factory=list)
+    phase: Literal["feedback_only"] = "feedback_only"
+    ranking_or_scoring: Literal["not_computed_phase_1"] = "not_computed_phase_1"
+    generated_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
+
+
 class WorkState(BaseModel):
     active_intent: IntentLine | None = None
     candidate_intents: list[IntentLine] = Field(default_factory=list)
@@ -209,6 +236,7 @@ class WorkState(BaseModel):
 
 
 class ContextBrief(BaseModel):
+    id: str = Field(default_factory=lambda: str(uuid4()), min_length=1)
     surface: AgentContextSurface
     summary: str
     active_goal: str | None = None

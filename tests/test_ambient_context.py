@@ -8,6 +8,7 @@ from devcd.slices.ambient_context.models import (
     AgentContextSurface,
     BlockerSignal,
     ContextBrief,
+    ContextFeedbackKind,
     ContextMemoryItem,
     EvidenceItem,
     FreshnessState,
@@ -97,6 +98,56 @@ def test_ambient_context_service_accepts_existing_slice_services(tmp_path) -> No
     )
 
     assert service.state_engine is state_engine
+
+
+def test_context_feedback_is_stored_locally_without_note_text(tmp_path) -> None:
+    service, _state_engine = build_ambient_context_service(tmp_path)
+
+    feedback = service.record_feedback(
+        brief_id="brief-123",
+        kind=ContextFeedbackKind.MISSING,
+        note="Add the failing test name to the handoff.",
+    )
+    quality = service.get_context_quality()
+
+    assert feedback.brief_id == "brief-123"
+    assert feedback.kind is ContextFeedbackKind.MISSING
+    assert feedback.note is None
+    assert feedback.note_withheld is True
+    assert feedback.withheld_context[0].category == "payload_content"
+    assert quality.feedback == [feedback]
+    assert (tmp_path / "context-feedback.jsonl").exists()
+
+
+def test_sensitive_context_feedback_note_is_withheld(tmp_path) -> None:
+    service, _state_engine = build_ambient_context_service(tmp_path)
+
+    feedback = service.record_feedback(
+        brief_id="brief-123",
+        kind=ContextFeedbackKind.TOO_SENSITIVE,
+        note="This note contains private incident details.",
+    )
+
+    assert feedback.note is None
+    assert feedback.note_withheld is True
+    assert feedback.withheld_context[0].category == "sensitivity"
+    assert "sensitive" in feedback.policy_reason
+    assert service.get_context_quality().feedback[0].note is None
+
+
+def test_long_context_feedback_note_is_withheld_by_policy(tmp_path) -> None:
+    service, _state_engine = build_ambient_context_service(tmp_path)
+
+    feedback = service.record_feedback(
+        brief_id="brief-123",
+        kind=ContextFeedbackKind.WRONG,
+        note="x" * 600,
+    )
+
+    assert feedback.note is None
+    assert feedback.note_withheld is True
+    assert feedback.withheld_context[0].category == "payload_content"
+    assert "full-text" in feedback.policy_reason
 
 
 def test_work_state_models_capture_intent_artifacts_loops_attempts_and_blockers() -> None:
@@ -695,6 +746,8 @@ def test_pytest_failure_recipe_feeds_policy_gated_handoff_packet(tmp_path) -> No
     dumped = brief.model_dump_json()
 
     assert "## Last failure" in markdown
+    assert "## brief_id" in markdown
+    assert brief.id in markdown
     assert "pytest failed: tests/test_checkout.py::test_total" in markdown
     assert "## Suggested next action" in markdown
     assert "Rerun pytest tests/test_checkout.py::test_total -q" in markdown
@@ -825,5 +878,10 @@ def build_ambient_context_service(tmp_path) -> tuple[AmbientContextService, Stat
     memory_store = MemoryStore.with_ttl_seconds(315360000)
     event_ledger = EventLedger(tmp_path / "events.jsonl")
     state_engine = StateEngine(policy_engine, memory_store, event_ledger)
-    service = AmbientContextService(state_engine, memory_store, policy_engine)
+    service = AmbientContextService(
+        state_engine,
+        memory_store,
+        policy_engine,
+        feedback_path=tmp_path / "context-feedback.jsonl",
+    )
     return service, state_engine
