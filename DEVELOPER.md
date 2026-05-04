@@ -5,6 +5,7 @@
 ```bash
 python -m pip install -e ".[dev]"
 pre-commit install
+devcd init
 make check
 ```
 
@@ -19,6 +20,12 @@ make check
 | `make check` | lint, typecheck, and tests |
 | `make run` | run the local daemon on `127.0.0.1:8765` |
 
+## Runtime Config
+
+`devcd init` writes `devcd.toml`. Runtime settings include host, port, runtime directory, ledger file, working-memory TTL, and policy switches for observation, local storage, remote export, and actions.
+
+Environment variables use the `DEVCD_` prefix, for example `DEVCD_PORT=9000`.
+
 ## Architecture
 
 DevCD uses Vertical Slice Architecture. A slice owns the request/response models, domain service, and tests for one product capability.
@@ -31,6 +38,7 @@ Current slices:
 | `host_state_engine` | work-state tree, state update behavior, HTTP API |
 | `memory_layer` | working, episodic, and semantic memory contracts |
 | `policy_layer` | observation/action authorization decisions |
+| `git_source` | Git branch and commit event collection |
 
 ## Test Strategy
 

@@ -29,6 +29,12 @@ classifiers = [
   "Programming Language :: Python :: 3.12",
   "Typing :: Typed",
 ]
+
+[project.urls]
+Homepage = "https://github.com/mick-gsk/DevCD"
+Repository = "https://github.com/mick-gsk/DevCD"
+Issues = "https://github.com/mick-gsk/DevCD/issues"
+Changelog = "https://github.com/mick-gsk/DevCD/blob/main/CHANGELOG.md"
 dependencies = [
   "fastapi>=0.115",
   "pydantic>=2.8",

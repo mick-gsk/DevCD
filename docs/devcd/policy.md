@@ -14,6 +14,7 @@ Every decision records a reason. This creates an audit trail for why an event wa
 ## MVP Rules
 
 - Observation events are allowed unless they are marked sensitive.
+- Local storage gates both the JSON Lines ledger and working-memory writes.
 - Action events are denied unless a future explicit policy grants them.
 - Remote export is denied by default.
 - Sensitive payloads should be filtered at the connector before reaching the daemon.

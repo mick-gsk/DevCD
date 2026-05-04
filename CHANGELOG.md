@@ -16,3 +16,6 @@ Short version: Initial local-first context daemon foundation.
 - Working-memory store with 5-minute TTL.
 - Local JSON Lines event ledger.
 - Initial state and event JSON Schemas.
+- Runtime config via `devcd.toml` and `DEVCD_` environment variables.
+- CLI commands for config initialization and event submission.
+- Git snapshot source for branch and latest-commit events.
