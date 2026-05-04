@@ -1,0 +1,18 @@
+# CODEOWNERS
+# https://docs.github.com/en/repositories/managing-your-repositorys-settings-and-features/customizing-your-repository/about-code-owners
+
+# Global fallback
+* @mick-gsk
+
+# Core slices
+packages/devcd-core/src/devcd/slices/          @mick-gsk
+packages/devcd-core/src/devcd/kernel/          @mick-gsk
+
+# Docs and architecture decisions
+docs/                                           @mick-gsk
+schemas/                                        @mick-gsk
+
+# CI/CD and tooling
+.github/                                        @mick-gsk
+Makefile                                        @mick-gsk
+pyproject.toml                                  @mick-gsk
