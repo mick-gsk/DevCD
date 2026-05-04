@@ -1,0 +1,78 @@
+name: Feature request
+description: Propose a new capability or improvement.
+title: "[Feature]: "
+labels:
+  - kind/feature
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Help us evaluate this request with concrete use cases and tradeoffs.
+
+  - type: dropdown
+    id: slice
+    attributes:
+      label: Target slice
+      description: Which slice would this feature touch?
+      options:
+        - host-state-engine
+        - memory-layer
+        - policy-layer
+        - events
+        - cli
+        - mcp-bridge
+        - new slice / cross-cutting
+    validations:
+      required: true
+
+  - type: textarea
+    id: summary
+    attributes:
+      label: Summary
+      description: One-sentence statement of the requested capability.
+      placeholder: "Add per-scope memory TTL configuration via devcd.toml."
+    validations:
+      required: true
+
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problem to solve
+      description: What developer pain this solves and why current behavior is insufficient.
+      placeholder: "Working memory expires after a fixed 5-minute TTL. Long-running tasks lose context mid-session."
+    validations:
+      required: true
+
+  - type: textarea
+    id: solution
+    attributes:
+      label: Proposed solution
+      description: Desired behavior, API, or config with as much specificity as possible.
+      placeholder: "Allow `memory.ttl.<scope> = <seconds>` in devcd.toml, falling back to the global default."
+    validations:
+      required: true
+
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives considered
+      description: Other approaches and why they are weaker.
+      placeholder: "Patching TTL at runtime via event payload — not persistent, breaks on restart."
+
+  - type: textarea
+    id: impact
+    attributes:
+      label: Impact
+      description: Who is affected, severity, frequency, and practical consequences.
+      placeholder: |
+        Affected: developers with sessions > 5 minutes
+        Severity: medium — state loss mid-task
+        Frequency: daily for deep-work sessions
+    validations:
+      required: true
+
+  - type: textarea
+    id: additional
+    attributes:
+      label: Additional context
+      description: Prior art, links, screenshots, constraints.

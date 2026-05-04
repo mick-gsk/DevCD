@@ -6,17 +6,73 @@
 [![pre-commit](https://img.shields.io/badge/pre--commit-enabled-brightgreen?logo=pre-commit)](https://github.com/pre-commit/pre-commit)
 [![Vertical Slice Architecture](https://img.shields.io/badge/architecture-vertical--slice-informational)](docs/devcd/architecture.md)
 
-Developer Context Daemon (DevCD) is a local-first context host for agentic developer workflows. It models the current work state of a developer, keeps short-lived and durable memory separate, and gates every observation or action through an explicit policy layer.
+**DevCD is a local-first context daemon for agentic developer workflows.**
 
-DevCD is not a foundation model, chat frontend, or task scheduler. It is the state and policy layer that lets agents understand what is currently happening without asking the developer to restate context in every prompt.
+It observes what you are working on — files, Git state, tasks, notes — normalizes that activity into structured events, maintains a typed state tree, and gates every observation or action through an explicit policy layer. Agents query DevCD instead of asking you to re-explain your context on every prompt.
+
+DevCD is not a model, chat interface, or task runner. It is the **state and policy layer** that lives between your working environment and any AI that assists you.
+
+[Vision](VISION.md) · [Architecture](docs/devcd/architecture.md) · [Contributing](CONTRIBUTING.md) · [AGENTS.md](AGENTS.md)
+
+---
+
+## Why DevCD?
+
+Today, every AI tool starts with a blank slate. You paste context. You describe the task that already lives in three other places. DevCD fixes this:
+
+- **Structured context** — events are normalized and typed, not raw text
+- **Scoped memory** — working-memory (short-lived) and durable memory stay separate
+- **Explicit policy** — every observation or action passes through a policy decision you can inspect and audit
+- **Local-first** — your context never leaves your machine without explicit configuration
+
+## Highlights
+
+- `POST /event` — ingest normalized developer events (IDE, Git, tasks, notes)
+- `GET /state` — current typed state tree
+- `GET /memory/{scope}` — memory entries by scope (working / durable)
+- Default policy: **observations allowed, actions denied**
+- Local JSON Lines ledger for all events
+- 5-minute TTL working-memory with configurable scopes
+- CLI for config initialization and event submission
+- MCP-compatible bridge (roadmap)
+
+## Quick Start
+
+**Runtime: Python 3.11+**
+
+```bash
+pip install devcd
+devcd init        # creates devcd.toml with local-first defaults
+devcd run         # starts daemon on 127.0.0.1:8765
+```
+
+Submit your first event:
+
+```bash
+devcd event ide file_focus --payload '{"path":"src/app.py","duration_seconds":30}'
+```
+
+Query the current state:
+
+```bash
+curl http://127.0.0.1:8765/state
+```
+
+Query working memory:
+
+```bash
+curl http://127.0.0.1:8765/memory/working
+```
+
+## Architecture
 
 ```text
 IDE / Git / Tasks / Notes
-	  |
-	  v
-  Normalized Events
-	  |
-	  v
+          |
+          v
+    Normalized Events
+          |
+          v
 +---------------------+       +----------------+
 | DevCD Host          | ----> | Policy Layer   |
 |                     |       | observe/action |
@@ -24,53 +80,88 @@ IDE / Git / Tasks / Notes
 |  State Engine       |
 |  Memory Layer       | ----> local ledger / memory store
 +---------------------+
-	  |
-	  v
+          |
+          v
 CLI / MCP Bridge / External Agents (explicit opt-in)
 ```
 
-## MVP Surface
+DevCD uses **Vertical Slice Architecture**. Each feature domain owns its models, service logic, API routes, and tests. The shared kernel is intentionally small.
 
-- `POST /event` accepts normalized developer events.
-- `GET /state` returns the current state tree.
-- `GET /memory/{scope}` returns memory entries by scope.
-- Default policy allows observation and denies actions.
-- Runtime data is local by default.
+```
+packages/devcd-core/src/devcd/
+├── cli.py
+├── host.py
+├── kernel/settings.py
+└── slices/
+    ├── events/
+    ├── host_state_engine/
+    ├── memory_layer/
+    └── policy_layer/
+```
+
+See: [Architecture](docs/devcd/architecture.md) · [Memory](docs/devcd/memory.md) · [Policy](docs/devcd/policy.md) · [Schemas](schemas/)
 
 ## Development
 
 ```bash
+git clone https://github.com/mick-gsk/DevCD.git
+cd DevCD
 python -m pip install -e ".[dev]"
 devcd init
-make check
-make run
+make check       # lint + typecheck + test
+make run         # run the daemon
 ```
 
-The daemon starts on `127.0.0.1:8765` by default.
+The daemon starts on `127.0.0.1:8765` by default. Override with `DEVCD_HOST` and `DEVCD_PORT` environment variables, or via `devcd.toml`.
 
-`devcd init` creates `devcd.toml` with local-first defaults. The same settings can be overridden with `DEVCD_` environment variables.
+## Configuration
 
-Submit a normalized event to a running daemon:
+`devcd init` creates `devcd.toml` with local-first defaults:
 
-```bash
-devcd event ide file_focus --payload '{"path":"src/app.py","duration_seconds":30}'
+```toml
+[daemon]
+host = "127.0.0.1"
+port = 8765
+
+[memory]
+working_ttl_seconds = 300
+
+[policy]
+default_observe = true
+default_action = false
 ```
 
-Submit current Git context from a repository:
+## Security Model
 
-```bash
-devcd git-snapshot --repo .
-```
+- Local storage only by default — no telemetry, no remote calls.
+- Sensitive events are denied by the default policy.
+- Actions are denied by default. Observations are opt-in per event class.
+- Policy reasoning is recorded for every accepted observation or action.
 
-## Architecture
+See [SECURITY.md](SECURITY.md) for the vulnerability reporting policy.
 
-DevCD uses Vertical Slice Architecture. Each feature owns its models, service logic, API integration, and tests. Shared kernel code is intentionally small.
+## Roadmap
 
-See:
+| Version | Focus |
+|---------|-------|
+| **v0.1** | Foundation — event API, state engine, memory, policy, CLI ✅ |
+| v0.2 | MCP Bridge — agent-facing read-only context API |
+| v0.3 | IDE Integration — VS Code extension, Git hook events |
+| v0.4 | Policy Editor — human-readable rules, per-class allow/deny |
 
-- [docs/devcd/architecture.md](docs/devcd/architecture.md)
-- [docs/devcd/memory.md](docs/devcd/memory.md)
-- [docs/devcd/policy.md](docs/devcd/policy.md)
-- [schemas/devcd-state.schema.json](schemas/devcd-state.schema.json)
-- [schemas/devcd-event.schema.json](schemas/devcd-event.schema.json)
+See [VISION.md](VISION.md) for the full product direction.
+
+## Contributing
+
+Contributions welcome! See [CONTRIBUTING.md](CONTRIBUTING.md) for guidelines, commit format, and architecture rules.
+
+- [Good first issues](https://github.com/mick-gsk/DevCD/labels/good%20first%20issue)
+- [Open issues](https://github.com/mick-gsk/DevCD/issues)
+- [Discussions](https://github.com/mick-gsk/DevCD/discussions)
+
+## Community
+
+DevCD is early-stage. The best way to contribute is to open an issue describing your use case or limitation.
+
+Built and maintained by [Mick Gottschalk](https://github.com/mick-gsk).
 

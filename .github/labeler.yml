@@ -1,0 +1,55 @@
+# Auto-labeler: maps changed file paths to labels.
+# Requires the actions/labeler workflow to run.
+
+"devcd/host-state-engine":
+  - changed-files:
+      - any-glob-to-any-file:
+          - "packages/devcd-core/src/devcd/slices/host_state_engine/**"
+          - "tests/test_state_engine.py"
+          - "tests/test_api.py"
+          - "schemas/devcd-state.schema.json"
+
+"devcd/memory-layer":
+  - changed-files:
+      - any-glob-to-any-file:
+          - "packages/devcd-core/src/devcd/slices/memory_layer/**"
+
+"devcd/policy-layer":
+  - changed-files:
+      - any-glob-to-any-file:
+          - "packages/devcd-core/src/devcd/slices/policy_layer/**"
+          - "docs/devcd/policy.md"
+
+"devcd/events":
+  - changed-files:
+      - any-glob-to-any-file:
+          - "packages/devcd-core/src/devcd/slices/events/**"
+          - "schemas/devcd-event.schema.json"
+
+"devcd/cli":
+  - changed-files:
+      - any-glob-to-any-file:
+          - "packages/devcd-core/src/devcd/cli.py"
+
+"devcd/mcp-bridge":
+  - changed-files:
+      - any-glob-to-any-file:
+          - "packages/devcd-core/src/devcd/slices/mcp_bridge/**"
+
+"kind/docs":
+  - changed-files:
+      - any-glob-to-any-file:
+          - "docs/**"
+          - "*.md"
+          - "schemas/**"
+
+"kind/chore":
+  - changed-files:
+      - any-glob-to-any-file:
+          - ".github/**"
+          - "Makefile"
+          - "pyproject.toml"
+          - ".pre-commit-config.yaml"
+          - ".editorconfig"
+          - ".gitignore"
+          - ".gitattributes"

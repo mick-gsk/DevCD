@@ -1,0 +1,101 @@
+name: Bug report
+description: Report a defect, regression, or unexpected behavior.
+title: "[Bug]: "
+labels:
+  - kind/bug
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thank you for reporting this. Keep every answer concise and grounded in observed evidence.
+        If a section cannot be answered from available evidence, write `NOT_ENOUGH_INFO`.
+
+  - type: dropdown
+    id: slice
+    attributes:
+      label: Affected slice
+      description: Which part of DevCD is affected?
+      options:
+        - host-state-engine
+        - memory-layer
+        - policy-layer
+        - events
+        - cli
+        - mcp-bridge
+        - unknown / multiple
+    validations:
+      required: true
+
+  - type: textarea
+    id: summary
+    attributes:
+      label: Summary
+      description: One-sentence description of what is broken, based on observed evidence.
+      placeholder: "After submitting a file_focus event, GET /state returns an empty state tree."
+    validations:
+      required: true
+
+  - type: textarea
+    id: repro
+    attributes:
+      label: Steps to reproduce
+      description: Shortest deterministic reproduction path.
+      placeholder: |
+        1. Start the daemon with `devcd run`
+        2. POST /event with payload `{"type": "file_focus", ...}`
+        3. GET /state — observe empty response
+    validations:
+      required: true
+
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected behavior
+      placeholder: State tree should reflect the submitted event.
+    validations:
+      required: true
+
+  - type: textarea
+    id: actual
+    attributes:
+      label: Actual behavior
+      placeholder: State tree is empty. No error returned.
+    validations:
+      required: true
+
+  - type: input
+    id: version
+    attributes:
+      label: DevCD version
+      placeholder: "0.1.0 or git SHA"
+    validations:
+      required: true
+
+  - type: input
+    id: python
+    attributes:
+      label: Python version
+      placeholder: "3.12.3"
+    validations:
+      required: true
+
+  - type: input
+    id: os
+    attributes:
+      label: Operating system
+      placeholder: "macOS 15.4 / Ubuntu 24.04 / Windows 11"
+    validations:
+      required: true
+
+  - type: textarea
+    id: logs
+    attributes:
+      label: Logs and evidence
+      description: Paste redacted daemon logs, stack traces, or screenshots.
+      render: shell
+
+  - type: textarea
+    id: additional
+    attributes:
+      label: Additional context
+      description: Any other context, workarounds, or references.
