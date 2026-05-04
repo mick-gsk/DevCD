@@ -43,7 +43,7 @@ Today, every AI tool starts with a blank slate. You paste context. You describe 
 - Local JSON Lines ledger for all events
 - 5-minute TTL working-memory with configurable scopes
 - CLI for config initialization and event submission
-- MCP-compatible bridge (roadmap)
+- Read-only local MCP stdio resources for policy-filtered context
 
 ## Quick Start
 
@@ -127,7 +127,7 @@ IDE / Git / Tasks / Notes
 +---------------------+
           |
           v
-CLI / MCP Bridge / External Agents (explicit opt-in)
+CLI / read-only MCP stdio / External Agents (explicit opt-in)
 ```
 
 DevCD uses **Vertical Slice Architecture**. Each feature domain owns its models, service logic, API routes, and tests. The shared kernel is intentionally small.
@@ -191,7 +191,7 @@ See [SECURITY.md](SECURITY.md) for the vulnerability reporting policy.
 | Version | Focus |
 |---------|-------|
 | **v0.1** | Foundation — event API, state engine, memory, policy, CLI ✅ |
-| v0.2 | MCP Bridge — agent-facing read-only context API |
+| v0.2 | MCP Bridge hardening — agent-facing read-only context API |
 | v0.3 | IDE Integration — VS Code extension, Git hook events |
 | v0.4 | Policy Editor — human-readable rules, per-class allow/deny |
 

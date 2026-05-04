@@ -42,7 +42,8 @@ Where DevCD helps today:
 
 - consistent HTTP surface for event ingestion, state reads, and memory reads
 - typed models and schemas that make integration behavior easier to reason about
-- a clear product direction toward an agent-facing MCP bridge
+- agent-facing context through CLI briefs, HTTP context endpoints, and a local
+  read-only MCP stdio resource server
 
 Why this matters: you can treat DevCD as a context layer rather than embedding
 workflow-specific memory logic into every agent integration.

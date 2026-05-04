@@ -24,8 +24,8 @@ value and only drop into architecture once the workflow makes sense.
 - Structured context instead of ad-hoc pasted notes
 - Local-first state and memory with explicit policy boundaries
 - A typed state tree that external tools and agents can inspect
-- A foundation for future agent-facing integrations, including the planned MCP
-  bridge
+- Agent-facing context through HTTP briefs, CLI handoff commands, and a local
+  read-only MCP stdio resource server
 
 ## Current Product Surface
 
@@ -37,6 +37,8 @@ That means you can already:
 - ingest normalized events with `POST /event`
 - query the current work state with `GET /state`
 - inspect scoped memory with `GET /memory/{scope}`
+- request policy-filtered agent context with `POST /context/brief`
+- read local MCP resources through `devcd mcp serve`
 - audit default local-first behavior where observations are allowed and actions
   are denied by default
 
@@ -49,6 +51,8 @@ That means you can already:
 - I want to understand the design:
   [Architecture](devcd/architecture.md), [Memory](devcd/memory.md),
   [Policy](devcd/policy.md)
+- I am an agent consuming local context:
+  [How to consume DevCD as an agent](devcd/agent-consumption.md)
 - I want the product direction:
   [Vision](https://github.com/mick-gsk/DevCD/blob/main/VISION.md)
 

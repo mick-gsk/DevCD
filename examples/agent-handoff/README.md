@@ -40,6 +40,8 @@ The expected output is checked in as `context-brief.md`.
 A coding agent can read the generated brief and continue from:
 
 - `active_goal`: what the user is trying to finish.
+- `brief_id`: the identifier to use when recording local feedback about this
+  handoff.
 - `relevant_artifacts`: where the work is happening.
 - `git_context`: branch and latest commit metadata.
 - `recent_attempts`: what was tried most recently.
@@ -58,3 +60,16 @@ devcd context handoff-demo --events examples/agent-handoff/sample-events.jsonl
 
 The command should match the structure in `context-brief.md`. Timestamp fields
 are intentionally omitted from the rendered Markdown so the demo is stable.
+
+## Record Local Feedback
+
+Agents or local tooling can record feedback against the visible `brief_id`:
+
+```bash
+devcd context feedback demo-handoff-brief --kind missing --note "Add the failing test name."
+devcd context quality
+```
+
+Feedback notes are treated as full-text local input and withheld from quality
+output by policy; the quality view keeps the feedback kind, brief id, and policy
+reason.

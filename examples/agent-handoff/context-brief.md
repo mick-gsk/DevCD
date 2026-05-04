@@ -1,5 +1,8 @@
 # DevCD Agent Handoff Brief
 
+## brief_id
+demo-handoff-brief
+
 ## active_goal
 Ship Agent-Handoff MVP for DevCD
 
@@ -45,4 +48,4 @@ Ship Agent-Handoff MVP for DevCD
 ## policy_decision
 - allowed: true
 - operation: export
-- reason: local context export to 'cli' is allowed by policy
+- reason: local context export to 'cli' is allowed by policy; surface 'cli' allows state areas summary, active_goal, active_intent, relevant_artifacts, git_context, open_loops, recent_attempts, blockers, suggested_next_steps and memory scopes working

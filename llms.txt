@@ -1,0 +1,38 @@
+# DevCD
+
+DevCD is a local-first Developer Context Daemon: typed local events -> state, memory, policy decisions, and policy-filtered context briefs for agents.
+
+DevCD is not a model, chat UI, task runner, remote exporter, telemetry service, or action executor.
+
+Agent context paths:
+- CLI brief: `devcd context brief --surface cli --detail standard`
+- Reproducible handoff demo: `devcd context handoff-demo --events examples/agent-handoff/sample-events.jsonl`
+- Local feedback: `devcd context feedback <brief_id> --kind missing --note "..."`, then `devcd context quality`
+- HTTP daemon: `devcd run`, then use loopback endpoints `GET /context/work-state` and `POST /context/brief`
+- MCP stdio: `devcd mcp serve`; exposes read-only resources only, no tools or prompts
+
+Agent handoff examples:
+- `examples/agent-handoff/README.md`
+- `examples/agent-handoff/context-brief.md`
+- `examples/agent-handoff/sample-events.jsonl`
+
+Policy boundaries:
+- Loopback HTTP requires a local bearer token from `DEVCD_TOKEN` or `.devcd/token`.
+- Default policy allows observation/local storage for metadata, denies sensitive/full-text/disallowed-source context, denies actions, and denies remote export.
+- Withheld context is represented by safe summaries and policy reasons; do not infer hidden payloads.
+- Feedback notes are treated as full-text local input and withheld from quality output by policy.
+
+Verified commands:
+- `python -m pip install -e ".[dev]"`
+- `devcd init`
+- `devcd run`
+- `devcd event ide file_focus --payload '{"path":"src/app.py","duration_seconds":30}'`
+- `devcd git-snapshot --repo .`
+- `devcd context state`
+- `devcd context brief --surface cli --detail standard`
+- `devcd context handoff-demo --events examples/agent-handoff/sample-events.jsonl`
+- `devcd context feedback demo-handoff-brief --kind missing --note "Add the failing test name."`
+- `devcd context quality`
+- `devcd context memory --scope working`
+- `devcd mcp serve`
+- `make check`
