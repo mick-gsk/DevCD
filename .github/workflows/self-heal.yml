@@ -1,58 +1,106 @@
-name: Self-Heal
+name: Self-Heal via Copilot
 
-# Self-healing loop for the main branch:
+# Self-healing loop powered by the GitHub Copilot coding agent:
 #
-#   push → CI fails → this workflow detects the cause → applies a code fix →
-#   commits + pushes → CI is triggered again on the fixed code → passes
-#
-# Currently heals:
-#   - pyproject.toml structural issues (keys accidentally placed in wrong section)
+#   push → CI/Deploy Docs fails
+#     → this workflow collects the failure logs
+#     → creates a GitHub Issue with full context
+#     → assigns Copilot to the issue
+#     → Copilot analyzes, creates a fix PR
+#     → PR merged → CI runs again → passes
 #
 # Circuit breakers (prevent infinite loops):
-#   1. Only runs on the `main` branch (not PRs)
+#   1. Only fires on the `main` branch
 #   2. Only on the first CI attempt (run_attempt < 2)
-#   3. Skips commits that were already created by this workflow ([self-heal] tag)
+#   3. Skips commits already tagged [self-heal] or [copilot-fix]
+#   4. Does not open a second issue if one with the same run-id already exists
 
 on:
   workflow_run:
-    workflows: [CI]
+    workflows: [CI, Deploy Docs]
     types: [completed]
 
 permissions:
-  contents: write
+  contents: read
+  issues: write
 
 jobs:
-  heal:
+  assign-copilot:
     if: >
       github.event.workflow_run.conclusion == 'failure' &&
       github.event.workflow_run.head_branch == 'main' &&
       github.event.workflow_run.run_attempt < 2 &&
-      !contains(github.event.workflow_run.head_commit.message, '[self-heal]')
+      !contains(github.event.workflow_run.head_commit.message, '[self-heal]') &&
+      !contains(github.event.workflow_run.head_commit.message, '[copilot-fix]')
     runs-on: ubuntu-latest
+    env:
+      GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      REPO: ${{ github.repository }}
+      RUN_ID: ${{ github.event.workflow_run.id }}
     steps:
-      - name: Checkout main
-        uses: actions/checkout@v4
-        with:
-          ref: main
-          token: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: Set up Python
-        uses: actions/setup-python@v5
-        with:
-          python-version: "3.11"
-
-      - name: Install healer dependencies
-        run: pip install tomli-w -q
-
-      - name: Heal pyproject.toml
-        id: heal
-        run: python .github/scripts/heal_pyproject.py
-
-      - name: Commit and push fix
-        if: steps.heal.outputs.fixed == 'true'
+      - name: Check for existing issue
+        id: existing
         run: |
-          git config user.name "github-actions[bot]"
-          git config user.email "github-actions[bot]@users.noreply.github.com"
-          git add pyproject.toml
-          git commit -m "fix(auto-heal): restore pyproject.toml structure [self-heal]"
-          git push origin main
+          COUNT=$(gh issue list \
+            --repo "$REPO" \
+            --state open \
+            --search "CI Self-Heal run:$RUN_ID" \
+            --json number \
+            --jq length)
+          echo "count=$COUNT" >> "$GITHUB_OUTPUT"
+
+      - name: Fetch failure logs
+        if: steps.existing.outputs.count == '0'
+        id: logs
+        run: |
+          gh run view "$RUN_ID" \
+            --repo "$REPO" \
+            --log-failed 2>&1 \
+            | head -n 250 > logs.txt || echo "(Could not retrieve logs)" > logs.txt
+
+      - name: Create issue
+        if: steps.existing.outputs.count == '0'
+        id: issue
+        run: |
+          COMMIT_MSG=$(echo "${{ github.event.workflow_run.head_commit.message }}" | head -n 1)
+          LOGS=$(cat logs.txt)
+          BODY=$(cat <<BODY
+          ## CI Failure — ${{ github.event.workflow_run.name }}
+
+          | Field | Value |
+          |---|---|
+          | **Workflow** | ${{ github.event.workflow_run.name }} |
+          | **Branch** | \`${{ github.event.workflow_run.head_branch }}\` |
+          | **Commit** | \`${{ github.event.workflow_run.head_sha }}\` — ${COMMIT_MSG} |
+          | **Run** | [View run](${{ github.event.workflow_run.html_url }}) (run:${RUN_ID}) |
+          | **Attempt** | ${{ github.event.workflow_run.run_attempt }} |
+
+          ### Failure Logs
+
+          \`\`\`
+          ${LOGS}
+          \`\`\`
+
+          ---
+          Please analyze the failure logs, identify the root cause, and push a fix.
+          Include \`[self-heal]\` in the commit message so the self-heal loop stops.
+          BODY
+          )
+
+          ISSUE_URL=$(gh issue create \
+            --repo "$REPO" \
+            --title "fix: CI Self-Heal run:${RUN_ID} — ${{ github.event.workflow_run.name }} failed" \
+            --body "$BODY" \
+            --label "bug")
+
+          ISSUE_NUMBER=$(echo "$ISSUE_URL" | grep -oE '[0-9]+$')
+          echo "number=$ISSUE_NUMBER" >> "$GITHUB_OUTPUT"
+          echo "Created issue #$ISSUE_NUMBER: $ISSUE_URL"
+
+      - name: Assign Copilot
+        if: steps.existing.outputs.count == '0'
+        run: |
+          gh issue edit ${{ steps.issue.outputs.number }} \
+            --repo "$REPO" \
+            --add-assignee "@copilot"
+
