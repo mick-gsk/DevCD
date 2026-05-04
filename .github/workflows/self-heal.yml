@@ -98,9 +98,15 @@ jobs:
           echo "Created issue #$ISSUE_NUMBER: $ISSUE_URL"
 
       - name: Assign Copilot
+        id: assign-copilot
         if: steps.existing.outputs.count == '0'
+        continue-on-error: true
         run: |
           gh issue edit ${{ steps.issue.outputs.number }} \
             --repo "$REPO" \
             --add-assignee "@copilot"
 
+      - name: Warn when Copilot is unavailable
+        if: steps.existing.outputs.count == '0' && steps.assign-copilot.outcome == 'failure'
+        run: |
+          echo "::warning::Created issue #${{ steps.issue.outputs.number }}, but Copilot assignment failed. Enable the Copilot coding agent for this repository or assign the issue manually."

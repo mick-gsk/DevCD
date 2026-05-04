@@ -1,8 +1,16 @@
 from __future__ import annotations
 
+import re
+
 from typer.testing import CliRunner
 
 from devcd.cli import app
+
+ANSI_ESCAPE_RE = re.compile(r"\x1b\[[0-?]*[ -/]*[@-~]")
+
+
+def plain_help(output: str) -> str:
+    return ANSI_ESCAPE_RE.sub("", output)
 
 
 def test_init_writes_default_config(tmp_path) -> None:
@@ -32,8 +40,9 @@ def test_cli_exposes_context_brief_command() -> None:
     result = runner.invoke(app, ["context", "brief", "--help"])
 
     assert result.exit_code == 0
-    assert "--surface" in result.output
-    assert "--detail" in result.output
+    output = plain_help(result.output)
+    assert "--surface" in output
+    assert "--detail" in output
 
 
 def test_cli_exposes_dismiss_suggestion_command() -> None:
@@ -53,7 +62,7 @@ def test_cli_exposes_context_memory_commands() -> None:
     delete = runner.invoke(app, ["context", "memory-delete", "--help"])
 
     assert memory.exit_code == 0
-    assert "--scope" in memory.output
+    assert "--scope" in plain_help(memory.output)
     assert correct.exit_code == 0
     assert "item-id" in correct.output
     assert delete.exit_code == 0
