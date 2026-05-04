@@ -79,6 +79,34 @@ def test_policy_denies_sensitive_events_with_explainable_reason() -> None:
     assert "sensitive events" in decision.reason
 
 
+def test_policy_denies_sensitive_signal_before_it_can_be_stored_or_exported() -> None:
+    policy = PolicyEngine.default()
+
+    observation = policy.decide_observation(
+        DevEvent(
+            source=EventSource.NOTES,
+            type="note_update",
+            payload={"title": "Private credentials note"},
+            sensitivity=EventSensitivity.SENSITIVE,
+        )
+    )
+    storage = policy.decide_local_storage(
+        DevEvent(
+            source=EventSource.NOTES,
+            type="note_update",
+            payload={"title": "Private credentials note"},
+            sensitivity=EventSensitivity.SENSITIVE,
+        )
+    )
+
+    assert not observation.allowed
+    assert not storage.allowed
+    assert observation.operation == "observe"
+    assert storage.operation == "store"
+    assert "sensitive" in observation.reason
+    assert "sensitive" in storage.reason
+
+
 def test_browser_source_is_opt_in_by_default() -> None:
     policy = PolicyEngine.default()
 
@@ -125,3 +153,25 @@ def test_policy_allows_local_context_control_with_reason() -> None:
     assert decision.allowed
     assert decision.operation == "context_control"
     assert "correct_memory" in decision.reason
+
+
+def test_policy_simulation_denies_sensitive_event_with_safe_summary() -> None:
+    policy = PolicyEngine.default()
+    event = DevEvent(
+        source=EventSource.NOTES,
+        type="note_update",
+        payload={"title": "Private credentials note"},
+        sensitivity=EventSensitivity.SENSITIVE,
+    )
+
+    report = policy.simulate_event(surface="coding-agent", event=event)
+
+    assert report.mutates_state is False
+    assert report.surface == "coding-agent"
+    assert report.decisions[0].allowed is False
+    assert report.decisions[0].category == "sensitivity"
+    assert "sensitive events" in report.decisions[0].reason
+    assert "Private credentials note" not in report.decisions[0].safe_summary
+    assert "notes note_update signal was withheld" in report.decisions[0].safe_summary
+    assert report.withheld[0].category == "sensitivity"
+    assert report.withheld[0].safe_summary == report.decisions[0].safe_summary

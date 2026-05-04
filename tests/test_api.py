@@ -9,7 +9,11 @@ from devcd.kernel.settings import DevCDSettings
 
 
 def build_client(base_url: str = "http://127.0.0.1:8765") -> TestClient:
-    settings = DevCDSettings(api_token="test-token", runtime_dir=mkdtemp(prefix="devcd-api-test-"))
+    settings = DevCDSettings(
+        api_token="test-token",
+        runtime_dir=mkdtemp(prefix="devcd-api-test-"),
+        working_memory_ttl_seconds=315360000,
+    )
     return TestClient(create_app(settings), base_url=base_url)
 
 
