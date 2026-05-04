@@ -6,13 +6,19 @@
 [![pre-commit](https://img.shields.io/badge/pre--commit-enabled-brightgreen?logo=pre-commit)](https://github.com/pre-commit/pre-commit)
 [![Vertical Slice Architecture](https://img.shields.io/badge/architecture-vertical--slice-informational)](docs/devcd/architecture.md)
 
-**DevCD is a local-first context daemon for agentic developer workflows.**
+**DevCD is the local-first context layer for agentic developer workflows.**
 
-It observes what you are working on — files, Git state, tasks, notes — normalizes that activity into structured events, maintains a typed state tree, and gates every observation or action through an explicit policy layer. Agents query DevCD instead of asking you to re-explain your context on every prompt.
+It observes what you are working on — files, Git state, tasks, notes — normalizes that activity into structured events, maintains a typed state tree, and gates every observation or action through an explicit policy layer. Agents can query DevCD instead of asking you to restate the same local context on every prompt.
 
 DevCD is not a model, chat interface, or task runner. It is the **state and policy layer** that lives between your working environment and any AI that assists you.
 
-[Vision](VISION.md) · [Architecture](docs/devcd/architecture.md) · [Contributing](CONTRIBUTING.md) · [AGENTS.md](AGENTS.md)
+[Getting Started](docs/getting-started.md) · [Use Cases](docs/use-cases.md) · [Vision](VISION.md) · [Architecture](docs/devcd/architecture.md) · [Contributing](CONTRIBUTING.md) · [AGENTS.md](AGENTS.md)
+
+Start here if you want the shortest path to value:
+
+- [Getting Started](docs/getting-started.md) to run DevCD, submit one event, and inspect state locally
+- [Use Cases](docs/use-cases.md) to see where DevCD helps today
+- [Architecture](docs/devcd/architecture.md) once you want the slice and data-flow details
 
 ---
 
