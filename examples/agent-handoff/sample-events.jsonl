@@ -1,0 +1,7 @@
+{"source":"task","type":"goal_update","timestamp":"2026-05-04T12:00:00Z","payload":{"current_goal":"Ship Agent-Handoff MVP for DevCD"}}
+{"source":"ide","type":"file_focus","timestamp":"2026-05-04T12:01:00Z","payload":{"path":"packages/devcd-core/src/devcd/slices/ambient_context/service.py","duration_seconds":120}}
+{"source":"git","type":"branch_change","timestamp":"2026-05-04T12:02:00Z","payload":{"repo":".","branch":"main"}}
+{"source":"git","type":"commit","timestamp":"2026-05-04T12:03:00Z","payload":{"repo":".","sha":"abc1234","message":"fix: align state engine failure event"}}
+{"source":"task","type":"test_failure","timestamp":"2026-05-04T12:04:00Z","payload":{"reason":"make check failed: ContextBrief missing git_context"}}
+{"source":"notes","type":"note_update","timestamp":"2026-05-04T12:05:00Z","payload":{"title":"Private credentials note"},"sensitivity":"sensitive"}
+{"source":"browser","type":"url_focus","timestamp":"2026-05-04T12:06:00Z","payload":{"url":"https://internal.invalid/private-ticket"}}

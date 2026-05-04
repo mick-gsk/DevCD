@@ -1,0 +1,13 @@
+{
+  "command": "pytest tests/test_checkout.py -q",
+  "exit_code": 1,
+  "timestamp": "2026-05-04T12:00:00Z",
+  "failures": [
+    {
+      "nodeid": "tests/test_checkout.py::test_total",
+      "file_path": "tests/test_checkout.py",
+      "line": 42
+    }
+  ],
+  "stderr": "E   AssertionError: PRIVATE_TEST_OUTPUT"
+}
