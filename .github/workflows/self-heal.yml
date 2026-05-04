@@ -1,0 +1,58 @@
+name: Self-Heal
+
+# Self-healing loop for the main branch:
+#
+#   push → CI fails → this workflow detects the cause → applies a code fix →
+#   commits + pushes → CI is triggered again on the fixed code → passes
+#
+# Currently heals:
+#   - pyproject.toml structural issues (keys accidentally placed in wrong section)
+#
+# Circuit breakers (prevent infinite loops):
+#   1. Only runs on the `main` branch (not PRs)
+#   2. Only on the first CI attempt (run_attempt < 2)
+#   3. Skips commits that were already created by this workflow ([self-heal] tag)
+
+on:
+  workflow_run:
+    workflows: [CI]
+    types: [completed]
+
+permissions:
+  contents: write
+
+jobs:
+  heal:
+    if: >
+      github.event.workflow_run.conclusion == 'failure' &&
+      github.event.workflow_run.head_branch == 'main' &&
+      github.event.workflow_run.run_attempt < 2 &&
+      !contains(github.event.workflow_run.head_commit.message, '[self-heal]')
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout main
+        uses: actions/checkout@v4
+        with:
+          ref: main
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install healer dependencies
+        run: pip install tomli-w -q
+
+      - name: Heal pyproject.toml
+        id: heal
+        run: python .github/scripts/heal_pyproject.py
+
+      - name: Commit and push fix
+        if: steps.heal.outputs.fixed == 'true'
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add pyproject.toml
+          git commit -m "fix(auto-heal): restore pyproject.toml structure [self-heal]"
+          git push origin main

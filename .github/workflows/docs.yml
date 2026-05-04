@@ -49,5 +49,17 @@ jobs:
       url: ${{ steps.deployment.outputs.page_url }}
     steps:
       - name: Deploy to GitHub Pages
+        id: deploy-1
+        uses: actions/deploy-pages@v4
+        continue-on-error: true
+
+      - name: Wait before retry
+        if: steps.deploy-1.outcome == 'failure'
+        run: |
+          echo "Deploy attempt 1 failed (likely transient 502) — retrying in 60s"
+          sleep 60
+
+      - name: Deploy to GitHub Pages (retry)
+        if: steps.deploy-1.outcome == 'failure'
         id: deployment
         uses: actions/deploy-pages@v4
