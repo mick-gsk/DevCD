@@ -143,7 +143,7 @@ class StateEngine:
                 )
                 self._state.subtask = file_path
                 self._state.confidence["subtask"] = 0.5
-        elif event.type == "test_fail":
+        elif event.type == "test_failure":
             self._state.blocked_by = self._optional_string(
                 payload.get("reason"), default="test failure needs investigation"
             )

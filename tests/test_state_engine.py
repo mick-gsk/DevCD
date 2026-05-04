@@ -167,7 +167,7 @@ def test_branch_focus_and_failure_events_populate_work_state_fields() -> None:
         DevEvent(
             event_id="fail-1",
             source=EventSource.GIT,
-            type="test_fail",
+            type="test_failure",
             payload={"reason": "unit tests failed"},
         )
     )
