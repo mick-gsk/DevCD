@@ -1,0 +1,19 @@
+name: devcd/host-state-engine
+description: Work on state-tree, event application, state API, or ledger behavior.
+title: "devcd/host-state-engine: "
+labels: ["devcd/host-state-engine"]
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problem
+      description: What state-engine behavior should change?
+    validations:
+      required: true
+  - type: textarea
+    id: acceptance
+    attributes:
+      label: Acceptance Criteria
+      description: List observable behavior and tests.
+    validations:
+      required: true

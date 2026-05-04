@@ -1,0 +1,34 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://devcd.local/schemas/devcd-state.schema.json",
+  "title": "DevCD State",
+  "type": "object",
+  "required": ["current_goal", "subtask", "recent_actions", "interruptibility", "attention_score", "blocked_by", "confidence", "next_best_actions"],
+  "properties": {
+    "current_goal": { "type": ["string", "null"] },
+    "subtask": { "type": ["string", "null"] },
+    "recent_actions": {
+      "type": "array",
+      "maxItems": 20,
+      "items": { "type": "object" }
+    },
+    "interruptibility": {
+      "type": "string",
+      "enum": ["low", "medium", "high"]
+    },
+    "attention_score": {
+      "type": "object",
+      "additionalProperties": { "type": "number" }
+    },
+    "blocked_by": { "type": ["string", "null"] },
+    "confidence": {
+      "type": "object",
+      "additionalProperties": { "type": "number" }
+    },
+    "next_best_actions": {
+      "type": "array",
+      "items": { "type": "string" }
+    }
+  },
+  "additionalProperties": false
+}

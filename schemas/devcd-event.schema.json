@@ -1,0 +1,30 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://devcd.local/schemas/devcd-event.schema.json",
+  "title": "DevCD Event",
+  "type": "object",
+  "required": ["source", "type", "timestamp", "payload"],
+  "properties": {
+    "source": {
+      "type": "string",
+      "enum": ["ide", "git", "task", "notes", "browser", "system"]
+    },
+    "type": {
+      "type": "string",
+      "minLength": 1
+    },
+    "timestamp": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "payload": {
+      "type": "object"
+    },
+    "sensitivity": {
+      "type": "string",
+      "enum": ["normal", "sensitive"],
+      "default": "normal"
+    }
+  },
+  "additionalProperties": false
+}

@@ -1,0 +1,19 @@
+name: devcd/mcp-bridge
+description: Work on future MCP integration and agent-facing context APIs.
+title: "devcd/mcp-bridge: "
+labels: ["devcd/mcp-bridge"]
+body:
+  - type: textarea
+    id: integration
+    attributes:
+      label: Integration Goal
+      description: Which MCP resource, tool, or bridge behavior is needed?
+    validations:
+      required: true
+  - type: textarea
+    id: boundaries
+    attributes:
+      label: Policy Boundaries
+      description: What local-first, export, or action limits apply?
+    validations:
+      required: true

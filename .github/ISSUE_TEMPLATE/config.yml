@@ -1,0 +1,5 @@
+blank_issues_enabled: false
+contact_links:
+  - name: DevCD discussion
+    url: https://github.com/mick-gsk/DevCD/discussions
+    about: Ask design questions or discuss context-daemon ideas before opening implementation work.

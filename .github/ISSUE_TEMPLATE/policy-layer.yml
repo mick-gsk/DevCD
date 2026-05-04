@@ -1,0 +1,19 @@
+name: devcd/policy-layer
+description: Work on observation, storage, export, or action policy decisions.
+title: "devcd/policy-layer: "
+labels: ["devcd/policy-layer", "privacy"]
+body:
+  - type: textarea
+    id: policy
+    attributes:
+      label: Policy Scenario
+      description: Which data class, source, or action is being allowed or denied?
+    validations:
+      required: true
+  - type: textarea
+    id: reasoning
+    attributes:
+      label: Required Reasoning
+      description: What explanation should be recorded for the decision?
+    validations:
+      required: true
