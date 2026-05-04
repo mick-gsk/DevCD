@@ -46,6 +46,20 @@ def serve(
     port: Annotated[int | None, typer.Option("--port", help="Port override.")] = None,
 ) -> None:
     """Run the local DevCD daemon API."""
+    _run_daemon(config=config, host=host, port=port)
+
+
+@app.command("run")
+def run_daemon(
+    config: Annotated[Path | None, typer.Option("--config", help="Config file to load.")] = None,
+    host: Annotated[str | None, typer.Option("--host", help="Host override.")] = None,
+    port: Annotated[int | None, typer.Option("--port", help="Port override.")] = None,
+) -> None:
+    """Run the local DevCD daemon API."""
+    _run_daemon(config=config, host=host, port=port)
+
+
+def _run_daemon(config: Path | None, host: str | None, port: int | None) -> None:
     settings = DevCDSettings.load(config)
     uvicorn.run(create_app(settings), host=host or settings.host, port=port or settings.port)
 
@@ -61,6 +75,7 @@ def event(
     sensitivity: Annotated[
         str, typer.Option("--sensitivity", help="normal or sensitive.")
     ] = "normal",
+    token: Annotated[str | None, typer.Option("--token", help="Local API bearer token.")] = None,
 ) -> None:
     """Submit a normalized event to a running daemon."""
     parsed_payload = json.loads(payload)
@@ -75,6 +90,7 @@ def event(
             "payload": parsed_payload,
             "sensitivity": sensitivity,
         },
+        token=token,
     )
     typer.echo(response)
 
@@ -85,6 +101,7 @@ def git_snapshot(
     endpoint: Annotated[
         str, typer.Option("--endpoint", help="DevCD daemon endpoint.")
     ] = "http://127.0.0.1:8765/event",
+    token: Annotated[str | None, typer.Option("--token", help="Local API bearer token.")] = None,
 ) -> None:
     """Submit branch and latest-commit events for a Git repository."""
     events = GitEventSource().collect_snapshot_events(repo)
@@ -93,7 +110,13 @@ def git_snapshot(
         return
 
     for git_event in events:
-        typer.echo(_post_event(endpoint=endpoint, event=git_event.model_dump(mode="json")))
+        typer.echo(
+            _post_event(
+                endpoint=endpoint,
+                event=git_event.model_dump(mode="json"),
+                token=token,
+            )
+        )
 
 
 @context_app.callback()
@@ -190,12 +213,15 @@ def context_memory_delete(
     typer.echo(_delete_json(endpoint=url, token=token))
 
 
-def _post_event(endpoint: str, event: dict[str, Any]) -> str:
+def _post_event(endpoint: str, event: dict[str, Any], token: str | None = None) -> str:
     body = json.dumps(event).encode("utf-8")
+    headers = {"Content-Type": "application/json"}
+    if token is not None:
+        headers["Authorization"] = f"Bearer {token}"
     request = urllib.request.Request(
         endpoint,
         data=body,
-        headers={"Content-Type": "application/json"},
+        headers=headers,
         method="POST",
     )
     try:

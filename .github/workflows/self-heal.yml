@@ -37,6 +37,8 @@ jobs:
       GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       REPO: ${{ github.repository }}
       RUN_ID: ${{ github.event.workflow_run.id }}
+      COPILOT_ASSIGN_TOKEN: ${{ secrets.COPILOT_ASSIGN_TOKEN }}
+      HAS_COPILOT_ASSIGN_TOKEN: ${{ secrets.COPILOT_ASSIGN_TOKEN != '' }}
     steps:
       - name: Check for existing issue
         id: existing
@@ -99,12 +101,19 @@ jobs:
 
       - name: Assign Copilot
         id: assign-copilot
-        if: steps.existing.outputs.count == '0'
+        if: steps.existing.outputs.count == '0' && env.HAS_COPILOT_ASSIGN_TOKEN == 'true'
         continue-on-error: true
+        env:
+          GH_TOKEN: ${{ env.COPILOT_ASSIGN_TOKEN }}
         run: |
           gh issue edit ${{ steps.issue.outputs.number }} \
             --repo "$REPO" \
             --add-assignee "@copilot"
+
+      - name: Warn when Copilot assignment token is missing
+        if: steps.existing.outputs.count == '0' && env.HAS_COPILOT_ASSIGN_TOKEN != 'true'
+        run: |
+          echo "::warning::COPILOT_ASSIGN_TOKEN is not configured. The self-heal issue was created, but Copilot cannot be assigned automatically."
 
       - name: Warn when Copilot is unavailable
         if: steps.existing.outputs.count == '0' && steps.assign-copilot.outcome == 'failure'
