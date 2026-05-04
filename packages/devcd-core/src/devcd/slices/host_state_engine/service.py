@@ -59,6 +59,7 @@ class StateEngine:
             self._state.source_active_map[event.source.value] = (
                 self._policy_engine.is_source_visible(event.source.value)
             )
+            self._record_withheld_signal(event, decision)
             return decision
 
         self._seen_event_ids.add(event.event_id)
@@ -191,6 +192,35 @@ class StateEngine:
     def _ensure_next_action(self, suggestion: str) -> None:
         if suggestion not in self._state.next_best_actions:
             self._state.next_best_actions.append(suggestion)
+
+    def _record_withheld_signal(self, event: DevEvent, decision: PolicyDecision) -> None:
+        withheld_signals = self._state.metadata.setdefault("withheld_context", [])
+        if not isinstance(withheld_signals, list):
+            withheld_signals = []
+            self._state.metadata["withheld_context"] = withheld_signals
+        withheld_signals.append(
+            {
+                "category": self._withheld_category(event, decision),
+                "source": event.source.value,
+                "event_type": event.type,
+                "data_class": event.data_class,
+                "policy_reason": decision.reason,
+                "safe_summary": (
+                    f"{event.source.value} {event.type} signal was withheld; "
+                    "only source/type metadata is visible as a safe replacement."
+                ),
+                "timestamp": event.timestamp.isoformat(),
+            }
+        )
+
+    def _withheld_category(self, event: DevEvent, decision: PolicyDecision) -> str:
+        if "sensitive" in decision.reason:
+            return "sensitivity"
+        if "source" in decision.reason:
+            return "source"
+        if "data class" in decision.reason:
+            return "data_class"
+        return event.data_class
 
     def _clear_blocker_state(self) -> None:
         self._state.blocked_by = None
