@@ -951,9 +951,7 @@ def render_context_brief_markdown(brief: ContextBrief) -> str:
     lines.extend(["## git_context"])
     lines.append(f"- branch: {brief.git_context.branch or 'unknown'}")
     lines.append(f"- latest_commit: {brief.git_context.latest_commit or 'unknown'}")
-    lines.append(
-        f"- latest_commit_summary: {brief.git_context.latest_commit_summary or 'unknown'}"
-    )
+    lines.append(f"- latest_commit_summary: {brief.git_context.latest_commit_summary or 'unknown'}")
     lines.append("")
 
     lines.extend(["## recent_attempts"])
