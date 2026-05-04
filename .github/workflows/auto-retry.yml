@@ -1,0 +1,33 @@
+name: Auto-Retry on Transient Failure
+
+# Retries CI and Deploy Docs once when they fail on the first attempt.
+# Prevents transient infrastructure errors (e.g. GitHub Pages 502) from
+# requiring manual re-runs. Will NOT retry if the run already was a retry
+# (run_attempt >= 2) to avoid infinite loops.
+
+on:
+  workflow_run:
+    workflows:
+      - CI
+      - Deploy Docs
+    types:
+      - completed
+
+jobs:
+  retry:
+    if: >
+      github.event.workflow_run.conclusion == 'failure' &&
+      github.event.workflow_run.run_attempt < 2
+    runs-on: ubuntu-latest
+    permissions:
+      actions: write
+    steps:
+      - name: Re-run failed jobs
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          echo "Re-running failed jobs for run ${{ github.event.workflow_run.id }} \
+          (workflow: ${{ github.event.workflow_run.name }}, attempt: ${{ github.event.workflow_run.run_attempt }})"
+          gh run rerun ${{ github.event.workflow_run.id }} \
+            --repo ${{ github.repository }} \
+            --failed

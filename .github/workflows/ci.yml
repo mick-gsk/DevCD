@@ -20,6 +20,40 @@ jobs:
         with:
           python-version: ${{ matrix.python-version }}
           cache: pip
+      - name: Validate pyproject.toml
+        run: |
+          python - <<'EOF'
+          import tomllib, sys
+
+          with open("pyproject.toml", "rb") as f:
+              data = tomllib.load(f)
+
+          project = data.get("project", {})
+          errors = []
+
+          # [project].dependencies must exist and be a list
+          deps = project.get("dependencies")
+          if deps is None:
+              errors.append("[project].dependencies is missing")
+          elif not isinstance(deps, list):
+              errors.append(f"[project].dependencies must be a list, got {type(deps).__name__}")
+
+          # [project.urls] values must all be strings
+          urls = project.get("urls", {})
+          for key, val in urls.items():
+              if not isinstance(val, str):
+                  errors.append(
+                      f"[project.urls].{key} must be a string, got {type(val).__name__} — "
+                      f"'dependencies' may have been accidentally merged into [project.urls]"
+                  )
+
+          if errors:
+              for e in errors:
+                  print(f"ERROR: {e}", file=sys.stderr)
+              sys.exit(1)
+
+          print("pyproject.toml structure OK")
+          EOF
       - name: Install
         run: python -m pip install -e ".[dev]"
       - name: Lint
