@@ -15,7 +15,36 @@
     "generated_at"
   ],
   "properties": {
-    "surface": { "type": "object" },
+    "surface": {
+      "type": "object",
+      "required": ["kind", "name", "detail_level"],
+      "properties": {
+        "kind": {
+          "type": "string",
+          "enum": [
+            "coding-agent",
+            "review-agent",
+            "debugging-agent",
+            "subagent",
+            "public-demo",
+            "http",
+            "cli",
+            "artifact",
+            "mcp",
+            "vscode",
+            "other"
+          ]
+        },
+        "name": { "type": "string" },
+        "detail_level": { "type": "string", "enum": ["minimal", "standard", "diagnostic"] },
+        "requested_sources": { "type": "array", "items": { "type": "string" } },
+        "requested_data_classes": { "type": "array", "items": { "type": "string" } },
+        "allowed_state_areas": { "type": "array", "items": { "type": "string" } },
+        "allowed_memory_scopes": { "type": "array", "items": { "type": "string" } },
+        "withheld_fields": { "type": "array", "items": { "type": "string" } }
+      },
+      "additionalProperties": false
+    },
     "summary": { "type": "string" },
     "active_intent": { "type": ["object", "null"] },
     "relevant_artifacts": { "type": "array", "items": { "type": "object" } },

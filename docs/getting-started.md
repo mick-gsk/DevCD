@@ -1,6 +1,6 @@
 # Getting Started
 
-This guide is the shortest path from a fresh install to a visible result.
+This guide is the shortest path from a fresh checkout to a visible result.
 
 The goal is simple: start DevCD, send one event, and confirm that the daemon now
 holds structured state you can query locally.
@@ -12,8 +12,13 @@ holds structured state you can query locally.
 
 ## 1. Install DevCD
 
+DevCD is pre-alpha. Until a PyPI release is published, install it from a local
+checkout:
+
 ```bash
-pip install devcd
+git clone https://github.com/mick-gsk/DevCD.git
+cd DevCD
+python -m pip install -e ".[dev]"
 ```
 
 ## 2. Initialize Local Configuration
@@ -32,6 +37,21 @@ devcd run
 
 By default, DevCD listens on `127.0.0.1:8765`.
 
+The daemon requires a local bearer token. If `api_token` is not configured,
+DevCD writes one to `.devcd/token` on startup. CLI commands automatically read
+`DEVCD_TOKEN` or `.devcd/token` for loopback API calls; direct `curl` calls need
+the token header explicitly.
+
+```bash
+TOKEN="$(cat .devcd/token)"
+```
+
+PowerShell:
+
+```powershell
+$env:DEVCD_TOKEN = Get-Content .devcd/token
+```
+
 ## 4. Submit a First Event
 
 Open a second terminal and send an IDE-style event:
@@ -40,10 +60,16 @@ Open a second terminal and send an IDE-style event:
 devcd event ide file_focus --payload '{"path":"src/app.py","duration_seconds":30}'
 ```
 
+PowerShell:
+
+```powershell
+devcd event ide file_focus --payload '{"path":"src/app.py","duration_seconds":30}'
+```
+
 ## 5. Inspect the Derived State
 
 ```bash
-curl http://127.0.0.1:8765/state
+curl -H "Authorization: Bearer $TOKEN" http://127.0.0.1:8765/state
 ```
 
 You should see a typed state response that reflects the event you just sent.
@@ -51,11 +77,21 @@ You should see a typed state response that reflects the event you just sent.
 ## 6. Inspect Scoped Memory
 
 ```bash
-curl http://127.0.0.1:8765/memory/working
+curl -H "Authorization: Bearer $TOKEN" http://127.0.0.1:8765/memory/working
 ```
 
 This confirms that DevCD is not only receiving events, but also exposing scoped
 memory through its local API surface.
+
+## 7. Ask for an Agent Context Brief
+
+```bash
+devcd context brief --surface cli --detail standard
+```
+
+The brief is the handoff point for coding agents: a policy-filtered summary of
+active intent, relevant artifacts, open loops, recent attempts, and withheld
+context.
 
 ## Success Criteria
 
@@ -65,6 +101,7 @@ You are done when all of the following are true:
 - the example event is accepted
 - `GET /state` returns structured state instead of an empty or failing response
 - `GET /memory/working` responds successfully
+- `devcd context brief` returns a policy-filtered brief
 
 ## Why This Matters
 
@@ -91,5 +128,6 @@ If the daemon does not start:
 If the event succeeds but state looks empty:
 
 - make sure the daemon is still running on `127.0.0.1:8765`
+- make sure direct HTTP requests include `Authorization: Bearer <token>`
 - resend the sample event and query `/state` again
 - inspect your shell output for validation or policy errors

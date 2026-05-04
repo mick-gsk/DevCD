@@ -47,5 +47,6 @@ nav:
       - Overview: devcd/architecture.md
       - Memory Model: devcd/memory.md
       - Policy Layer: devcd/policy.md
+      - Event Source Recipes: devcd/event-source-recipes.md
   - Decisions:
       - ADR-001 Vertical Slice Architecture: decisions/ADR-001-vertical-slice-architecture.md

@@ -6,11 +6,11 @@
 [![pre-commit](https://img.shields.io/badge/pre--commit-enabled-brightgreen?logo=pre-commit)](https://github.com/pre-commit/pre-commit)
 [![Vertical Slice Architecture](https://img.shields.io/badge/architecture-vertical--slice-informational)](docs/devcd/architecture.md)
 
-**DevCD is the local-first context layer for agentic developer workflows.**
+**Stop re-explaining your workspace to every coding agent.**
 
-It observes what you are working on — files, Git state, tasks, notes — normalizes that activity into structured events, maintains a typed state tree, and gates every observation or action through an explicit policy layer. Agents can query DevCD instead of asking you to restate the same local context on every prompt.
+DevCD records local developer work state - files, Git state, tasks, notes - as typed events and serves policy-filtered context briefs over localhost. Agents can query DevCD instead of asking you to restate the same local context on every prompt.
 
-DevCD is not a model, chat interface, or task runner. It is the **state and policy layer** that lives between your working environment and any AI that assists you.
+The product core is local-first work state, typed context, policy-filtered context briefs, a localhost API, and no telemetry.
 
 [Getting Started](docs/getting-started.md) · [Use Cases](docs/use-cases.md) · [Vision](VISION.md) · [Architecture](docs/devcd/architecture.md) · [Contributing](CONTRIBUTING.md) · [AGENTS.md](AGENTS.md)
 
@@ -49,10 +49,27 @@ Today, every AI tool starts with a blank slate. You paste context. You describe 
 
 **Runtime: Python 3.11+**
 
+DevCD is pre-alpha. Until a PyPI release is published, install it from a local checkout:
+
 ```bash
-pip install devcd
+git clone https://github.com/mick-gsk/DevCD.git
+cd DevCD
+python -m pip install -e ".[dev]"
 devcd init        # creates devcd.toml with local-first defaults
 devcd run         # starts daemon on 127.0.0.1:8765
+```
+
+CLI commands automatically read the local bearer token from `DEVCD_TOKEN` or `.devcd/token`
+for loopback API calls. For direct `curl` calls, read the token written by the daemon:
+
+```bash
+TOKEN="$(cat .devcd/token)"
+```
+
+PowerShell:
+
+```powershell
+$env:DEVCD_TOKEN = Get-Content .devcd/token
 ```
 
 Submit your first event:
@@ -61,25 +78,36 @@ Submit your first event:
 devcd event ide file_focus --payload '{"path":"src/app.py","duration_seconds":30}'
 ```
 
+PowerShell:
+
+```powershell
+devcd event ide file_focus --payload '{"path":"src/app.py","duration_seconds":30}'
+```
+
 Query the current state:
 
 ```bash
-curl http://127.0.0.1:8765/state
+curl -H "Authorization: Bearer $TOKEN" http://127.0.0.1:8765/state
 ```
 
-Query working memory:
+Ask DevCD for a policy-filtered context brief a coding agent can use:
 
 ```bash
-curl http://127.0.0.1:8765/memory/working
+devcd context brief --surface cli --detail standard
 ```
 
 Inspect ambient context:
 
 ```bash
 devcd context state
-devcd context brief --surface cli --detail standard
 devcd context memory --scope working
 ```
+
+See [examples/context-brief](examples/context-brief/README.md) for a reproducible text demo of the two-minute context-brief flow.
+
+## Boundary
+
+DevCD is not a model, chat interface, or task runner. It is the **state and policy layer** that lives between your working environment and any AI that assists you.
 
 ## Architecture
 
