@@ -1,0 +1,31 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
+    <url>
+         <loc>https://mick-gsk.github.io/DevCD/</loc>
+         <lastmod>2026-05-04</lastmod>
+    </url>
+    <url>
+         <loc>https://mick-gsk.github.io/DevCD/getting-started/</loc>
+         <lastmod>2026-05-04</lastmod>
+    </url>
+    <url>
+         <loc>https://mick-gsk.github.io/DevCD/use-cases/</loc>
+         <lastmod>2026-05-04</lastmod>
+    </url>
+    <url>
+         <loc>https://mick-gsk.github.io/DevCD/decisions/ADR-001-vertical-slice-architecture/</loc>
+         <lastmod>2026-05-04</lastmod>
+    </url>
+    <url>
+         <loc>https://mick-gsk.github.io/DevCD/devcd/architecture/</loc>
+         <lastmod>2026-05-04</lastmod>
+    </url>
+    <url>
+         <loc>https://mick-gsk.github.io/DevCD/devcd/memory/</loc>
+         <lastmod>2026-05-04</lastmod>
+    </url>
+    <url>
+         <loc>https://mick-gsk.github.io/DevCD/devcd/policy/</loc>
+         <lastmod>2026-05-04</lastmod>
+    </url>
+</urlset>

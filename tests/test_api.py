@@ -84,3 +84,113 @@ def test_api_rejects_non_loopback_access() -> None:
     assert response.status_code == 401
     assert response.json()["operation"] == "auth"
     assert "non-loopback" in response.json()["reason"]
+
+
+def test_app_wires_ambient_context_service() -> None:
+    settings = DevCDSettings(api_token="test-token", runtime_dir=mkdtemp(prefix="devcd-api-test-"))
+    app = create_app(settings)
+
+    assert hasattr(app.state, "ambient_context_service")
+
+
+def test_context_work_state_api_returns_derived_state() -> None:
+    client = build_client()
+    headers = {"Authorization": "Bearer test-token"}
+    client.post(
+        "/event",
+        headers=headers,
+        json={
+            "source": "task",
+            "type": "goal_update",
+            "timestamp": "2026-05-04T12:00:00Z",
+            "payload": {"current_goal": "Implement ambient context kernel"},
+        },
+    )
+
+    response = client.get("/context/work-state", headers=headers)
+
+    assert response.status_code == 200
+    body = response.json()
+    assert body["active_intent"]["summary"] == "Implement ambient context kernel"
+    assert body["policy_summary"]["operation"] == "export"
+
+
+def test_context_brief_api_returns_policy_filtered_brief() -> None:
+    client = build_client()
+    headers = {"Authorization": "Bearer test-token"}
+    client.post(
+        "/event",
+        headers=headers,
+        json={
+            "source": "task",
+            "type": "goal_update",
+            "timestamp": "2026-05-04T12:00:00Z",
+            "payload": {"current_goal": "Implement ambient context kernel"},
+        },
+    )
+
+    response = client.post(
+        "/context/brief",
+        headers=headers,
+        json={"kind": "http", "name": "test-agent", "detail_level": "standard"},
+    )
+
+    assert response.status_code == 200
+    body = response.json()
+    assert body["active_intent"]["summary"] == "Implement ambient context kernel"
+    assert body["policy_decision"]["operation"] == "export"
+
+
+def test_context_suggestion_dismiss_api_suppresses_suggestion() -> None:
+    client = build_client()
+    headers = {"Authorization": "Bearer test-token"}
+    client.post(
+        "/event",
+        headers=headers,
+        json={
+            "source": "task",
+            "type": "test_failure",
+            "timestamp": "2026-05-04T12:00:00Z",
+            "payload": {"reason": "context brief omits open loop evidence"},
+        },
+    )
+    work_state = client.get("/context/work-state", headers=headers).json()
+    suggestion_id = work_state["suggestions"][0]["id"]
+
+    response = client.post(
+        f"/context/suggestions/{suggestion_id}/dismiss",
+        headers=headers,
+    )
+
+    assert response.status_code == 200
+    assert response.json()["status"] == "dismissed"
+    assert client.get("/context/work-state", headers=headers).json()["suggestions"] == []
+
+
+def test_context_memory_api_lists_corrects_and_deletes_items() -> None:
+    client = build_client()
+    headers = {"Authorization": "Bearer test-token"}
+    client.post(
+        "/event",
+        headers=headers,
+        json={
+            "source": "task",
+            "type": "goal_update",
+            "timestamp": "2026-05-04T12:00:00Z",
+            "payload": {"current_goal": "Old goal"},
+        },
+    )
+    items = client.get("/context/memory?scope=working", headers=headers).json()
+    item_id = items[0]["id"]
+
+    correction = client.patch(
+        f"/context/memory/{item_id}",
+        headers=headers,
+        json={"summary": "Corrected goal", "reason": "developer corrected retained context"},
+    )
+    deleted = client.delete(f"/context/memory/{item_id}", headers=headers)
+
+    assert correction.status_code == 200
+    assert correction.json()["summary"] == "goal_update: Corrected goal"
+    assert deleted.status_code == 204
+    assert client.get("/context/memory?scope=working", headers=headers).json() == []

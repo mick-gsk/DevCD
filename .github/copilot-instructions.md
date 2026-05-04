@@ -11,5 +11,5 @@ This repository is a local-first Developer Context Daemon built as a Python mono
 <!-- SPECKIT START -->
 For additional context about technologies to be used, project structure,
 shell commands, and other important information, read
-`specs/001-devcd-context-daemon/plan.md`.
+`specs/002-ambient-context-kernel/plan.md`.
 <!-- SPECKIT END -->

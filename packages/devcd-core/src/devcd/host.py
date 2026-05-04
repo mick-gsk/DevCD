@@ -6,6 +6,8 @@ from fastapi import FastAPI
 from fastapi.responses import JSONResponse
 
 from devcd.kernel.settings import DevCDSettings
+from devcd.slices.ambient_context.api import router as ambient_context_router
+from devcd.slices.ambient_context.service import AmbientContextService
 from devcd.slices.events.ledger import EventLedger
 from devcd.slices.host_state_engine.api import router as state_router
 from devcd.slices.host_state_engine.service import StateEngine
@@ -45,6 +47,11 @@ def create_app(settings: DevCDSettings | None = None) -> FastAPI:
     app.state.settings = resolved_settings
     app.state.api_token = api_token
     app.state.state_engine = state_engine
+    app.state.ambient_context_service = AmbientContextService(
+        state_engine=state_engine,
+        memory_store=memory_store,
+        policy_engine=policy_engine,
+    )
     state_engine.rebuild_from_ledger()
 
     @app.middleware("http")
@@ -73,4 +80,5 @@ def create_app(settings: DevCDSettings | None = None) -> FastAPI:
         return await call_next(request)
 
     app.include_router(state_router)
+    app.include_router(ambient_context_router)
     return app

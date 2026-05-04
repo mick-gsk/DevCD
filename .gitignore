@@ -27,6 +27,8 @@ venv/
 .idea/
 .DS_Store
 Thumbs.db
+*.tmp
+*.swp
 
 # Tool scaffolding (local only)
 .specify/

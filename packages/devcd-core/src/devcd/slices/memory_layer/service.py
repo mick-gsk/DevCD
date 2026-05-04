@@ -97,10 +97,50 @@ class MemoryStore:
             return entries
         return [entry for entry in entries if is_source_visible(entry.source)]
 
+    def list_all(
+        self,
+        is_source_visible: Callable[[str | None], bool] | None = None,
+    ) -> list[MemoryEntry]:
+        self._prune_expired_memory()
+        if is_source_visible is None:
+            return list(self._entries)
+        return [entry for entry in self._entries if is_source_visible(entry.source)]
+
+    def get(
+        self,
+        entry_id: str,
+        is_source_visible: Callable[[str | None], bool] | None = None,
+    ) -> MemoryEntry | None:
+        self._prune_expired_memory()
+        for entry in self._entries:
+            if entry.id == entry_id and (
+                is_source_visible is None or is_source_visible(entry.source)
+            ):
+                return entry
+        return None
+
+    def update_content(
+        self,
+        entry_id: str,
+        *,
+        content: dict[str, Any],
+        policy_reason: str,
+    ) -> MemoryEntry | None:
+        entry = self.get(entry_id)
+        if entry is None:
+            return None
+        entry.content = content
+        entry.policy_reason = policy_reason
+        return entry
+
+    def delete(self, entry_id: str) -> bool:
+        self._prune_expired_memory()
+        before_count = len(self._entries)
+        self._entries = [entry for entry in self._entries if entry.id != entry_id]
+        return len(self._entries) != before_count
+
     def _prune_expired_memory(self) -> None:
         now = datetime.now(UTC)
         self._entries = [
-            entry
-            for entry in self._entries
-            if entry.expires_at is None or entry.expires_at >= now
+            entry for entry in self._entries if entry.expires_at is None or entry.expires_at >= now
         ]

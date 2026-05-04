@@ -1,0 +1,53 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://devcd.local/schemas/devcd-work-state.schema.json",
+  "title": "DevCD Work State",
+  "type": "object",
+  "required": [
+    "candidate_intents",
+    "relevant_artifacts",
+    "open_loops",
+    "recent_attempts",
+    "blockers",
+    "suggestions",
+    "freshness",
+    "confidence",
+    "policy_summary",
+    "generated_at"
+  ],
+  "properties": {
+    "active_intent": { "type": ["object", "null"] },
+    "candidate_intents": { "type": "array", "items": { "type": "object" } },
+    "relevant_artifacts": { "type": "array", "items": { "type": "object" } },
+    "open_loops": { "type": "array", "items": { "type": "object" } },
+    "recent_attempts": { "type": "array", "items": { "type": "object" } },
+    "blockers": { "type": "array", "items": { "type": "object" } },
+    "suggestions": {
+      "type": "array",
+      "maxItems": 3,
+      "items": { "$ref": "#/$defs/ProactiveSuggestion" }
+    },
+    "freshness": { "type": "object" },
+    "confidence": { "type": "number", "minimum": 0, "maximum": 1 },
+    "policy_summary": { "type": "object" },
+    "generated_at": { "type": "string", "format": "date-time" }
+  },
+  "$defs": {
+    "ProactiveSuggestion": {
+      "type": "object",
+      "required": ["id", "summary", "rationale", "confidence", "evidence", "status", "created_at"],
+      "properties": {
+        "id": { "type": "string" },
+        "summary": { "type": "string" },
+        "rationale": { "type": "string" },
+        "confidence": { "type": "number", "minimum": 0, "maximum": 1 },
+        "evidence": { "type": "array", "items": { "type": "object" } },
+        "status": { "type": "string", "enum": ["active", "dismissed", "expired"] },
+        "created_at": { "type": "string", "format": "date-time" },
+        "suppressed_until": { "type": ["string", "null"], "format": "date-time" }
+      },
+      "additionalProperties": false
+    }
+  },
+  "additionalProperties": false
+}

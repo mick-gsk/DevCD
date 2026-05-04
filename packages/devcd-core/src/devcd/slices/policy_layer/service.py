@@ -133,6 +133,30 @@ class PolicyEngine:
             operation="export",
         )
 
+    def decide_context_export(self, surface: str, data_class: str = "metadata") -> PolicyDecision:
+        if data_class not in self._allowed_data_classes:
+            return PolicyDecision(
+                kind=PolicyDecisionKind.DENY,
+                reason="data class is not allowed for local context export by policy",
+                operation="export",
+                source=surface,
+                data_class=data_class,
+            )
+        return PolicyDecision(
+            kind=PolicyDecisionKind.ALLOW,
+            reason=f"local context export to '{surface}' is allowed by policy",
+            operation="export",
+            source=surface,
+            data_class=data_class,
+        )
+
+    def decide_context_control(self, control_name: str) -> PolicyDecision:
+        return PolicyDecision(
+            kind=PolicyDecisionKind.ALLOW,
+            reason=f"local context control '{control_name}' is allowed by policy",
+            operation="context_control",
+        )
+
     def decide_action(self, action_name: str) -> PolicyDecision:
         if self._allow_actions:
             return PolicyDecision(

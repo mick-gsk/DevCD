@@ -93,3 +93,35 @@ def test_browser_source_is_opt_in_by_default() -> None:
     assert not decision.allowed
     assert decision.source == "browser"
     assert "not enabled" in decision.reason
+
+
+def test_policy_allows_local_context_export_with_metadata() -> None:
+    policy = PolicyEngine.default()
+
+    decision = policy.decide_context_export(surface="cli", data_class="metadata")
+
+    assert decision.allowed
+    assert decision.operation == "export"
+    assert decision.data_class == "metadata"
+    assert "local context export" in decision.reason
+
+
+def test_policy_denies_context_export_for_disallowed_data_class() -> None:
+    policy = PolicyEngine.default()
+
+    decision = policy.decide_context_export(surface="cli", data_class="secret")
+
+    assert not decision.allowed
+    assert decision.operation == "export"
+    assert decision.data_class == "secret"
+    assert "data class" in decision.reason
+
+
+def test_policy_allows_local_context_control_with_reason() -> None:
+    policy = PolicyEngine.default()
+
+    decision = policy.decide_context_control("correct_memory")
+
+    assert decision.allowed
+    assert decision.operation == "context_control"
+    assert "correct_memory" in decision.reason

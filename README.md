@@ -36,6 +36,9 @@ Today, every AI tool starts with a blank slate. You paste context. You describe 
 - `POST /event` — ingest normalized developer events (IDE, Git, tasks, notes)
 - `GET /state` — current typed state tree
 - `GET /memory/{scope}` — memory entries by scope (working / durable)
+- `GET /context/work-state` — derived active intent, artifacts, loops, blockers, and suggestions
+- `POST /context/brief` — policy-filtered local agent context brief
+- `GET/PATCH/DELETE /context/memory` — inspect and control retained context
 - Default policy: **observations allowed, actions denied**
 - Local JSON Lines ledger for all events
 - 5-minute TTL working-memory with configurable scopes
@@ -70,6 +73,14 @@ Query working memory:
 curl http://127.0.0.1:8765/memory/working
 ```
 
+Inspect ambient context:
+
+```bash
+devcd context state
+devcd context brief --surface cli --detail standard
+devcd context memory --scope working
+```
+
 ## Architecture
 
 ```text
@@ -102,7 +113,8 @@ packages/devcd-core/src/devcd/
     ├── events/
     ├── host_state_engine/
     ├── memory_layer/
-    └── policy_layer/
+    ├── policy_layer/
+    └── ambient_context/
 ```
 
 See: [Architecture](docs/devcd/architecture.md) · [Memory](docs/devcd/memory.md) · [Policy](docs/devcd/policy.md) · [Schemas](schemas/)
@@ -170,4 +182,3 @@ Contributions welcome! See [CONTRIBUTING.md](CONTRIBUTING.md) for guidelines, co
 DevCD is early-stage. The best way to contribute is to open an issue describing your use case or limitation.
 
 Built and maintained by [Mick Gottschalk](https://github.com/mick-gsk).
-

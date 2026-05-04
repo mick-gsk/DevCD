@@ -37,8 +37,7 @@ class StateEngine:
             if self.is_source_visible(action.source)
         ]
         visible_state.source_active_map = {
-            source: self.is_source_visible(source)
-            for source in visible_state.source_active_map
+            source: self.is_source_visible(source) for source in visible_state.source_active_map
         }
         return visible_state
 
@@ -57,6 +56,9 @@ class StateEngine:
 
         decision = self._policy_engine.decide_observation(event)
         if not decision.allowed:
+            self._state.source_active_map[event.source.value] = (
+                self._policy_engine.is_source_visible(event.source.value)
+            )
             return decision
 
         self._seen_event_ids.add(event.event_id)
