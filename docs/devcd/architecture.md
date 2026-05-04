@@ -12,6 +12,7 @@ packages/devcd-core/src/devcd/
     host_state_engine/     state tree and API routes
     memory_layer/          working, episodic, semantic memory
     policy_layer/          observation/action authorization
+    git_source/            Git branch and commit event collection
 ```
 
 ## Runtime Flow
@@ -20,7 +21,9 @@ packages/devcd-core/src/devcd/
 source event -> policy decision -> ledger append -> state update -> memory update
 ```
 
-The MVP keeps the state tree in memory and appends accepted events to a local JSON Lines ledger. Later versions can replace the persistence adapter with SQLite without changing the slice contracts.
+The MVP keeps the state tree in memory and appends storage-approved events to a local JSON Lines ledger. Later versions can replace the persistence adapter with SQLite without changing the slice contracts.
+
+Runtime settings are loaded from `devcd.toml` or `DEVCD_` environment variables. Defaults are local-first: observation enabled, local storage enabled, remote export disabled, actions disabled.
 
 ## Vertical Slice Rules
 

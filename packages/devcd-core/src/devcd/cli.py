@@ -4,14 +4,15 @@ import json
 import urllib.error
 import urllib.request
 from pathlib import Path
-from typing import Annotated
+from typing import Annotated, Any, cast
 
 import tomli_w
 import typer
 import uvicorn
 
-from devcd.kernel.settings import DevCDSettings
 from devcd.host import create_app
+from devcd.kernel.settings import DevCDSettings
+from devcd.slices.git_source.service import GitEventSource
 
 app = typer.Typer(help="DevCD local context daemon.")
 
@@ -54,21 +55,46 @@ def event(
     endpoint: Annotated[
         str, typer.Option("--endpoint", help="DevCD daemon endpoint.")
     ] = "http://127.0.0.1:8765/event",
-    sensitivity: Annotated[str, typer.Option("--sensitivity", help="normal or sensitive.")] = "normal",
+    sensitivity: Annotated[
+        str, typer.Option("--sensitivity", help="normal or sensitive.")
+    ] = "normal",
 ) -> None:
     """Submit a normalized event to a running daemon."""
     parsed_payload = json.loads(payload)
     if not isinstance(parsed_payload, dict):
         raise typer.BadParameter("--payload must be a JSON object")
 
-    body = json.dumps(
-        {
+    response = _post_event(
+        endpoint=endpoint,
+        event={
             "source": source,
             "type": event_type,
             "payload": parsed_payload,
             "sensitivity": sensitivity,
-        }
-    ).encode("utf-8")
+        },
+    )
+    typer.echo(response)
+
+
+@app.command("git-snapshot")
+def git_snapshot(
+    repo: Annotated[Path, typer.Option("--repo", help="Git repository to inspect.")] = Path("."),
+    endpoint: Annotated[
+        str, typer.Option("--endpoint", help="DevCD daemon endpoint.")
+    ] = "http://127.0.0.1:8765/event",
+) -> None:
+    """Submit branch and latest-commit events for a Git repository."""
+    events = GitEventSource().collect_snapshot_events(repo)
+    if not events:
+        typer.echo("No git events collected")
+        return
+
+    for git_event in events:
+        typer.echo(_post_event(endpoint=endpoint, event=git_event.model_dump(mode="json")))
+
+
+def _post_event(endpoint: str, event: dict[str, Any]) -> str:
+    body = json.dumps(event).encode("utf-8")
     request = urllib.request.Request(
         endpoint,
         data=body,
@@ -77,7 +103,7 @@ def event(
     )
     try:
         with urllib.request.urlopen(request, timeout=5) as response:
-            typer.echo(response.read().decode("utf-8"))
+            return cast(str, response.read().decode("utf-8"))
     except urllib.error.URLError as error:
         typer.echo(f"Failed to submit event: {error}", err=True)
         raise typer.Exit(1) from error
