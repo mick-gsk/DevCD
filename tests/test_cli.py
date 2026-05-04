@@ -3,6 +3,7 @@ from __future__ import annotations
 import json
 import re
 import urllib.request
+from pathlib import Path
 
 import pytest
 import typer
@@ -217,6 +218,59 @@ def test_cli_exposes_context_brief_command() -> None:
     assert "--detail" in output
 
 
+def test_cli_records_context_feedback_without_echoing_note(tmp_path, monkeypatch) -> None:
+    runner = CliRunner()
+    monkeypatch.chdir(tmp_path)
+
+    feedback_result = runner.invoke(
+        app,
+        [
+            "context",
+            "feedback",
+            "brief-123",
+            "--kind",
+            "missing",
+            "--note",
+            "Add the failing test name.",
+        ],
+    )
+    quality_result = runner.invoke(app, ["context", "quality"])
+
+    assert feedback_result.exit_code == 0
+    assert "Stored feedback for brief-123" in feedback_result.output
+    assert "note withheld" in feedback_result.output
+    assert quality_result.exit_code == 0
+    assert "brief-123" in quality_result.output
+    assert "missing" in quality_result.output
+    assert "Add the failing test name." not in quality_result.output
+    assert "[withheld by policy]" in quality_result.output
+    assert "No ranking or scoring is computed in phase 1." in quality_result.output
+
+
+def test_cli_withholds_too_sensitive_context_feedback_note(tmp_path, monkeypatch) -> None:
+    runner = CliRunner()
+    monkeypatch.chdir(tmp_path)
+
+    result = runner.invoke(
+        app,
+        [
+            "context",
+            "feedback",
+            "brief-123",
+            "--kind",
+            "too_sensitive",
+            "--note",
+            "private incident detail",
+        ],
+    )
+    quality_result = runner.invoke(app, ["context", "quality"])
+
+    assert result.exit_code == 0
+    assert "note withheld" in result.output
+    assert "private incident detail" not in quality_result.output
+    assert "[withheld by policy]" in quality_result.output
+
+
 def test_cli_generates_agent_handoff_demo_brief_from_jsonl(tmp_path) -> None:
     events_path = tmp_path / "sample-events.jsonl"
     events_path.write_text(
@@ -256,6 +310,22 @@ def test_cli_generates_agent_handoff_demo_brief_from_jsonl(tmp_path) -> None:
     assert "cannot see" in result.output
     assert "source is not enabled by policy" in result.output
     assert "browser url_focus signal was withheld" in result.output
+
+
+def test_cli_handoff_demo_sample_events_remain_actionable() -> None:
+    runner = CliRunner()
+    events_path = Path("examples/agent-handoff/sample-events.jsonl")
+
+    result = runner.invoke(app, ["context", "handoff-demo", "--events", str(events_path)])
+
+    assert result.exit_code == 0
+    assert "## brief_id" in result.output
+    assert "Ship Agent-Handoff MVP for DevCD" in result.output
+    assert "packages/devcd-core/src/devcd/slices/ambient_context/service.py" in result.output
+    assert "- branch: main" in result.output
+    assert "- latest_commit: abc1234" in result.output
+    assert "No active goal available" not in result.output
+    assert "latest_commit: unknown" not in result.output
 
 
 def test_cli_exposes_dismiss_suggestion_command() -> None:

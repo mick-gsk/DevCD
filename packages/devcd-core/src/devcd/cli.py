@@ -17,7 +17,14 @@ import uvicorn
 
 from devcd.host import create_app
 from devcd.kernel.settings import DevCDSettings
-from devcd.slices.ambient_context.models import AgentContextSurface, DetailLevel, SurfaceKind
+from devcd.slices.ambient_context.models import (
+    AgentContextSurface,
+    ContextFeedback,
+    ContextFeedbackKind,
+    ContextQualityReport,
+    DetailLevel,
+    SurfaceKind,
+)
 from devcd.slices.ambient_context.service import (
     AmbientContextService,
     render_context_brief_markdown,
@@ -243,6 +250,35 @@ def context_brief(
     )
 
 
+@context_app.command("feedback")
+def context_feedback(
+    brief_id: Annotated[str, typer.Argument(help="Handoff brief identifier.")],
+    kind: Annotated[str, typer.Option("--kind", help="Feedback kind.")],
+    note: Annotated[str, typer.Option("--note", help="Local feedback note.")],
+    config: Annotated[Path | None, typer.Option("--config", help="Config file to load.")] = None,
+) -> None:
+    """Store local feedback for a handoff brief."""
+    try:
+        feedback = _build_local_context_service(config).record_feedback(
+            brief_id=brief_id,
+            kind=_context_feedback_kind(kind),
+            note=note,
+        )
+    except PermissionError as error:
+        typer.echo(f"Failed to store feedback: {error}", err=True)
+        raise typer.Exit(1) from error
+    typer.echo(_render_feedback_result(feedback))
+
+
+@context_app.command("quality")
+def context_quality(
+    config: Annotated[Path | None, typer.Option("--config", help="Config file to load.")] = None,
+) -> None:
+    """Print locally stored handoff feedback."""
+    service = _build_local_context_service(config)
+    typer.echo(_render_context_quality(service.get_context_quality()))
+
+
 @context_app.command("handoff-demo")
 def context_handoff_demo(
     events: Annotated[Path, typer.Option("--events", help="JSONL file with DevCD events.")],
@@ -263,6 +299,7 @@ def context_handoff_demo(
                 detail_level=_detail_level(detail),
             )
         )
+        brief = brief.model_copy(update={"id": "demo-handoff-brief"})
         typer.echo(render_context_brief_markdown(brief))
 
 
@@ -347,7 +384,7 @@ def _build_demo_context_service(
     temporary_directory: Path,
 ) -> tuple[AmbientContextService, StateEngine]:
     policy_engine = PolicyEngine.default()
-    memory_store = MemoryStore.with_default_ttl()
+    memory_store = MemoryStore.with_ttl_seconds(315360000)
     ledger_path = temporary_directory / "events.jsonl"
     event_ledger = EventLedger(ledger_path)
     state_engine = StateEngine(policy_engine, memory_store, event_ledger)
@@ -376,6 +413,26 @@ def _build_mcp_server(settings: DevCDSettings) -> ReadOnlyMCPServer:
         state_engine=state_engine,
         event_ledger=event_ledger,
         policy_engine=policy_engine,
+    )
+
+
+def _build_local_context_service(config: Path | None = None) -> AmbientContextService:
+    settings = DevCDSettings.load(config)
+    policy_engine = PolicyEngine.from_settings(settings)
+    memory_store = MemoryStore.with_ttl_seconds(settings.working_memory_ttl_seconds)
+    event_ledger = EventLedger(settings.ledger_path)
+    state_engine = StateEngine(
+        policy_engine=policy_engine,
+        memory_store=memory_store,
+        event_ledger=event_ledger,
+        coalesce_window_ms=settings.ide_coalesce_window_ms,
+    )
+    state_engine.rebuild_from_ledger()
+    return AmbientContextService(
+        state_engine=state_engine,
+        memory_store=memory_store,
+        policy_engine=policy_engine,
+        feedback_path=settings.runtime_dir / "context-feedback.jsonl",
     )
 
 
@@ -499,6 +556,32 @@ def _detail_level(value: str) -> DetailLevel:
         return DetailLevel(value)
     except ValueError as error:
         raise typer.BadParameter(f"invalid detail level: {value}") from error
+
+
+def _context_feedback_kind(value: str) -> ContextFeedbackKind:
+    try:
+        return ContextFeedbackKind(value)
+    except ValueError as error:
+        allowed = ", ".join(kind.value for kind in ContextFeedbackKind)
+        message = f"invalid feedback kind: {value}; expected one of {allowed}"
+        raise typer.BadParameter(message) from error
+
+
+def _render_feedback_result(feedback: ContextFeedback) -> str:
+    suffix = " (note withheld by policy)" if feedback.note_withheld else ""
+    return f"Stored feedback for {feedback.brief_id}: {feedback.kind.value}{suffix}"
+
+
+def _render_context_quality(report: ContextQualityReport) -> str:
+    lines = ["Context quality feedback", "No ranking or scoring is computed in phase 1.", ""]
+    if not report.feedback:
+        lines.append("No feedback recorded.")
+        return "\n".join(lines)
+    for feedback in report.feedback:
+        note = feedback.note if feedback.note is not None else "[withheld by policy]"
+        lines.append(f"- {feedback.brief_id}: {feedback.kind.value} - {note}")
+        lines.append(f"  policy: {feedback.policy_reason}")
+    return "\n".join(lines)
 
 
 def _get_json(endpoint: str, token: str | None = None) -> str:
