@@ -29,13 +29,6 @@ classifiers = [
   "Programming Language :: Python :: 3.12",
   "Typing :: Typed",
 ]
-
-[project.urls]
-Homepage = "https://github.com/mick-gsk/DevCD"
-Repository = "https://github.com/mick-gsk/DevCD"
-Documentation = "https://mick-gsk.github.io/DevCD/"
-Issues = "https://github.com/mick-gsk/DevCD/issues"
-Changelog = "https://github.com/mick-gsk/DevCD/blob/main/CHANGELOG.md"
 dependencies = [
   "fastapi>=0.115",
   "pydantic>=2.8",
@@ -44,6 +37,13 @@ dependencies = [
   "typer>=0.12",
   "uvicorn[standard]>=0.30",
 ]
+
+[project.urls]
+Homepage = "https://github.com/mick-gsk/DevCD"
+Repository = "https://github.com/mick-gsk/DevCD"
+Documentation = "https://mick-gsk.github.io/DevCD/"
+Issues = "https://github.com/mick-gsk/DevCD/issues"
+Changelog = "https://github.com/mick-gsk/DevCD/blob/main/CHANGELOG.md"
 
 [project.optional-dependencies]
 dev = [
