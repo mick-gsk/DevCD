@@ -94,12 +94,7 @@ def _suggested_next_action(command: str, first_failure: PytestFailure | None) ->
 
 def _pytest_command_prefix(command: str) -> str:
     parts = command.split()
-    if (
-        len(parts) >= 3
-        and parts[0] == "python"
-        and parts[1] == "-m"
-        and parts[2] == "pytest"
-    ):
+    if len(parts) >= 3 and parts[0] == "python" and parts[1] == "-m" and parts[2] == "pytest":
         return "python -m pytest"
     return "pytest"
 
