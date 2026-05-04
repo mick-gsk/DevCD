@@ -13,6 +13,9 @@ class PolicyDecisionKind(StrEnum):
 class PolicyDecision(BaseModel):
     kind: PolicyDecisionKind
     reason: str
+    operation: str
+    source: str | None = None
+    data_class: str | None = None
 
     @property
     def allowed(self) -> bool:

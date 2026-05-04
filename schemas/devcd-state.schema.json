@@ -3,7 +3,7 @@
   "$id": "https://devcd.local/schemas/devcd-state.schema.json",
   "title": "DevCD State",
   "type": "object",
-  "required": ["current_goal", "subtask", "recent_actions", "interruptibility", "attention_score", "blocked_by", "confidence", "next_best_actions"],
+  "required": ["current_goal", "subtask", "recent_actions", "interruptibility", "attention_score", "blocked_by", "confidence", "next_best_actions", "source_active_map"],
   "properties": {
     "current_goal": { "type": ["string", "null"] },
     "subtask": { "type": ["string", "null"] },
@@ -28,6 +28,13 @@
     "next_best_actions": {
       "type": "array",
       "items": { "type": "string" }
+    },
+    "source_active_map": {
+      "type": "object",
+      "additionalProperties": { "type": "boolean" }
+    },
+    "metadata": {
+      "type": "object"
     }
   },
   "additionalProperties": false

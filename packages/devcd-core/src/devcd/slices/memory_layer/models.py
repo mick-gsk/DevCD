@@ -18,4 +18,7 @@ class MemoryEntry(BaseModel):
     id: str = Field(default_factory=lambda: str(uuid4()))
     scope: MemoryScope
     timestamp: datetime = Field(default_factory=lambda: datetime.now(UTC))
+    source: str | None = None
     content: dict[str, Any]
+    policy_reason: str | None = None
+    expires_at: datetime | None = None

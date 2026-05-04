@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 from pathlib import Path
+from typing import Any
 
 from devcd.slices.events.models import DevEvent
 from devcd.slices.policy_layer.models import PolicyDecision
@@ -30,3 +31,25 @@ class EventLedger:
         with self._path.open("a", encoding="utf-8") as handle:
             handle.write(json.dumps(record, sort_keys=True))
             handle.write("\n")
+
+    def read_records(self) -> list[tuple[DevEvent, PolicyDecision]]:
+        if self._path is None or not self._path.exists():
+            return []
+
+        records: list[tuple[DevEvent, PolicyDecision]] = []
+        for line in self._path.read_text(encoding="utf-8").splitlines():
+            if not line.strip():
+                continue
+            try:
+                raw_record: dict[str, Any] = json.loads(line)
+            except json.JSONDecodeError:
+                continue
+            raw_policy_decision = dict(raw_record["policy_decision"])
+            raw_policy_decision.setdefault("operation", "store")
+            records.append(
+                (
+                    DevEvent.model_validate(raw_record["event"]),
+                    PolicyDecision.model_validate(raw_policy_decision),
+                )
+            )
+        return records

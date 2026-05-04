@@ -23,4 +23,5 @@ class DevState(BaseModel):
     blocked_by: str | None = None
     confidence: dict[str, float] = Field(default_factory=dict)
     next_best_actions: list[str] = Field(default_factory=list)
+    source_active_map: dict[str, bool] = Field(default_factory=dict)
     metadata: dict[str, Any] = Field(default_factory=dict)

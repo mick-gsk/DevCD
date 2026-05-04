@@ -29,4 +29,5 @@ def post_event(event: DevEvent, request: Request) -> PolicyDecision:
 
 @router.get("/memory/{scope}", response_model=list[MemoryEntry])
 def get_memory(scope: MemoryScope, request: Request) -> list[MemoryEntry]:
-    return _state_engine(request).memory_store.list_by_scope(scope)
+    state_engine = _state_engine(request)
+    return state_engine.memory_store.list_by_scope(scope, state_engine.is_source_visible)
