@@ -15,6 +15,11 @@ class FreshnessStatus(StrEnum):
 
 
 class SurfaceKind(StrEnum):
+    CODING_AGENT = "coding-agent"
+    REVIEW_AGENT = "review-agent"
+    DEBUGGING_AGENT = "debugging-agent"
+    SUBAGENT = "subagent"
+    PUBLIC_DEMO = "public-demo"
     HTTP = "http"
     CLI = "cli"
     ARTIFACT = "artifact"
@@ -85,6 +90,16 @@ class PolicySummary(BaseModel):
 class WithheldContext(BaseModel):
     kind: str
     reason: str
+    category: str = ""
+    policy_reason: str = ""
+    safe_summary: str = ""
+
+
+class GitContext(BaseModel):
+    branch: str | None = None
+    latest_commit: str | None = None
+    latest_commit_summary: str | None = None
+    repository: str | None = None
 
 
 class AgentContextSurface(BaseModel):
@@ -93,6 +108,9 @@ class AgentContextSurface(BaseModel):
     detail_level: DetailLevel = DetailLevel.STANDARD
     requested_sources: list[str] = Field(default_factory=list)
     requested_data_classes: list[str] = Field(default_factory=lambda: ["metadata"])
+    allowed_state_areas: list[str] = Field(default_factory=list)
+    allowed_memory_scopes: list[str] = Field(default_factory=list)
+    withheld_fields: list[str] = Field(default_factory=list)
 
 
 class IntentLine(BaseModel):
@@ -193,11 +211,16 @@ class WorkState(BaseModel):
 class ContextBrief(BaseModel):
     surface: AgentContextSurface
     summary: str
+    active_goal: str | None = None
     active_intent: IntentLine | None = None
     relevant_artifacts: list[RelevantArtifact] = Field(default_factory=list)
+    git_context: GitContext = Field(default_factory=GitContext)
     open_loops: list[OpenLoop] = Field(default_factory=list)
     recent_attempts: list[RecentAttempt] = Field(default_factory=list)
+    blockers: list[BlockerSignal] = Field(default_factory=list)
     suggested_next_steps: list[ProactiveSuggestion] = Field(default_factory=list, max_length=3)
+    withheld_context: list[WithheldContext] = Field(default_factory=list)
     withheld: list[WithheldContext] = Field(default_factory=list)
+    agent_limitations: list[str] = Field(default_factory=list)
     policy_decision: PolicySummary
     generated_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
