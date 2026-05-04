@@ -4,7 +4,12 @@ from collections.abc import Iterable
 
 from devcd.kernel.settings import DevCDSettings
 from devcd.slices.events.models import DevEvent, EventSensitivity
-from devcd.slices.policy_layer.models import PolicyDecision, PolicyDecisionKind
+from devcd.slices.policy_layer.models import (
+    PolicyDecision,
+    PolicyDecisionExplanation,
+    PolicyDecisionKind,
+    PolicySimulationReport,
+)
 
 
 class PolicyEngine:
@@ -170,10 +175,76 @@ class PolicyEngine:
             operation="action",
         )
 
+    def explain_decision(
+        self,
+        decision: PolicyDecision,
+        event: DevEvent | None = None,
+    ) -> PolicyDecisionExplanation:
+        return PolicyDecisionExplanation(
+            decision_id=decision.decision_id,
+            allowed=decision.allowed,
+            kind=decision.kind,
+            operation=decision.operation,
+            reason=decision.reason,
+            category=self._decision_category(decision, event),
+            source=decision.source or (event.source.value if event is not None else None),
+            data_class=decision.data_class or (event.data_class if event is not None else None),
+            safe_summary=self._safe_summary(decision, event),
+        )
+
+    def simulate_event(self, surface: str, event: DevEvent) -> PolicySimulationReport:
+        decisions: list[PolicyDecisionExplanation] = []
+        withheld: list[PolicyDecisionExplanation] = []
+
+        observation = self.decide_observation(event)
+        observation_explanation = self.explain_decision(observation, event)
+        decisions.append(observation_explanation)
+        if not observation.allowed:
+            withheld.append(observation_explanation)
+            return PolicySimulationReport(
+                surface=surface,
+                decisions=decisions,
+                withheld=withheld,
+            )
+
+        export = self.decide_context_export(surface=surface, data_class=event.data_class)
+        export_explanation = self.explain_decision(export, event)
+        decisions.append(export_explanation)
+        if not export.allowed:
+            withheld.append(export_explanation)
+
+        return PolicySimulationReport(surface=surface, decisions=decisions, withheld=withheld)
+
     def is_source_visible(self, source: str | None) -> bool:
         if source is None:
             return True
         return source in self._enabled_sources
+
+    def _decision_category(self, decision: PolicyDecision, event: DevEvent | None) -> str:
+        reason = decision.reason.lower()
+        if "sensitive" in reason:
+            return "sensitivity"
+        if "source" in reason:
+            return "source"
+        if "data class" in reason:
+            return "data_class"
+        if "full-text" in reason or "payload" in reason:
+            return "payload_content"
+        if event is not None:
+            return event.data_class
+        return decision.operation
+
+    def _safe_summary(self, decision: PolicyDecision, event: DevEvent | None) -> str:
+        if decision.allowed:
+            return "Context is visible under the selected policy."
+        if event is not None:
+            return (
+                f"{event.source.value} {event.type} signal was withheld; "
+                "only source/type metadata is visible as a safe replacement."
+            )
+        if "data class" in decision.reason.lower():
+            return "Metadata-only context may be requested instead."
+        return "Context was withheld; no safe replacement is available."
 
     def _contains_fulltext(self, payload_items: Iterable[tuple[str, object]]) -> bool:
         for key, value in payload_items:
