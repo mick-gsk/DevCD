@@ -4,7 +4,7 @@ import json
 from typing import Any, TextIO
 
 from devcd.slices.ambient_context.models import AgentContextSurface, SurfaceKind
-from devcd.slices.ambient_context.service import AmbientContextService
+from devcd.slices.ambient_context.service import AmbientContextService, render_context_brief_json
 from devcd.slices.events.ledger import EventLedger
 from devcd.slices.host_state_engine.service import StateEngine
 from devcd.slices.policy_layer.service import PolicyEngine
@@ -17,6 +17,9 @@ READ_ONLY_RESOURCE_URIS: tuple[str, ...] = (
     "devcd://context/recent-events",
     "devcd://context/policy-decisions",
     "devcd://context/withheld-context",
+    "devcd://context/agent-handoff-packet",
+    "devcd://context/recent-timeline",
+    "devcd://context/policy-summary",
 )
 
 _RESOURCE_METADATA: dict[str, dict[str, str]] = {
@@ -39,6 +42,29 @@ _RESOURCE_METADATA: dict[str, dict[str, str]] = {
     "devcd://context/withheld-context": {
         "name": "withheld_context",
         "description": "Safe summaries for context withheld by policy.",
+    },
+    "devcd://context/agent-handoff-packet": {
+        "name": "agent_handoff_packet",
+        "description": (
+            "Agent continuity handoff packet (coding-agent surface). "
+            "Same JSON contract as 'devcd context handoff-demo --json'. "
+            "Includes goal, resurrection context, blockers, and withheld-context summary. "
+            "No sensitive payloads."
+        ),
+    },
+    "devcd://context/recent-timeline": {
+        "name": "recent_timeline",
+        "description": (
+            "Chronological (oldest-first) timeline of recent policy-visible events. "
+            "Useful for understanding the narrative of what happened."
+        ),
+    },
+    "devcd://context/policy-summary": {
+        "name": "policy_summary",
+        "description": (
+            "Concise policy summary: allowed/withheld sources and data classes "
+            "for the current work state."
+        ),
     },
 }
 
@@ -143,6 +169,15 @@ class ReadOnlyMCPServer:
                     "policy_decision": brief.policy_decision.model_dump(mode="json"),
                 }
             )
+        if uri == "devcd://context/agent-handoff-packet":
+            surface = AgentContextSurface(kind=SurfaceKind.CODING_AGENT, name="devcd-mcp-handoff")
+            brief = self._ambient_context_service.create_context_brief(surface)
+            return render_context_brief_json(brief)
+        if uri == "devcd://context/recent-timeline":
+            return self._json_text({"recent_timeline": self._recent_timeline()})
+        if uri == "devcd://context/policy-summary":
+            work_state = self._ambient_context_service.get_work_state()
+            return self._json_text(work_state.policy_summary.model_dump(mode="json"))
         raise ValueError(f"unknown resource: {uri}")
 
     def _mcp_surface(self) -> AgentContextSurface:
@@ -169,6 +204,15 @@ class ReadOnlyMCPServer:
             if len(policy_decisions) == 20:
                 break
         return policy_decisions
+
+    def _recent_timeline(self) -> list[JsonObject]:
+        """Chronological (oldest-first) timeline of recent policy-visible events."""
+        all_visible: list[JsonObject] = []
+        for event, _decision in self._event_ledger.read_records():
+            if not self._is_visible_event(event.source.value, event.data_class):
+                continue
+            all_visible.append(event.model_dump(mode="json"))
+        return all_visible[-20:]
 
     def _is_visible_event(self, source: str | None, data_class: str) -> bool:
         if not self._state_engine.is_source_visible(source):
