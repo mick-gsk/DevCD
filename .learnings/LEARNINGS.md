@@ -1,5 +1,28 @@
 # Learnings
 
+## [LRN-20260505-002] correction
+
+**Logged**: 2026-05-05T00:00:00Z
+**Priority**: medium
+**Status**: pending
+**Area**: docs
+
+### Summary
+DevCD brand assets should be treated as a small design system, not quick decorative SVGs.
+
+### Details
+The first generated mark and wordmark looked like low-quality placeholder branding. For DevCD, visual assets need to support the product's trust posture: local-first, policy-visible, agent continuity, and pre-alpha honesty. Avoid decorative node diagrams, fake badges inside logo art, and overworked icon details that do not survive README-scale rendering.
+
+### Suggested Action
+For future brand updates, define the direction, assets, color tokens, usage rules, and render previews before accepting SVG changes. Prefer a restrained Continuity OS system with reusable tokens over one-off SVG decoration.
+
+### Metadata
+- Source: user_feedback
+- Related Files: docs/assets/devcd-mark.svg, docs/assets/devcd-wordmark.svg, docs/devcd/brand-system.md
+- Tags: branding, docs, visual-identity
+
+---
+
 ## [LRN-20260505-001] best_practice
 
 **Logged**: 2026-05-05T00:00:00Z

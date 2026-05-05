@@ -1,5 +1,98 @@
 # Errors
 
+## [ERR-20260505-008] svg_playwright_style_injection
+
+**Logged**: 2026-05-05T00:00:00Z
+**Priority**: low
+**Status**: resolved
+**Area**: docs
+
+### Summary
+Playwright `page.addStyleTag` failed while reviewing raw SVG files because the SVG document has no normal HTML head/body target.
+
+### Error
+`page.addStyleTag: TypeError: Cannot read properties of null (reading 'appendChild')`
+
+### Context
+- Operation: visual review of `docs/assets/devcd-social-card.svg` and `docs/assets/devcd-social-avatar.svg`
+- The browser opened the SVG directly as an XML/SVG document, not as an HTML page.
+
+### Suggested Fix
+For direct SVG previews, avoid `page.addStyleTag`. Use element screenshots, open a tiny HTML preview wrapper, or accept the browser's raw SVG layout while judging the SVG content itself.
+
+### Resolution
+- **Resolved**: 2026-05-05T00:00:00Z
+- **Notes**: Continued visual review without CSS injection and adjusted the SVG asset itself.
+
+### Metadata
+- Reproducible: yes
+- Related Files: docs/assets/devcd-social-card.svg, docs/assets/devcd-social-avatar.svg
+
+---
+
+## [ERR-20260505-007] readme_rewrite
+
+**Logged**: 2026-05-05T00:00:00Z
+**Priority**: medium
+**Status**: resolved
+**Area**: docs
+
+### Summary
+Incremental README rewrite attempts left duplicate old and new sections in the same file.
+
+### Error
+`README.md` readback still began with the old heading, while `git diff -- README.md` showed a product-led README inserted into the middle of the old document.
+
+### Context
+- Operation: manual README rewrite with multiple patch attempts
+- Related files: README.md, pyproject.toml
+- The README is package metadata and must stay present and coherent before running distribution checks.
+
+### Suggested Fix
+For full-file README rewrites, delete the file and recreate it once with the intended content, then immediately read the first section and run `git diff -- README.md` before adding further edits.
+
+### Resolution
+- **Resolved**: 2026-05-05T00:00:00Z
+- **Notes**: Replaced README.md with one clean product-led version and added visual identity assets.
+
+### Metadata
+- Reproducible: unknown
+- Related Files: README.md
+- See Also: ERR-20260505-006
+
+---
+
+## [ERR-20260505-006] make_distribution
+
+**Logged**: 2026-05-05T00:00:00Z
+**Priority**: medium
+**Status**: resolved
+**Area**: docs
+
+### Summary
+`make distribution` failed because the root `README.md` was missing from the working tree.
+
+### Error
+`OSError: Readme file does not exist: README.md`
+
+### Context
+- Command: `make distribution`
+- Related files: `README.md`, `pyproject.toml`
+- The build backend correctly refused to build the sdist because project metadata references `README.md`.
+
+### Suggested Fix
+Before rerunning package/distribution gates after docs edits, confirm root metadata files are visible with `Test-Path README.md; Test-Path pyproject.toml`. If `README.md` is unexpectedly deleted, reconstruct the intended working copy content before building.
+
+### Resolution
+- **Resolved**: 2026-05-05T00:00:00Z
+- **Notes**: Recreated `README.md` with the intended onboarding/release-readiness updates and reran `make distribution` successfully.
+
+### Metadata
+- Reproducible: yes
+- Related Files: README.md, pyproject.toml
+
+---
+
 ## [ERR-20260505-005] mkdocs_build
 
 **Logged**: 2026-05-05T00:00:00Z
