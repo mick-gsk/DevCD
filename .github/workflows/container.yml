@@ -1,0 +1,39 @@
+name: Container
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "Dockerfile"
+      - ".dockerignore"
+      - "pyproject.toml"
+      - "packages/devcd-core/src/**"
+      - ".github/workflows/container.yml"
+  pull_request:
+    branches: [main]
+    paths:
+      - "Dockerfile"
+      - ".dockerignore"
+      - "pyproject.toml"
+      - "packages/devcd-core/src/**"
+      - ".github/workflows/container.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    name: Build and smoke-test container
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Build image
+        run: docker build --pull -t devcd:ci .
+
+      - name: Smoke-test CLI
+        run: docker run --rm devcd:ci devcd --help
+
+      - name: Smoke-test live-first quickstart
+        run: docker run --rm devcd:ci devcd quickstart --no-tui --json --endpoint http://127.0.0.1:9/state
