@@ -16,7 +16,17 @@ Short version: Initial local-first context daemon foundation with context qualit
 - `GET /context/control-plane` API endpoint exposing the control-plane report.
 - `devcd context passport` CLI command to generate a live policy-filtered Agent Passport from the local ledger.
 - `devcd context control` CLI command to display the control-plane report (`--json` supported).
+- `devcd onboard` first-run wrapper that creates local config, prepares selected agent instruction files, and prints the Agent Passport path without starting a daemon or mutating external config.
 - `devcd integrations openclaw` and `devcd integrations hermes` CLI commands with copyable local MCP config snippets and optional `--smoke-test` shape check.
+- Release readiness documentation and `make distribution` verification for wheel metadata, typed package marker, and installed CLI smoke tests.
+- Container sandbox Dockerfile with CI build and CLI smoke-test workflow.
+- Context Packs documentation and examples describing DevCD's metadata-only extension surface.
+- Manual PyPI Trusted Publishing workflow and publishing guide for verified release artifacts.
+- Context Pack and Event Recipe issue templates plus slice labeler updates for current package layout.
+- `make smoke` target for a daemonless local CLI sanity check.
+- OpenClaw integration guide that separates verified local MCP behavior from unclaimed gateway E2E status.
+- Product-led README rewrite with OpenClaw-style first screen, status table, quickstart, trust defaults, and docs-by-goal navigation.
+- DevCD Continuity OS brand system with mark, wordmark, viral social-card/avatar artwork, design tokens, README/MkDocs wiring, and usage guidance.
 - Default `devcd.toml` configuration file committed to the repository root.
 - Python monorepo scaffold with Vertical Slice Architecture.
 - MVP daemon API for `POST /event`, `GET /state`, and `GET /memory/{scope}`.

@@ -115,6 +115,80 @@ def test_init_preserves_existing_agent_file_with_managed_block(
     assert "DevCD Continuity Capture Routine" in content
 
 
+def test_onboard_creates_config_and_agent_ready_workspace(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.setenv("HOME", str(tmp_path / "home"))
+    monkeypatch.setenv("USERPROFILE", str(tmp_path / "home"))
+    runner = CliRunner()
+
+    result = runner.invoke(app, ["onboard", "--agents", "copilot,openclaw", "--no-tui"])
+
+    assert result.exit_code == 0
+    assert "DevCD onboard" in result.output
+    assert "config: created devcd.toml" in result.output
+    assert "Agent-ready workspace" in result.output
+    assert "Copilot" in result.output
+    assert "OpenClaw" in result.output
+    assert "Agent Passport" in result.output
+    assert (tmp_path / "devcd.toml").exists()
+    assert "DEVCD AGENT CONTINUITY START" in (
+        tmp_path / ".github" / "copilot-instructions.md"
+    ).read_text(encoding="utf-8")
+    assert json.loads((tmp_path / ".devcd" / "openclaw-mcp.json").read_text(encoding="utf-8"))[
+        "mcp"
+    ]["servers"]["devcd"] == {"command": "devcd", "args": ["mcp", "serve"]}
+    assert not (tmp_path / "home" / ".openclaw").exists()
+
+
+def test_onboard_preserves_existing_config_without_force(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.chdir(tmp_path)
+    config_path = tmp_path / "devcd.toml"
+    config_path.write_text('[devcd]\nruntime_dir = "custom-runtime"\n', encoding="utf-8")
+    runner = CliRunner()
+
+    result = runner.invoke(app, ["onboard", "--agents", "codex", "--no-tui"])
+
+    assert result.exit_code == 0
+    assert "config: kept devcd.toml" in result.output
+    assert config_path.read_text(encoding="utf-8") == '[devcd]\nruntime_dir = "custom-runtime"\n'
+    assert "DEVCD AGENT CONTINUITY START" in (tmp_path / "AGENTS.md").read_text(encoding="utf-8")
+
+
+def test_onboard_json_contract_is_stable(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.chdir(tmp_path)
+    runner = CliRunner()
+
+    result = runner.invoke(
+        app,
+        [
+            "onboard",
+            "--agents",
+            "copilot,claude",
+            "--json",
+            "--endpoint",
+            "http://127.0.0.1:9/state",
+        ],
+    )
+
+    assert result.exit_code == 0
+    body = json.loads(result.output)
+    assert body["config"] == {"path": "devcd.toml", "status": "created"}
+    assert [item["target"] for item in body["agent_ready"]] == ["copilot", "claude"]
+    assert body["mutates_external_config"] is False
+    assert body["starts_daemon"] is False
+    assert body["quickstart"]["live_first"]["daemon_required"] is False
+    assert body["next_commands"] == [
+        "devcd agentic action-packet",
+        "devcd context passport",
+        "devcd context control",
+        "devcd integrations openclaw --smoke-test",
+    ]
+
+
 def test_capture_goal_writes_allowed_event_to_configured_ledger(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
@@ -1905,6 +1979,7 @@ def test_agentic_tasks_json_returns_scout_tasks(tmp_path: Path) -> None:
     assert body[0]["kind"] == "identify_current_goal"
     assert body[0]["data_class"] == "metadata"
 
+
 def test_agentic_action_packet_json_returns_ready_field(tmp_path: Path) -> None:
     config_path = _write_test_config(tmp_path)
     runner = CliRunner()
@@ -1918,6 +1993,7 @@ def test_agentic_action_packet_json_returns_ready_field(tmp_path: Path) -> None:
     body = json.loads(result.output)
     assert "ready_for_agent" in body
     assert body["schema_version"] == "1.0"
+
 
 def test_agentic_report_accepts_json_file(tmp_path: Path) -> None:
     config_path = _write_test_config(tmp_path)
@@ -1951,6 +2027,7 @@ def test_agentic_report_accepts_json_file(tmp_path: Path) -> None:
     assert result.exit_code == 0
     assert "accepted scout report" in result.output
 
+
 def test_agentic_run_missing_runner_is_denied(tmp_path: Path) -> None:
     config_path = _write_test_config(tmp_path)
     runner = CliRunner()
@@ -1973,11 +2050,13 @@ def test_agentic_run_missing_runner_is_denied(tmp_path: Path) -> None:
     assert body["operation"] == "agentic_runner_start"
     assert body["kind"] == "deny"
 
+
 def _write_test_config(tmp_path: Path) -> Path:
     runtime_dir = str(tmp_path / "runtime").replace("\\", "/")
     config_path = tmp_path / "devcd.toml"
     config_path.write_text(f'[devcd]\nruntime_dir = "{runtime_dir}"\n', encoding="utf-8")
     return config_path
+
 
 def test_policy_simulate_outputs_json_and_human_explanation(tmp_path) -> None:
     events_path = tmp_path / "sensitive-event.json"
@@ -2292,9 +2371,10 @@ def test_quickstart_json_reports_live_first_readiness(
     )
     assert body["live_first"]["daemon_required"] is False
     assert body["live_first"]["packet"]["intent"] is None
-    assert "No local ledger events are visible in this passport yet." in body["live_first"][
-        "packet"
-    ]["unknowns"]
+    assert (
+        "No local ledger events are visible in this passport yet."
+        in body["live_first"]["packet"]["unknowns"]
+    )
     assert "demo_preview" not in body
     assert body["local_state"]["config_exists"] is False
     assert body["local_state"]["token_source"] == "missing"

@@ -163,8 +163,10 @@ def _resolve_agent_ready_targets(
             )
             return _parse_agent_ready_targets(answer)
         return _AGENT_READY_TARGETS
-    if agent_ready is None and sys.stdin.isatty() and typer.confirm(
-        "Make this workspace agent-ready?", default=True
+    if (
+        agent_ready is None
+        and sys.stdin.isatty()
+        and typer.confirm("Make this workspace agent-ready?", default=True)
     ):
         answer = typer.prompt(
             "Choose agents (copilot, claude, codex, openclaw, all)",
@@ -256,7 +258,7 @@ def _agent_instruction_block(target: str) -> str:
             "At start:",
             "- read `devcd context passport`",
             "- if current goal is obvious from the task, capture it with "
-            "`devcd capture --kind goal --summary \"...\"`",
+            '`devcd capture --kind goal --summary "..."`',
             "- do not ask the user to perform DevCD bookkeeping",
             "",
             "During work:",
@@ -339,6 +341,128 @@ def _render_agent_ready_report(report: list[dict[str, str]]) -> str:
             "- respect withheld context and local policy decisions",
         ]
     )
+    return "\n".join(lines)
+
+
+@app.command()
+def onboard(
+    config: Annotated[
+        Path,
+        typer.Option("--config", help="Config file to create or load."),
+    ] = Path("devcd.toml"),
+    force: Annotated[
+        bool,
+        typer.Option("--force", help="Overwrite an existing config file."),
+    ] = False,
+    agent_ready: Annotated[
+        bool,
+        typer.Option(
+            "--agent-ready/--no-agent-ready",
+            help="Prepare this workspace for selected AI agents.",
+        ),
+    ] = True,
+    agents: Annotated[
+        str | None,
+        typer.Option(
+            "--agents",
+            help="Comma-separated targets: copilot, claude, codex, openclaw, or all.",
+        ),
+    ] = None,
+    endpoint: Annotated[
+        str,
+        typer.Option("--endpoint", help="DevCD daemon state endpoint."),
+    ] = "http://127.0.0.1:8765/state",
+    output_json: Annotated[
+        bool,
+        typer.Option("--json", help="Print machine-readable JSON output."),
+    ] = False,
+    no_tui: Annotated[
+        bool,
+        typer.Option("--no-tui", help="Print plain-text output instead of launching a TUI."),
+    ] = False,
+) -> None:
+    """Guide first-run setup toward a local Agent Passport."""
+    report = _build_onboard_report(
+        config=config,
+        force=force,
+        agent_ready=agent_ready,
+        agents=agents,
+        endpoint=endpoint,
+    )
+    if output_json:
+        typer.echo(json.dumps(report, indent=2, sort_keys=True))
+        return
+    typer.echo(_render_onboard_report(report, no_tui=no_tui))
+
+
+def _build_onboard_report(
+    *,
+    config: Path,
+    force: bool,
+    agent_ready: bool,
+    agents: str | None,
+    endpoint: str,
+) -> dict[str, Any]:
+    config_status = _write_onboard_config(config, force=force)
+    agent_targets = _parse_agent_ready_targets(agents or "all") if agent_ready else ()
+    agent_report = (
+        _write_agent_ready_workspace(agent_targets, workspace_root=Path.cwd())
+        if agent_targets
+        else []
+    )
+    return {
+        "config": {"path": str(config), "status": config_status},
+        "agent_ready": agent_report,
+        "quickstart": _build_quickstart_report(
+            config=config,
+            endpoint=endpoint,
+            demo_events=None,
+        ),
+        "doctor": _build_doctor_report(config=config, endpoint=endpoint),
+        "mutates_external_config": False,
+        "starts_daemon": False,
+        "next_commands": [
+            "devcd agentic action-packet",
+            "devcd context passport",
+            "devcd context control",
+            "devcd integrations openclaw --smoke-test",
+        ],
+    }
+
+
+def _write_onboard_config(config: Path, *, force: bool) -> str:
+    existed = config.exists()
+    if existed and not force:
+        return "kept"
+    config.parent.mkdir(parents=True, exist_ok=True)
+    settings = DevCDSettings()
+    config.write_text(
+        tomli_w.dumps({"devcd": settings.to_config_dict()}),
+        encoding="utf-8",
+    )
+    return "updated" if existed else "created"
+
+
+def _render_onboard_report(report: dict[str, Any], *, no_tui: bool) -> str:
+    config = report["config"]
+    lines = [
+        "DevCD onboard",
+        f"- config: {config['status']} {config['path']}",
+        "- starts daemon: no",
+        "- mutates external config: no",
+    ]
+    agent_ready = report.get("agent_ready")
+    if isinstance(agent_ready, list) and agent_ready:
+        lines.append(_render_agent_ready_report(cast(list[dict[str, str]], agent_ready)))
+    else:
+        lines.extend(["", "Agent-ready workspace", "- skipped"])
+    quickstart_text = _render_quickstart_report(cast(dict[str, Any], report["quickstart"]))
+    lines.extend(["", quickstart_text])
+    lines.extend(["", "Next commands"])
+    for command in report["next_commands"]:
+        lines.append(f"- {command}")
+    if no_tui:
+        lines.append("- TUI skipped by --no-tui")
     return "\n".join(lines)
 
 
