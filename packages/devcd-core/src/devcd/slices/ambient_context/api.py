@@ -7,9 +7,12 @@ from fastapi import APIRouter, HTTPException, Request, Response
 from devcd.slices.ambient_context.models import (
     AgentContextSurface,
     ContextBrief,
+    ContextControlReport,
     ContextMemoryItem,
+    DetailLevel,
     MemoryCorrection,
     ProactiveSuggestion,
+    SurfaceKind,
     WorkState,
 )
 from devcd.slices.ambient_context.service import AmbientContextService
@@ -33,6 +36,22 @@ def create_context_brief(
     surface: AgentContextSurface | None = None,
 ) -> ContextBrief:
     return ambient_context_service(request).create_context_brief(surface)
+
+
+@router.get("/control-plane", response_model=ContextControlReport)
+def get_context_control_plane(
+    request: Request,
+    surface: SurfaceKind = SurfaceKind.CODING_AGENT,
+    pack: str = "developer",
+    detail: DetailLevel = DetailLevel.STANDARD,
+) -> ContextControlReport:
+    try:
+        return ambient_context_service(request).create_context_control_report(
+            AgentContextSurface(kind=surface, name="devcd-api-control", detail_level=detail),
+            context_pack=pack,
+        )
+    except KeyError as error:
+        raise HTTPException(status_code=422, detail=f"invalid context pack: {pack}") from error
 
 
 @router.post("/suggestions/{suggestion_id}/dismiss", response_model=ProactiveSuggestion)

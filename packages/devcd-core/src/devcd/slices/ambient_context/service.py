@@ -12,6 +12,9 @@ from devcd.slices.ambient_context.models import (
     AgentResurrectionContext,
     BlockerSignal,
     ContextBrief,
+    ContextControlContinuityPreview,
+    ContextControlQualitySummary,
+    ContextControlReport,
     ContextFeedback,
     ContextFeedbackKind,
     ContextMemoryItem,
@@ -281,6 +284,39 @@ _BUILT_IN_CONTEXT_PACKS = (
 
 _CONTEXT_PACK_REGISTRY = ContextPackRegistry(_BUILT_IN_CONTEXT_PACKS)
 
+_EMPTY_PASSPORT_NEXT_STEPS = (
+    "Initialize local config: devcd init",
+    "Start the local daemon: devcd run",
+    "Record a current goal: "
+    'devcd event task goal_update --payload \'{"current_goal":"Describe the task"}\'',
+    "Convert a pytest failure: devcd recipe pytest-failure --input "
+    "examples/event-source-recipes/pytest-failure/input.json",
+    "Regenerate this passport: devcd context passport",
+)
+
+_EMPTY_PASSPORT_UNKNOWN = "No local ledger events are visible in this passport yet."
+
+_EMPTY_CONTROL_NEXT_STEPS = (
+    "devcd init",
+    "devcd run",
+    "devcd event task goal_update --payload "
+    '\'{"current_goal":"Describe the task"}\'',
+    "devcd recipe pytest-failure --input examples/event-source-recipes/pytest-failure/input.json",
+    "devcd context control",
+)
+
+_QUALITY_PENALTIES: dict[ContextFeedbackKind, float] = {
+    ContextFeedbackKind.MISSING: 0.18,
+    ContextFeedbackKind.WRONG: 0.2,
+    ContextFeedbackKind.STALE: 0.15,
+    ContextFeedbackKind.TOO_BROAD: 0.1,
+    ContextFeedbackKind.TOO_SENSITIVE: 0.12,
+}
+
+_MISSING_CONTEXT_NEXT_ACTION = (
+    "Ask the user which missing context should be recorded before the next handoff."
+)
+
 
 def list_context_packs() -> list[ContextPack]:
     return _CONTEXT_PACK_REGISTRY.list_packs()
@@ -297,6 +333,113 @@ def render_context_packs_json() -> str:
         sort_keys=True,
         ensure_ascii=False,
     )
+
+
+def render_context_control_report_json(report: ContextControlReport) -> str:
+    return report.model_dump_json(indent=2)
+
+
+def render_context_control_report_text(report: ContextControlReport) -> str:
+    lines = [
+        "DevCD context control",
+        f"Active goal: {report.active_goal or 'none'}",
+        f"Surface: {report.selected_surface or 'unknown'}",
+        f"Pack: {report.selected_pack or 'unknown'}",
+        f"Confidence: {report.confidence:.2f}",
+        "",
+        "Visible sources",
+    ]
+    lines.extend(_bullet_lines(report.visible_sources, empty="None visible under current policy."))
+    lines.extend(["", "Withheld sources"])
+    if report.withheld_sources:
+        for withheld in report.withheld_sources:
+            category = withheld.category or withheld.kind
+            reason = withheld.policy_reason or withheld.reason
+            safe_summary = withheld.safe_summary or "No safe replacement available."
+            lines.append(f"- {category}: {reason}")
+            lines.append(f"  safe_summary: {safe_summary}")
+    else:
+        lines.append("- None known for this report.")
+    lines.extend(["", "Data classes"])
+    lines.append(
+        "- included: "
+        + (", ".join(report.included_data_classes) if report.included_data_classes else "none")
+    )
+    lines.append(
+        "- withheld: "
+        + (", ".join(report.withheld_data_classes) if report.withheld_data_classes else "none")
+    )
+    lines.extend(["", "Memory counts"])
+    for scope, count in sorted(report.memory_counts_by_scope.items()):
+        lines.append(f"- {scope}: {count}")
+    lines.extend(["", "Recent timeline"])
+    if report.recent_timeline_summary:
+        for attempt in report.recent_timeline_summary:
+            lines.append(
+                f"- {attempt.outcome}: {attempt.summary} ({attempt.source}/{attempt.type})"
+            )
+    else:
+        lines.append("- No recent visible events.")
+    lines.extend(["", "Latest policy reasons"])
+    lines.extend(_bullet_lines(report.latest_policy_reasons, empty="No policy reasons recorded."))
+    preview = report.continuity_packet_preview
+    lines.extend(
+        [
+            "",
+            "Continuity Packet preview",
+            f"- goal: {preview.active_goal or 'none'}",
+            f"- artifacts: {preview.artifact_count}",
+            f"- attempts: {preview.attempt_count}",
+            f"- blockers: {preview.blocker_count}",
+            f"- withheld_context: {preview.withheld_context_count}",
+        ]
+    )
+    if preview.suggested_next_steps:
+        lines.append("- suggested_next_steps:")
+        lines.extend(f"  - {step}" for step in preview.suggested_next_steps)
+    if preview.unknowns:
+        lines.append("- unknowns:")
+        lines.extend(f"  - {unknown}" for unknown in preview.unknowns)
+    lines.extend(["", "Context quality"])
+    if report.context_quality_summary is None:
+        lines.append("- No context quality summary available.")
+    else:
+        quality = report.context_quality_summary
+        lines.append(f"- feedback_count: {quality.feedback_count}")
+        lines.append(f"- phase: {quality.phase}")
+        lines.append(f"- ranking_or_scoring: {quality.ranking_or_scoring}")
+        lines.append(f"- score: {quality.score:.2f}")
+        if quality.category_counts:
+            lines.append("- category_counts:")
+            for category, count in quality.category_counts.items():
+                lines.append(f"  - {category}: {count}")
+        lines.extend(_bullet_lines(quality.latest_notes, empty="No context feedback recorded."))
+        if quality.risk_notes:
+            lines.append("- risk_notes:")
+            lines.extend(f"  - {note}" for note in quality.risk_notes)
+        if quality.suggested_next_actions:
+            lines.append("- suggested_next_actions:")
+            lines.extend(f"  - {action}" for action in quality.suggested_next_actions)
+    lines.extend(["", "Next commands"])
+    lines.extend(_bullet_lines(report.next_commands, empty="devcd doctor"))
+    return "\n".join(lines)
+
+
+def _bullet_lines(values: list[str], *, empty: str) -> list[str]:
+    if not values:
+        return [f"- {empty}"]
+    return [f"- {value}" for value in values]
+
+
+def _dedupe_strings(values: Iterable[str]) -> list[str]:
+    deduped: list[str] = []
+    seen: set[str] = set()
+    for value in values:
+        if value in seen:
+            continue
+        deduped.append(value)
+        seen.add(value)
+    return deduped
 
 
 class AmbientContextService:
@@ -447,7 +590,83 @@ class AmbientContextService:
         return feedback
 
     def get_context_quality(self) -> ContextQualityReport:
-        return ContextQualityReport(feedback=self._read_feedback())
+        return self._context_quality_report(self._read_feedback())
+
+    def create_context_control_report(
+        self,
+        surface: AgentContextSurface | None = None,
+        *,
+        context_pack: str = "developer",
+        include_empty_guidance: bool = True,
+    ) -> ContextControlReport:
+        pack = get_context_pack(context_pack)
+        requested_surface = surface or AgentContextSurface(
+            kind=SurfaceKind.CODING_AGENT,
+            name="devcd-control",
+        )
+        work_state = self.get_work_state()
+        brief = self.create_context_brief(requested_surface)
+        packet = self.create_continuity_packet_from_brief(brief, context_pack=pack.id)
+        if include_empty_guidance:
+            packet = _with_empty_passport_guidance(packet)
+        quality = self.get_context_quality()
+        visible_sources = sorted(
+            set(work_state.policy_summary.included_sources)
+            | set(brief.policy_decision.included_sources)
+        )
+        withheld_sources = self._dedupe_withheld_context(brief.withheld_context)
+        included_data_classes = sorted(
+            set(work_state.policy_summary.included_data_classes)
+            | set(brief.policy_decision.included_data_classes)
+        )
+        withheld_data_classes = sorted(
+            set(work_state.policy_summary.withheld_data_classes)
+            | set(brief.policy_decision.withheld_data_classes)
+        )
+        return ContextControlReport(
+            active_goal=brief.active_goal,
+            selected_pack=pack.id,
+            selected_surface=brief.surface.kind.value,
+            confidence=brief.confidence,
+            visible_sources=visible_sources,
+            withheld_sources=withheld_sources,
+            included_data_classes=included_data_classes,
+            withheld_data_classes=withheld_data_classes,
+            memory_counts_by_scope=self._memory_counts_by_scope(),
+            recent_timeline_summary=work_state.recent_attempts[:8],
+            latest_policy_reasons=self._latest_policy_reasons(
+                work_state=work_state,
+                brief=brief,
+                withheld=withheld_sources,
+            ),
+            continuity_packet_preview=ContextControlContinuityPreview(
+                context_pack=packet.context_pack,
+                surface=packet.surface,
+                active_goal=packet.intent.summary if packet.intent is not None else None,
+                confidence=packet.confidence,
+                artifact_count=len(packet.artifacts),
+                attempt_count=len(packet.attempts),
+                blocker_count=len(packet.blockers),
+                withheld_context_count=len(packet.withheld_context),
+                suggested_next_steps=packet.suggested_next_steps[:5],
+                unknowns=packet.unknowns[:5],
+            ),
+            context_quality_summary=ContextControlQualitySummary(
+                feedback_count=len(quality.feedback),
+                phase=quality.phase,
+                ranking_or_scoring=quality.ranking_or_scoring,
+                score=quality.score,
+                category_counts=quality.category_counts,
+                latest_notes=brief.context_quality_notes[:5],
+                risk_notes=quality.risk_notes[:5],
+                suggested_next_actions=quality.suggested_next_actions[:5],
+            ),
+            next_commands=self._context_control_next_commands(
+                surface=brief.surface.kind.value,
+                context_pack=pack.id,
+                has_visible_context=_continuity_packet_has_visible_context(packet),
+            ),
+        )
 
     def create_continuity_packet_from_brief(
         self,
@@ -463,6 +682,22 @@ class AmbientContextService:
         surface_definition = self._surface_definition(brief.surface)
         entries = self._memory_for_surface(surface_definition)
         return self._research_continuity_packet(packet, entries)
+
+    def create_continuity_packet(
+        self,
+        surface: AgentContextSurface | None = None,
+        *,
+        context_pack: str = "developer",
+        include_empty_guidance: bool = False,
+    ) -> ContinuityPacket:
+        brief = self.create_context_brief(surface)
+        packet = self.create_continuity_packet_from_brief(
+            brief,
+            context_pack=context_pack,
+        )
+        if include_empty_guidance:
+            return _with_empty_passport_guidance(packet)
+        return packet
 
     def _feedback_payload(
         self,
@@ -614,6 +849,11 @@ class AmbientContextService:
             )
             else []
         )
+        quality = self.get_context_quality()
+        suggested_next_steps = self._quality_suggestions(
+            quality=quality,
+            existing=suggested_next_steps,
+        )
         resurrection = self._resurrection_context(
             entries=surface_memory,
             active_goal=active_goal,
@@ -658,14 +898,119 @@ class AmbientContextService:
                 withheld=withheld,
                 export_allowed=export_decision.allowed,
             ),
-            context_quality_notes=self._context_quality_notes(),
+            context_quality_notes=self._context_quality_notes(quality),
             policy_decision=policy_summary,
-            confidence=work_state.confidence,
+            confidence=round(work_state.confidence * quality.score, 2),
         )
 
-    def _context_quality_notes(self) -> list[str]:
+    def _context_quality_report(
+        self,
+        feedback_items: list[ContextFeedback],
+    ) -> ContextQualityReport:
+        category_counts = {kind.value: 0 for kind in ContextFeedbackKind}
+        for feedback in feedback_items:
+            category_counts[feedback.kind.value] += 1
+        penalty = sum(
+            _QUALITY_PENALTIES[kind] * category_counts[kind.value]
+            for kind in ContextFeedbackKind
+        )
+        summary_notes = self._quality_summary_notes(category_counts)
+        risk_notes = self._quality_risk_notes(category_counts)
+        suggested_next_actions = (
+            [_MISSING_CONTEXT_NEXT_ACTION]
+            if category_counts[ContextFeedbackKind.MISSING.value] > 0
+            else []
+        )
+        return ContextQualityReport(
+            feedback=feedback_items,
+            score=round(max(0.0, 1.0 - penalty), 2),
+            category_counts=category_counts,
+            summary_notes=summary_notes,
+            risk_notes=risk_notes,
+            suggested_next_actions=suggested_next_actions,
+            withheld_feedback_count=sum(1 for feedback in feedback_items if feedback.note_withheld),
+        )
+
+    def _quality_summary_notes(self, category_counts: dict[str, int]) -> list[str]:
+        labels = {
+            ContextFeedbackKind.MISSING: (
+                "missing feedback item indicates the next packet lacks expected context",
+                "missing feedback items indicate the next packet lacks expected context",
+            ),
+            ContextFeedbackKind.WRONG: (
+                "wrong feedback item indicates visible context may be incorrect",
+                "wrong feedback items indicate visible context may be incorrect",
+            ),
+            ContextFeedbackKind.STALE: (
+                "stale feedback item indicates visible context may be outdated",
+                "stale feedback items indicate visible context may be outdated",
+            ),
+            ContextFeedbackKind.TOO_BROAD: (
+                "too_broad feedback item indicates the next packet may include too much context",
+                "too_broad feedback items indicate the next packet may include too much context",
+            ),
+            ContextFeedbackKind.TOO_SENSITIVE: (
+                "too_sensitive feedback item indicates the next packet may expose "
+                "sensitive context",
+                "too_sensitive feedback items indicate the next packet may expose "
+                "sensitive context",
+            ),
+        }
         notes: list[str] = []
-        for feedback in self._read_feedback()[-5:]:
+        for kind in ContextFeedbackKind:
+            count = category_counts[kind.value]
+            if count == 0:
+                continue
+            singular, plural = labels[kind]
+            label = singular if count == 1 else plural
+            notes.append(f"{count} {label}.")
+        return notes
+
+    def _quality_risk_notes(self, category_counts: dict[str, int]) -> list[str]:
+        risk_notes: list[str] = []
+        if category_counts[ContextFeedbackKind.MISSING.value] > 0:
+            risk_notes.append("Context may be incomplete because missing feedback was recorded.")
+        if category_counts[ContextFeedbackKind.WRONG.value] > 0:
+            risk_notes.append("Context may be incorrect because wrong feedback was recorded.")
+        if category_counts[ContextFeedbackKind.STALE.value] > 0:
+            risk_notes.append("Context may be stale because stale feedback was recorded.")
+        if category_counts[ContextFeedbackKind.TOO_BROAD.value] > 0:
+            risk_notes.append("Context may be too broad because too_broad feedback was recorded.")
+        if category_counts[ContextFeedbackKind.TOO_SENSITIVE.value] > 0:
+            risk_notes.append(
+                "Context may be too sensitive because too_sensitive feedback was recorded."
+            )
+        return risk_notes
+
+    def _quality_suggestions(
+        self,
+        *,
+        quality: ContextQualityReport,
+        existing: list[ProactiveSuggestion],
+    ) -> list[ProactiveSuggestion]:
+        suggestions = list(existing)
+        seen = {suggestion.summary for suggestion in suggestions}
+        for action in quality.suggested_next_actions:
+            if action in seen or len(suggestions) == 3:
+                continue
+            suggestions.append(
+                ProactiveSuggestion(
+                    id=f"context-quality-{self._slug(action)}",
+                    summary=action,
+                    rationale="Local context feedback marked required context as missing.",
+                    confidence=quality.score,
+                    status=ProactiveSuggestionStatus.ACTIVE,
+                    created_at=quality.generated_at,
+                )
+            )
+            seen.add(action)
+        return suggestions
+
+    def _context_quality_notes(self, quality: ContextQualityReport) -> list[str]:
+        notes: list[str] = []
+        notes.extend(quality.summary_notes)
+        notes.extend(quality.risk_notes)
+        for feedback in quality.feedback[-5:]:
             note_state = (
                 "note withheld by policy" if feedback.note_withheld else "note stored locally"
             )
@@ -674,6 +1019,63 @@ class AmbientContextService:
             )
         return notes
 
+    def _memory_counts_by_scope(self) -> dict[str, int]:
+        return {
+            scope.value: len(
+                self.memory_store.list_by_scope(
+                    scope,
+                    self.state_engine.is_source_visible,
+                )
+            )
+            for scope in MemoryScope
+        }
+
+    def _dedupe_withheld_context(
+        self,
+        withheld: list[WithheldContext],
+    ) -> list[WithheldContext]:
+        deduped: list[WithheldContext] = []
+        seen: set[tuple[str, str, str]] = set()
+        for item in withheld:
+            key = (
+                item.category or item.kind,
+                item.policy_reason or item.reason,
+                item.safe_summary,
+            )
+            if key in seen:
+                continue
+            deduped.append(item)
+            seen.add(key)
+        return deduped
+
+    def _latest_policy_reasons(
+        self,
+        *,
+        work_state: WorkState,
+        brief: ContextBrief,
+        withheld: list[WithheldContext],
+    ) -> list[str]:
+        reasons = [work_state.policy_summary.reason, brief.policy_decision.reason]
+        reasons.extend(attempt.policy_reason for attempt in work_state.recent_attempts[:5])
+        reasons.extend(item.policy_reason or item.reason for item in withheld[:5])
+        return _dedupe_strings(reason for reason in reasons if reason)
+
+    def _context_control_next_commands(
+        self,
+        *,
+        surface: str,
+        context_pack: str,
+        has_visible_context: bool,
+    ) -> list[str]:
+        if not has_visible_context:
+            return list(_EMPTY_CONTROL_NEXT_STEPS)
+        return [
+            f"devcd context passport --surface {surface} --pack {context_pack}",
+            "devcd context memory",
+            "devcd context quality",
+            "devcd doctor",
+        ]
+
     def _surface_definition(
         self,
         surface: AgentContextSurface,
@@ -681,6 +1083,13 @@ class AmbientContextService:
         definition = _CONTEXT_SURFACES.get(surface.kind)
         if definition is not None:
             return definition
+        if surface.kind is SurfaceKind.MCP:
+            return ContextSurfaceDefinition(
+                kind=surface.kind,
+                detail_level=surface.detail_level,
+                allowed_state_areas=_ALL_STATE_AREAS,
+                allowed_memory_scopes=(MemoryScope.WORKING, MemoryScope.EPISODIC),
+            )
         if surface.kind in _LEGACY_LOCAL_SURFACES:
             return ContextSurfaceDefinition(
                 kind=surface.kind,
@@ -1271,6 +1680,11 @@ class AmbientContextService:
                 if artifact is not None:
                     artifacts.append(artifact)
                 continue
+            if event_type == "note_update":
+                artifact = self._research_note_artifact(entry)
+                if artifact is not None:
+                    artifacts.append(artifact)
+                continue
             if event_type != "file_focus":
                 continue
             file_path = self._payload_value(entry.content, "path")
@@ -1310,6 +1724,21 @@ class AmbientContextService:
             relevance=0.85,
             last_seen_at=entry.timestamp,
             policy_reason=entry.policy_reason or "source metadata is visible by policy",
+        )
+
+    def _research_note_artifact(self, entry: MemoryEntry) -> RelevantArtifact | None:
+        identifier = self._first_payload_string(entry.content, ("reference", "title"))
+        if identifier is None:
+            return None
+        summary = self._research_payload_summary(entry.content, ("summary", "title"))
+        return RelevantArtifact(
+            kind="note",
+            identifier=identifier,
+            summary=summary or f"note_update: {identifier}",
+            source=entry.source or "unknown",
+            relevance=0.7,
+            last_seen_at=entry.timestamp,
+            policy_reason=entry.policy_reason or "note metadata is visible by policy",
         )
 
     def _open_loops_and_blockers(
@@ -1975,6 +2404,14 @@ def _render_research_continuity_packet_markdown(packet: ContinuityPacket) -> str
         lines.append("- No unknowns were inferred from visible context.")
     lines.append("")
 
+    lines.extend(["## context_quality_notes"])
+    if packet.context_quality_notes:
+        for note in packet.context_quality_notes:
+            lines.append(f"- {note}")
+    else:
+        lines.append("- No context feedback recorded.")
+    lines.append("")
+
     lines.extend(["## withheld_context"])
     if packet.withheld_context:
         for withheld in packet.withheld_context:
@@ -1995,9 +2432,10 @@ def _render_research_continuity_packet_markdown(packet: ContinuityPacket) -> str
 
 
 def _render_generic_continuity_packet_markdown(packet: ContinuityPacket) -> str:
-    lines = ["# DevCD Continuity Packet", ""]
+    lines = ["# DevCD Agent Passport", ""]
     lines.extend(["## packet_id", packet.id, ""])
     lines.extend(["## context_pack", packet.context_pack, ""])
+    lines.extend(["## surface", packet.surface, ""])
     lines.extend(
         [
             "## goal",
@@ -2005,7 +2443,112 @@ def _render_generic_continuity_packet_markdown(packet: ContinuityPacket) -> str:
             "",
         ]
     )
+    lines.extend(["## artifacts"])
+    if packet.artifacts:
+        for artifact in packet.artifacts:
+            lines.append(f"- {artifact.kind}: {artifact.identifier} - {artifact.summary}")
+    else:
+        lines.append("- None visible under current policy.")
+    lines.append("")
+
+    lines.extend(["## attempts"])
+    if packet.attempts:
+        for attempt in packet.attempts[:5]:
+            lines.append(
+                f"- {attempt.outcome}: {attempt.summary} ({attempt.source}/{attempt.type})"
+            )
+            if attempt.failure_reason:
+                lines.append(f"  why_failed: {attempt.failure_reason}")
+    else:
+        lines.append("- None visible under current policy.")
+    lines.append("")
+
+    lines.extend(["## blockers"])
+    if packet.blockers:
+        for blocker in packet.blockers:
+            lines.append(f"- {blocker.summary}")
+            if blocker.reason:
+                lines.append(f"  reason: {blocker.reason}")
+    else:
+        lines.append("- None detected.")
+    lines.append("")
+
+    lines.extend(["## do_not_repeat"])
+    if packet.do_not_repeat:
+        for item in packet.do_not_repeat:
+            lines.append(f"- {item}")
+    else:
+        lines.append("- No repeated failed pattern is visible.")
+    lines.append("")
+
+    lines.extend(["## suggested_next_steps"])
+    if packet.suggested_next_steps:
+        for step in packet.suggested_next_steps:
+            lines.append(f"- {step}")
+    else:
+        lines.append("- Continue from the visible goal, artifacts, and attempts.")
+    lines.append("")
+
+    lines.extend(["## unknowns"])
+    if packet.unknowns:
+        for unknown in packet.unknowns:
+            lines.append(f"- {unknown}")
+    else:
+        lines.append("- No unknowns were inferred from visible context.")
+    lines.append("")
+
+    lines.extend(["## context_quality_notes"])
+    if packet.context_quality_notes:
+        for note in packet.context_quality_notes:
+            lines.append(f"- {note}")
+    else:
+        lines.append("- No context feedback recorded.")
+    lines.append("")
+
+    lines.extend(["## withheld_context"])
+    if packet.withheld_context:
+        for withheld in packet.withheld_context:
+            lines.append(f"- category: {withheld.category or withheld.kind}")
+            lines.append(f"  policy_reason: {withheld.policy_reason or withheld.reason}")
+            lines.append(
+                f"  safe_summary: {withheld.safe_summary or 'No safe replacement available.'}"
+            )
+    else:
+        lines.append("- None withheld for this packet.")
+    lines.append("")
+
+    lines.extend(["## policy_decision"])
+    lines.append(f"- allowed: {str(packet.policy_decision.allowed).lower()}")
+    lines.append(f"- operation: {packet.policy_decision.operation}")
+    lines.append(f"- reason: {packet.policy_decision.reason}")
     return "\n".join(lines) + "\n"
+
+
+def _with_empty_passport_guidance(packet: ContinuityPacket) -> ContinuityPacket:
+    if _continuity_packet_has_visible_context(packet):
+        return packet
+    unknowns = list(packet.unknowns)
+    if _EMPTY_PASSPORT_UNKNOWN not in unknowns:
+        unknowns.insert(0, _EMPTY_PASSPORT_UNKNOWN)
+    return packet.model_copy(
+        update={
+            "suggested_next_steps": list(_EMPTY_PASSPORT_NEXT_STEPS),
+            "unknowns": unknowns,
+        }
+    )
+
+
+def _continuity_packet_has_visible_context(packet: ContinuityPacket) -> bool:
+    return bool(
+        packet.intent is not None
+        or packet.artifacts
+        or packet.decisions
+        or packet.attempts
+        or packet.blockers
+        or packet.preferences
+        or packet.do_not_repeat
+        or packet.withheld_context
+    )
 
 
 def continuity_packet_from_context_brief(
@@ -2050,6 +2593,7 @@ def continuity_packet_from_context_brief(
                 else None,
             )
         )
+
     seen_attempts = {
         (attempt.timestamp, attempt.source, attempt.type, attempt.summary) for attempt in attempts
     }
@@ -2094,9 +2638,16 @@ def continuity_packet_from_context_brief(
         attempts=attempts,
         blockers=blockers,
         do_not_repeat=brief.resurrection.do_not_repeat,
-        suggested_next_steps=[brief.resurrection.suggested_next_action]
-        if brief.resurrection.suggested_next_action is not None
-        else [suggestion.summary for suggestion in brief.suggested_next_steps[:1]],
+        suggested_next_steps=_dedupe_strings(
+            [
+                *(
+                    [brief.resurrection.suggested_next_action]
+                    if brief.resurrection.suggested_next_action is not None
+                    else []
+                ),
+                *[suggestion.summary for suggestion in brief.suggested_next_steps],
+            ]
+        ),
         unknowns=brief.resurrection.unknowns,
         context_quality_notes=brief.context_quality_notes,
         withheld_context=brief.withheld_context,

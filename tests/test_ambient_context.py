@@ -45,13 +45,20 @@ from devcd.slices.ambient_context.service import (
     render_context_brief_json,
     render_context_brief_markdown,
     render_context_packs_json,
+    render_continuity_packet_json,
+    render_continuity_packet_markdown,
 )
 from devcd.slices.events.ledger import EventLedger
 from devcd.slices.events.models import DevEvent, EventSource
 from devcd.slices.events.recipes import (
     PytestFailure,
     PytestFailureRecipeInput,
+    ResearchFailedAttempt,
+    ResearchNoteMetadata,
+    ResearchSessionRecipeInput,
+    ResearchSource,
     events_from_pytest_failure,
+    events_from_research_session,
 )
 from devcd.slices.host_state_engine.service import StateEngine
 from devcd.slices.memory_layer.service import MemoryStore
@@ -146,14 +153,120 @@ def test_context_brief_surfaces_policy_safe_quality_notes_without_feedback_text(
     markdown = render_context_brief_markdown(brief)
     contract = json.loads(render_context_brief_json(brief))
 
-    assert brief.context_quality_notes == [
-        "brief-123: missing feedback recorded; note withheld by policy."
-    ]
+    assert "brief-123: missing feedback recorded; note withheld by policy." in (
+        brief.context_quality_notes
+    )
+    assert any("missing feedback" in note for note in brief.context_quality_notes)
     assert "## context_quality_notes" in markdown
     assert "brief-123: missing feedback recorded; note withheld by policy." in markdown
     assert contract["context_quality_notes"] == brief.context_quality_notes
     assert "private failing test name" not in markdown
     assert "private failing test name" not in json.dumps(contract)
+
+
+def test_context_quality_report_computes_deterministic_summary(tmp_path) -> None:
+    service, _state_engine = build_ambient_context_service(tmp_path)
+    baseline = service.get_context_quality()
+
+    service.record_feedback(
+        brief_id="brief-123",
+        kind=ContextFeedbackKind.MISSING,
+        note="Add the private failing test name to the handoff.",
+    )
+    service.record_feedback(
+        brief_id="brief-123",
+        kind=ContextFeedbackKind.STALE,
+        note="This is based on an old branch.",
+    )
+
+    quality = service.get_context_quality()
+
+    assert baseline.score == 1.0
+    assert quality.score < baseline.score
+    assert quality.category_counts == {
+        "missing": 1,
+        "stale": 1,
+        "wrong": 0,
+        "too_broad": 0,
+        "too_sensitive": 0,
+    }
+    assert quality.summary_notes == [
+        "1 missing feedback item indicates the next packet lacks expected context.",
+        "1 stale feedback item indicates visible context may be outdated.",
+    ]
+    assert quality.risk_notes == [
+        "Context may be incomplete because missing feedback was recorded.",
+        "Context may be stale because stale feedback was recorded.",
+    ]
+    assert quality.suggested_next_actions == [
+        "Ask the user which missing context should be recorded before the next handoff."
+    ]
+
+
+def test_feedback_adjusts_next_passport_confidence_and_actions(tmp_path) -> None:
+    service, state_engine = build_ambient_context_service(tmp_path)
+    state_engine.accept_event(
+        DevEvent(
+            source=EventSource.TASK,
+            type="goal_update",
+            timestamp=datetime(2026, 5, 5, 10, 0, tzinfo=UTC),
+            payload={"current_goal": "Ship quality-aware passports"},
+        )
+    )
+    service.record_feedback(
+        brief_id="brief-123",
+        kind=ContextFeedbackKind.MISSING,
+        note="The private repro command is missing.",
+    )
+    service.record_feedback(
+        brief_id="brief-123",
+        kind=ContextFeedbackKind.STALE,
+        note="The selected file changed after this brief.",
+    )
+
+    packet = service.create_continuity_packet(
+        AgentContextSurface(kind="coding-agent", name="copilot"),
+    )
+    contract = json.loads(render_continuity_packet_json(packet))
+    markdown = render_continuity_packet_markdown(packet)
+
+    assert packet.intent is not None
+    assert packet.confidence < packet.intent.confidence
+    assert any("missing feedback" in note for note in packet.context_quality_notes)
+    assert any("stale feedback" in note for note in packet.context_quality_notes)
+    assert any("missing context" in step for step in packet.suggested_next_steps)
+    assert "private repro command" not in markdown
+    assert "private repro command" not in json.dumps(contract)
+    assert contract["context_quality_notes"] == packet.context_quality_notes
+    assert "## context_quality_notes" in markdown
+
+
+def test_all_feedback_categories_surface_safe_packet_quality_notes(tmp_path) -> None:
+    service, state_engine = build_ambient_context_service(tmp_path)
+    state_engine.accept_event(
+        DevEvent(
+            source=EventSource.TASK,
+            type="goal_update",
+            timestamp=datetime(2026, 5, 5, 10, 0, tzinfo=UTC),
+            payload={"current_goal": "Check all feedback categories"},
+        )
+    )
+    for kind in ContextFeedbackKind:
+        service.record_feedback(
+            brief_id="brief-123",
+            kind=kind,
+            note=f"SECRET raw note for {kind.value}",
+        )
+
+    packet = service.create_continuity_packet(AgentContextSurface(kind="coding-agent"))
+    dumped = packet.model_dump_json()
+
+    assert packet.confidence < 0.9
+    assert all(
+        any(f"{kind.value} feedback" in note for note in packet.context_quality_notes)
+        for kind in ContextFeedbackKind
+    )
+    assert "SECRET raw note" not in dumped
 
 
 def test_sensitive_context_feedback_note_is_withheld(tmp_path) -> None:
@@ -1539,3 +1652,73 @@ def test_research_like_continuity_packet_is_not_developer_specific() -> None:
         "Do not compare latency studies without normalizing dataset size."
     ]
     assert "git_context" not in dumped["pack_metadata"]
+
+
+def test_research_session_recipe_feeds_policy_filtered_research_packet(tmp_path) -> None:
+    service, state_engine = build_ambient_context_service(tmp_path)
+    report = ResearchSessionRecipeInput(
+        goal="Assess whether retrieval latency changes answer quality",
+        timestamp=datetime(2026, 5, 5, 10, 0, tzinfo=UTC),
+        reviewed_sources=[
+            ResearchSource(
+                title="Latency and answer quality",
+                reference="doi:10.0000/example-a",
+                source_type="paper",
+                summary="Metadata-only source summary",
+                full_text="PRIVATE_ARTICLE_TEXT",
+            )
+        ],
+        notes=[
+            ResearchNoteMetadata(
+                title="Latency note",
+                summary="Note metadata summary",
+                raw_text="PRIVATE_NOTE_TEXT",
+            )
+        ],
+        hypotheses=["Lower latency may improve iterative answer quality"],
+        decisions=["Treat dataset size as a confound"],
+        failed_attempts=[
+            ResearchFailedAttempt(
+                summary="Compared papers without matching source count",
+                why_failed="The comparison mixed latency with source-count effects.",
+                do_not_repeat="Do not compare sources without matching source count.",
+            )
+        ],
+        suggested_next_step="Find a matched source-count comparison",
+        transcript_text="PRIVATE_TRANSCRIPT_TEXT",
+    )
+
+    for event in events_from_research_session(report):
+        state_engine.accept_event(event)
+
+    brief = service.create_context_brief(AgentContextSurface(kind="research-agent", name="test"))
+    packet = service.create_continuity_packet_from_brief(brief, context_pack="research")
+    dumped = packet.model_dump_json()
+
+    assert packet.context_pack == "research"
+    assert packet.surface == "research-agent"
+    assert packet.intent is not None
+    assert packet.intent.summary == "Assess whether retrieval latency changes answer quality"
+    assert any(
+        artifact.identifier == "doi:10.0000/example-a"
+        and artifact.summary == "Metadata-only source summary"
+        for artifact in packet.artifacts
+    )
+    assert any(
+        artifact.kind == "note" and artifact.summary == "Note metadata summary"
+        for artifact in packet.artifacts
+    )
+    assert {decision.summary for decision in packet.decisions} == {
+        "Treat dataset size as a confound",
+        "Lower latency may improve iterative answer quality",
+    }
+    assert packet.attempts[0].summary == "Compared papers without matching source count"
+    assert packet.attempts[0].failure_reason == (
+        "The comparison mixed latency with source-count effects."
+    )
+    assert packet.do_not_repeat == ["Do not compare sources without matching source count."]
+    assert packet.suggested_next_steps == ["Find a matched source-count comparison"]
+    assert {item.category for item in packet.withheld_context} >= {"payload_content"}
+    assert "PRIVATE_ARTICLE_TEXT" not in dumped
+    assert "PRIVATE_NOTE_TEXT" not in dumped
+    assert "PRIVATE_TRANSCRIPT_TEXT" not in dumped

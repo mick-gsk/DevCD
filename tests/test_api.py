@@ -145,6 +145,90 @@ def test_context_brief_api_returns_policy_filtered_brief() -> None:
     assert body["policy_decision"]["operation"] == "export"
 
 
+def test_context_control_plane_api_reports_visible_and_withheld_context() -> None:
+    client = build_client()
+    headers = {"Authorization": "Bearer test-token"}
+    client.post(
+        "/event",
+        headers=headers,
+        json={
+            "source": "task",
+            "type": "goal_update",
+            "timestamp": "2026-05-04T12:00:00Z",
+            "payload": {"current_goal": "Ship the context control plane"},
+        },
+    )
+    client.post(
+        "/event",
+        headers=headers,
+        json={
+            "source": "ide",
+            "type": "file_focus",
+            "timestamp": "2026-05-04T12:01:00Z",
+            "payload": {"path": "packages/devcd-core/src/devcd/cli.py"},
+        },
+    )
+    client.post(
+        "/event",
+        headers=headers,
+        json={
+            "source": "browser",
+            "type": "url_focus",
+            "timestamp": "2026-05-04T12:02:00Z",
+            "payload": {"url": "https://internal.invalid/private-ticket"},
+        },
+    )
+    client.post(
+        "/event",
+        headers=headers,
+        json={
+            "source": "task",
+            "type": "test_output",
+            "timestamp": "2026-05-04T12:03:00Z",
+            "payload": {"output": "SECRET_TEST_OUTPUT=do-not-print"},
+            "sensitivity": "sensitive",
+        },
+    )
+
+    response = client.get("/context/control-plane", headers=headers)
+
+    assert response.status_code == 200
+    body = response.json()
+    dumped = response.text
+    assert body["active_goal"] == "Ship the context control plane"
+    assert body["selected_pack"] == "developer"
+    assert body["selected_surface"] == "coding-agent"
+    assert set(body["visible_sources"]) >= {"task", "ide"}
+    assert body["withheld_sources"][0]["category"] == "source"
+    assert "source is not enabled by policy" in body["withheld_sources"][0]["policy_reason"]
+    assert "browser url_focus signal was withheld" in body["withheld_sources"][0]["safe_summary"]
+    assert body["included_data_classes"] == ["metadata"]
+    assert body["memory_counts_by_scope"]["working"] == 2
+    assert body["continuity_packet_preview"]["active_goal"] == "Ship the context control plane"
+    assert body["next_commands"]
+    assert "private-ticket" not in dumped
+    assert "SECRET_TEST_OUTPUT" not in dumped
+    assert any(item["category"] == "sensitivity" for item in body["withheld_sources"])
+
+
+def test_context_control_plane_api_empty_state_is_useful() -> None:
+    client = build_client()
+    headers = {"Authorization": "Bearer test-token"}
+
+    response = client.get("/context/control-plane", headers=headers)
+
+    assert response.status_code == 200
+    body = response.json()
+    assert body["active_goal"] is None
+    assert body["visible_sources"] == []
+    assert body["memory_counts_by_scope"] == {"working": 0, "episodic": 0, "semantic": 0}
+    assert any(
+        "devcd event task goal_update --payload" in command
+        for command in body["next_commands"]
+    )
+    assert body["continuity_packet_preview"]["active_goal"] is None
+
+
 def test_context_suggestion_dismiss_api_suppresses_suggestion() -> None:
     client = build_client()
     headers = {"Authorization": "Bearer test-token"}

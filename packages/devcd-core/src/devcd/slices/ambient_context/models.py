@@ -317,8 +317,57 @@ class ContextFeedback(BaseModel):
 
 class ContextQualityReport(BaseModel):
     feedback: list[ContextFeedback] = Field(default_factory=list)
-    phase: Literal["feedback_only"] = "feedback_only"
-    ranking_or_scoring: Literal["not_computed_phase_1"] = "not_computed_phase_1"
+    phase: Literal["deterministic_feedback_loop"] = "deterministic_feedback_loop"
+    ranking_or_scoring: Literal["deterministic_local_score"] = "deterministic_local_score"
+    score: float = Field(default=1.0, ge=0.0, le=1.0)
+    category_counts: dict[str, int] = Field(default_factory=dict)
+    summary_notes: list[str] = Field(default_factory=list)
+    risk_notes: list[str] = Field(default_factory=list)
+    suggested_next_actions: list[str] = Field(default_factory=list)
+    withheld_feedback_count: int = Field(default=0, ge=0)
+    generated_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
+
+
+class ContextControlContinuityPreview(BaseModel):
+    context_pack: str = Field(min_length=1)
+    surface: str = Field(min_length=1)
+    active_goal: str | None = None
+    confidence: float = Field(default=0.0, ge=0.0, le=1.0)
+    artifact_count: int = Field(default=0, ge=0)
+    attempt_count: int = Field(default=0, ge=0)
+    blocker_count: int = Field(default=0, ge=0)
+    withheld_context_count: int = Field(default=0, ge=0)
+    suggested_next_steps: list[str] = Field(default_factory=list)
+    unknowns: list[str] = Field(default_factory=list)
+
+
+class ContextControlQualitySummary(BaseModel):
+    feedback_count: int = Field(default=0, ge=0)
+    phase: str = "deterministic_feedback_loop"
+    ranking_or_scoring: str = "deterministic_local_score"
+    score: float = Field(default=1.0, ge=0.0, le=1.0)
+    category_counts: dict[str, int] = Field(default_factory=dict)
+    latest_notes: list[str] = Field(default_factory=list)
+    risk_notes: list[str] = Field(default_factory=list)
+    suggested_next_actions: list[str] = Field(default_factory=list)
+
+
+class ContextControlReport(BaseModel):
+    schema_version: str = "1"
+    active_goal: str | None = None
+    selected_pack: str | None = None
+    selected_surface: str | None = None
+    confidence: float = Field(default=0.0, ge=0.0, le=1.0)
+    visible_sources: list[str] = Field(default_factory=list)
+    withheld_sources: list[WithheldContext] = Field(default_factory=list)
+    included_data_classes: list[str] = Field(default_factory=list)
+    withheld_data_classes: list[str] = Field(default_factory=list)
+    memory_counts_by_scope: dict[str, int] = Field(default_factory=dict)
+    recent_timeline_summary: list[RecentAttempt] = Field(default_factory=list)
+    latest_policy_reasons: list[str] = Field(default_factory=list)
+    continuity_packet_preview: ContextControlContinuityPreview
+    context_quality_summary: ContextControlQualitySummary | None = None
+    next_commands: list[str] = Field(default_factory=list)
     generated_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
 
 
