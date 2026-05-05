@@ -8,19 +8,21 @@ Today, every agentic tool starts with a blank slate. You paste context. You expl
 
 ## The Direction
 
-DevCD is the context layer that sits between a developer's working environment and the agents that assist them.
+DevCD is a **local-first Agent Continuity Layer** that sits between a working environment and the agents that assist it.
 
-It is not a model, a chat interface, or a task runner. It is a daemon — a persistent, local, structured source of truth about what is happening right now.
+It is not a model, a chat interface, a task runner, a remote exporter, or a telemetry service. It is a daemon — a persistent, local, structured source of truth about what is happening right now — that survives session boundaries and expresses continuity through a typed, policy-filtered **Continuity Packet**.
+
+The first mature proof is **developer workflow continuity**: coding agents resume from goal, failure history, and stale attempts recorded locally. Context Packs define a path for other domains without adding remote dependencies; the current research pack is exercised through synthetic metadata-only events.
 
 ### Principles
 
-1. **Local-first, always.** Developer context is sensitive. Observation runs locally by default. Remote export requires explicit configuration and policy.
+1. **Local-first, always.** Work context is sensitive. Observation runs locally by default. Remote export requires explicit configuration and policy.
 
 2. **Explicit policy.** Every observation or action passes through a policy decision that can be inspected, logged, and reasoned about. No implicit side effects.
 
 3. **Structured state, not raw text.** Events are normalized. State is typed. Memory has scope and TTL. Agents receive structured context, not raw file diffs.
 
-4. **Vertical Slice Architecture.** Each feature domain — events, state, memory, policy, bridge — owns its models, services, and tests. The kernel stays intentionally small.
+4. **Vertical Slice Architecture.** Each feature domain — events, state, memory, policy, ambient context — owns its models, services, and tests. The kernel stays intentionally small.
 
 5. **Zero vendor lock-in.** The protocol is MCP-compatible. The storage is local JSON Lines. The daemon runs on any POSIX-compatible machine.
 
@@ -32,6 +34,9 @@ It is not a model, a chat interface, or a task runner. It is a daemon — a pers
 - Working-memory TTL
 - Local event ledger
 - CLI and runtime config
+- Read-only MCP stdio server with Continuity Packet and legacy handoff resources
+- Developer Context Pack (first mature continuity proof)
+- Research Context Pack metadata and synthetic fixture renderer
 
 ### v0.2 — MCP Bridge
 - MCP-compatible resource + tool surface

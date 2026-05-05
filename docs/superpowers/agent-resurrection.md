@@ -93,8 +93,13 @@ The packet is rendered as Markdown by the CLI. The resurrection section looks li
 The packet is produced by `_resurrection_context()` in
 `packages/devcd-core/src/devcd/slices/ambient_context/service.py`.
 
-MCP clients can read the same handoff contract from the read-only stdio resource
-`devcd://context/agent-handoff-packet`.
+MCP clients can read continuity data through two read-only stdio resources:
+
+- `devcd://context/continuity-packet` — domain-neutral Continuity Packet
+  (developer pack by default; includes intent, artifacts, attempts, blockers,
+  do_not_repeat, suggested_next_steps, withheld-context metadata)
+- `devcd://context/agent-handoff-packet` — legacy developer handoff JSON contract
+  (kept for backward compatibility with existing integrations)
 
 To create local events from a concrete pytest failure report before generating a
 handoff, use:

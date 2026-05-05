@@ -1,4 +1,4 @@
-# DevCD — Developer Context Daemon
+# DevCD — Local-First Agent Continuity Layer
 
 [![CI](https://github.com/mick-gsk/DevCD/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/mick-gsk/DevCD/actions/workflows/ci.yml)
 [![Python 3.11+](https://img.shields.io/badge/python-3.11%2B-blue.svg)](https://www.python.org/downloads/)
@@ -6,9 +6,13 @@
 [![pre-commit](https://img.shields.io/badge/pre--commit-enabled-brightgreen?logo=pre-commit)](https://github.com/pre-commit/pre-commit)
 [![Vertical Slice Architecture](https://img.shields.io/badge/architecture-vertical--slice-informational)](docs/devcd/architecture.md)
 
-**Stop re-explaining your workspace to every coding agent. Give the next agent a verified local starting point when context is lost.**
+**DevCD gives agents persistent, policy-safe continuity across sessions.**
 
-DevCD records local developer work state — files, Git state, tasks, notes — as typed events and serves policy-filtered context briefs over localhost. Agents can query DevCD instead of asking you to restate the same local context on every prompt. When an agent loses its chat window, DevCD produces a policy-filtered handoff packet so the next agent can continue without rediscovering goal, failure history, and stale attempts from scratch.
+DevCD records local work state as typed events and serves policy-filtered context over localhost and read-only MCP. When an agent loses its session, DevCD produces a structured **Continuity Packet** — goal, failure history, stale attempts to avoid, and suggested next action — derived entirely from local events with no remote call or model inference.
+
+The first proof is **developer workflow continuity**: coding agents can resume from where the previous session stopped. A synthetic research fixture now exercises the same local-first, policy-filtered packet path through **Context Packs** without adding connectors or remote export.
+
+Use it as a read-only MCP context source for MCP-native agent runtimes such as OpenClaw.
 
 The product core is local-first work state, typed context, policy-filtered context briefs, a localhost API, and no telemetry.
 
@@ -48,13 +52,14 @@ See [docs/superpowers/agent-resurrection.md](docs/superpowers/agent-resurrection
 - 5-minute TTL working-memory with configurable scopes
 - CLI for config initialization and event submission
 - Read-only local MCP stdio resources for policy-filtered context
-- `devcd://context/agent-handoff-packet` exposes the same handoff JSON contract through MCP
+- `devcd://context/continuity-packet` — domain-neutral Continuity Packet via MCP
+- `devcd://context/agent-handoff-packet` — legacy developer handoff contract via MCP (kept for compatibility)
 
 ## Quick Start
 
 **Runtime: Python 3.11+**
 
-DevCD is pre-alpha. Until a PyPI release is published, install it from a local checkout:
+DevCD is in early developer preview. Until a PyPI release is published, install it from a local checkout:
 
 ```bash
 git clone https://github.com/mick-gsk/DevCD.git
@@ -126,7 +131,9 @@ See [examples/context-brief](examples/context-brief/README.md) for a reproducibl
 
 ## Boundary
 
-DevCD is not a model, chat interface, or task runner. It is the **state and policy layer** that lives between your working environment and any AI that assists you.
+DevCD is not a model, chat interface, task runner, remote exporter, or telemetry service. It is the **state and policy layer** that lives between your working environment and any AI that assists you.
+
+Context Packs define which event types and surfaces each domain (developer, research, …) needs. The developer pack is the first mature proof. The research pack is a synthetic metadata-only fixture and renderer path; it does not add browser, note, or library connectors.
 
 ## Architecture
 

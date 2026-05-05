@@ -1,6 +1,6 @@
 # DevCD
 
-DevCD is a local-first Developer Context Daemon: typed local events -> state, memory, policy decisions, and policy-filtered context briefs for agents.
+DevCD is a local-first Agent Continuity Layer: typed local events -> state, memory, policy decisions, and policy-filtered Continuity Packets for agents. Developer workflow continuity is the first mature proof; Context Packs extend the same infrastructure to other domains.
 
 DevCD is not a model, chat UI, task runner, remote exporter, telemetry service, or action executor.
 
@@ -10,7 +10,10 @@ Agent context paths:
 - Machine-readable handoff: `devcd context handoff-demo --events examples/agent-resurrection/sample-events.jsonl --json`
 - Local feedback: `devcd context feedback <brief_id> --kind missing --note "..."`, then `devcd context quality`
 - HTTP daemon: `devcd run`, then use loopback endpoints `GET /context/work-state` and `POST /context/brief`
-- MCP stdio: `devcd mcp serve`; read `devcd://context/agent-handoff-packet` for the same handoff JSON contract; exposes read-only resources only, no tools or prompts
+- MCP stdio: `devcd mcp serve`; use as a read-only MCP context source for MCP-native agent runtimes such as OpenClaw; exposes read-only resources only, no tools or prompts
+  - `devcd://context/continuity-packet` — domain-neutral policy-filtered Continuity Packet (developer pack by default)
+  - `devcd://context/agent-handoff-packet` — legacy developer handoff JSON contract (kept for backward compatibility)
+- Context Packs: `devcd context packs` or `devcd context packs --json`; developer and research packs are built-in
 - Pytest failure recipe: `devcd recipe pytest-failure --input examples/event-source-recipes/pytest-failure/input.json`
 
 Agent resurrection and continuity:

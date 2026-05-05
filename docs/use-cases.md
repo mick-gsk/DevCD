@@ -62,18 +62,50 @@ Where DevCD helps today:
 Why this matters: the same local system can answer both "what am I working on?"
 and "should this be allowed?"
 
+## 5. Resume Across Session Boundaries (Agent Continuity)
+
+Problem: when an agent session ends, the next agent starts from zero. The goal,
+last failure, stale attempts, and suggested next action all have to be re-stated
+from scratch.
+
+Where DevCD helps today:
+
+- derives a structured **Continuity Packet** from locally recorded events
+- includes intent, artifacts, blockers, do_not_repeat, suggested_next_steps, and
+  withheld-context metadata
+- accessible via CLI (`devcd context handoff-demo`) and MCP
+  (`devcd://context/continuity-packet`)
+- developer workflow is the first mature continuity proof
+
+Why this matters: session loss becomes a recoverable state, not a blank slate.
+
+## Context Packs
+
+Context Packs declare the event types, surfaces, and policy notes for a specific
+continuity domain. The developer pack is the first mature proof and drives the
+coding-agent and IDE surfaces. A research pack is also declared and exercised by
+a synthetic metadata-only fixture covering source review metadata, hypotheses,
+and failed approaches.
+
+Packs extend the same local policy and continuity infrastructure. They do not
+add remote dependencies, external connectors, new event collectors, or telemetry
+paths.
+
+List available packs: `devcd context packs`
+
 ## When DevCD Is a Good Fit
 
 DevCD is a good fit when you want:
 
-- a local context layer between your environment and AI tooling
+- a local continuity layer between your environment and AI tooling
 - inspectable state instead of hidden prompt assembly
 - policy-aware handling of observation and action
 
 ## When DevCD Is Not the Main Product
 
-DevCD is not a model, chat client, or end-user assistant. It is most valuable as
-infrastructure that makes those systems more consistent, local, and explainable.
+DevCD is not a model, chat client, end-user assistant, remote exporter, or
+telemetry service. It is most valuable as infrastructure that makes those systems
+more consistent, local, and explainable.
 
 If that is the problem you are trying to solve, continue with
 [Getting Started](getting-started.md) and then the

@@ -1,5 +1,65 @@
 # Errors
 
+## [ERR-20260505-003] make_check
+
+**Logged**: 2026-05-05T00:00:00Z
+**Priority**: low
+**Status**: resolved
+**Area**: service
+
+### Summary
+`make check` failed on mypy after Ruff passed for the Research Pack change.
+
+### Error
+`service.py:1671: error: Returning Any from function declared to return "Literal['unknown', 'success', 'failure', 'interrupted']"`
+
+### Context
+- Command: `make check`
+- Related file: `packages/devcd-core/src/devcd/slices/ambient_context/service.py`
+
+### Suggested Fix
+Return explicit literal branches from `_research_attempt_outcome` instead of returning the `Any` value from `_payload_value` after a membership check.
+
+### Resolution
+- **Resolved**: 2026-05-05T00:00:00Z
+- **Notes**: Replaced the membership return with explicit `success`, `failure`, `interrupted`, and `unknown` branches; mypy then passed.
+
+### Metadata
+- Reproducible: yes
+- Related Files: packages/devcd-core/src/devcd/slices/ambient_context/service.py
+
+---
+
+## [ERR-20260505-002] make_check
+
+**Logged**: 2026-05-05T00:00:00Z
+**Priority**: low
+**Status**: resolved
+**Area**: service
+
+### Summary
+`make check` failed on Ruff after adding Research Pack continuity rendering.
+
+### Error
+Ruff reported import ordering in `packages/devcd-core/src/devcd/cli.py` and E501 line-length errors in `packages/devcd-core/src/devcd/slices/ambient_context/service.py` and `tests/test_cli.py`.
+
+### Context
+- Command: `make check`
+- Related files: `packages/devcd-core/src/devcd/cli.py`, `packages/devcd-core/src/devcd/slices/ambient_context/service.py`, `tests/test_cli.py`
+
+### Suggested Fix
+Run import sorting or reorder imports, then wrap long tuple literals, comprehensions, and assertion strings before rerunning `make check`.
+
+### Resolution
+- **Resolved**: 2026-05-05T00:00:00Z
+- **Notes**: Wrapped the Research Pack service/test lines and let Ruff fix the CLI import ordering.
+
+### Metadata
+- Reproducible: yes
+- Related Files: packages/devcd-core/src/devcd/cli.py, packages/devcd-core/src/devcd/slices/ambient_context/service.py, tests/test_cli.py
+
+---
+
 ## [ERR-20260505-001] make_check
 
 **Logged**: 2026-05-05T00:00:00Z
