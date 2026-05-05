@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 from datetime import UTC, datetime
+from pathlib import Path
 
 import pytest
 
@@ -11,6 +12,13 @@ from devcd.slices.ambient_context.models import (
     ContextBrief,
     ContextFeedbackKind,
     ContextMemoryItem,
+    ContinuityArtifact,
+    ContinuityAttempt,
+    ContinuityBlocker,
+    ContinuityDecision,
+    ContinuityIntent,
+    ContinuityPacket,
+    ContinuityPreference,
     EvidenceItem,
     FreshnessState,
     FreshnessStatus,
@@ -30,8 +38,13 @@ from devcd.slices.ambient_context.models import (
 )
 from devcd.slices.ambient_context.service import (
     AmbientContextService,
+    continuity_packet_from_context_brief,
+    get_context_pack,
+    list_context_packs,
+    render_agent_handoff_packet_json,
     render_context_brief_json,
     render_context_brief_markdown,
+    render_context_packs_json,
 )
 from devcd.slices.events.ledger import EventLedger
 from devcd.slices.events.models import DevEvent, EventSource
@@ -857,6 +870,51 @@ def test_product_context_surfaces_resolve_to_testable_definitions(
     assert "surface" in brief.policy_decision.reason
 
 
+def test_context_pack_registry_contains_developer_and_research_packs() -> None:
+    packs = list_context_packs()
+
+    assert [pack.id for pack in packs] == ["developer", "research"]
+    assert all(not pack.remote_export_enabled_by_default for pack in packs)
+
+    developer = get_context_pack("developer")
+    research = get_context_pack("research")
+
+    assert developer.display_name == "Developer Context"
+    assert {event.source for event in developer.supported_events} >= {
+        "ide",
+        "git",
+        "task",
+        "notes",
+    }
+    assert "coding-agent" in developer.supported_surfaces
+    assert developer.renderer_metadata["continuity_packet"]["legacy_handoff_contract"] is True
+
+    research_event_types = {
+        event_type
+        for supported_event in research.supported_events
+        for event_type in supported_event.event_types
+    }
+    assert research.display_name == "Research Context"
+    assert {"source_review", "hypothesis", "decision", "failed_attempt"}.issubset(
+        research_event_types
+    )
+    assert "research-agent" in research.supported_surfaces
+    assert research.renderer_metadata["continuity_packet"]["default_context_pack"] == "research"
+
+
+def test_context_pack_registry_json_is_stable_and_policy_safe() -> None:
+    first = render_context_packs_json()
+    second = render_context_packs_json()
+
+    assert first == second
+    body = json.loads(first)
+    assert [pack["id"] for pack in body] == ["developer", "research"]
+    assert all(pack["remote_export_enabled_by_default"] is False for pack in body)
+    assert body[0]["supported_events"] == sorted(
+        body[0]["supported_events"], key=lambda event: event["source"]
+    )
+
+
 def test_subagent_surface_gets_focused_context_without_unnecessary_breadth(tmp_path) -> None:
     service, state_engine = build_ambient_context_service(tmp_path)
     state_engine.accept_event(
@@ -1284,3 +1342,200 @@ def test_context_brief_has_schema_version_and_confidence_fields() -> None:
 
     assert brief.schema_version == "1"
     assert brief.confidence == 0.0
+
+
+def test_agent_resurrection_fixture_maps_to_neutral_continuity_packet(tmp_path) -> None:
+    service, state_engine = build_ambient_context_service(tmp_path)
+    events_path = Path("examples/agent-resurrection/sample-events.jsonl")
+    schema_path = Path("schemas/devcd-continuity-packet.schema.json")
+
+    for line in events_path.read_text(encoding="utf-8").splitlines():
+        state_engine.accept_event(DevEvent.model_validate_json(line))
+
+    brief = service.create_context_brief(AgentContextSurface(kind="cli", name="copilot"))
+    packet = continuity_packet_from_context_brief(brief)
+    contract = packet.model_dump(mode="json")
+    schema = json.loads(schema_path.read_text(encoding="utf-8"))
+
+    assert packet.context_pack == "developer"
+    assert packet.intent is not None
+    assert packet.intent.summary == "Continue the resurrection demo after Agent A lost chat context"
+    assert packet.artifacts[0].identifier == "tests/test_ambient_context.py"
+    assert packet.attempts[0].summary == "make check still fails: do_not_repeat is absent"
+    assert packet.attempts[0].outcome == "failure"
+    assert packet.blockers[0].summary == "make check still fails: do_not_repeat is absent"
+    assert packet.blockers[0].reason is not None
+    assert "happened after the attempted fix" in packet.blockers[0].reason
+    assert packet.do_not_repeat == [
+        "Do not repeat the last attempted fix unchanged: Added only a Last failure section "
+        "to the markdown renderer"
+    ]
+    assert packet.suggested_next_steps == [
+        "Add a first-class resurrection context before rendering"
+    ]
+    assert packet.pack_metadata["git_context"]["branch"] == "main"
+    assert {item.category for item in packet.withheld_context} >= {
+        "sensitivity",
+        "source",
+        "payload_content",
+    }
+    assert set(schema["required"]).issubset(contract.keys())
+
+
+def test_neutral_continuity_packet_can_render_existing_handoff_contract(tmp_path) -> None:
+    service, state_engine = build_ambient_context_service(tmp_path)
+    state_engine.accept_event(
+        DevEvent(
+            source=EventSource.TASK,
+            type="goal_update",
+            timestamp=datetime(2026, 5, 4, 12, 0, tzinfo=UTC),
+            payload={"current_goal": "Ship neutral continuity packet"},
+        )
+    )
+    state_engine.accept_event(
+        DevEvent(
+            source=EventSource.TASK,
+            type="test_failure",
+            timestamp=datetime(2026, 5, 4, 12, 1, tzinfo=UTC),
+            payload={
+                "reason": "legacy handoff contract drifted",
+                "suggested_next_action": "Render legacy packet from neutral continuity",
+            },
+        )
+    )
+
+    brief = service.create_context_brief(AgentContextSurface(kind="cli", name="copilot"))
+    packet = continuity_packet_from_context_brief(brief)
+
+    assert json.loads(render_agent_handoff_packet_json(packet)) == json.loads(
+        render_context_brief_json(brief)
+    )
+
+
+def test_research_continuity_preserves_distinct_same_timestamp_attempts(tmp_path) -> None:
+    service, state_engine = build_ambient_context_service(tmp_path)
+    timestamp = datetime(2026, 5, 5, 10, 0, tzinfo=UTC)
+    state_engine.accept_event(
+        DevEvent(
+            source=EventSource.TASK,
+            type="research_goal",
+            timestamp=timestamp,
+            payload={"current_goal": "Compare retrieval latency studies"},
+        )
+    )
+    for summary in (
+        "Compared latency without matching dataset size",
+        "Compared latency without matching source count",
+    ):
+        state_engine.accept_event(
+            DevEvent(
+                source=EventSource.NOTES,
+                type="failed_attempt",
+                timestamp=timestamp,
+                payload={"summary": summary},
+            )
+        )
+
+    brief = service.create_context_brief(AgentContextSurface(kind="research-agent", name="demo"))
+    packet = service.create_continuity_packet_from_brief(brief, context_pack="research")
+
+    summaries = [attempt.summary for attempt in packet.attempts]
+    assert "Compared latency without matching dataset size" in summaries
+    assert "Compared latency without matching source count" in summaries
+
+
+def test_research_like_continuity_packet_is_not_developer_specific() -> None:
+    timestamp = datetime(2026, 5, 5, 9, 30, tzinfo=UTC)
+    policy = PolicySummary(
+        allowed=True,
+        operation="export",
+        reason="local research continuity export is allowed by policy",
+        included_sources=["notes", "library"],
+        included_data_classes=["metadata"],
+    )
+
+    packet = ContinuityPacket(
+        id="research-packet-1",
+        context_pack="research",
+        surface="research-agent",
+        intent=ContinuityIntent(
+            summary="Evaluate whether retrieval latency changes answer quality",
+            status="active",
+            updated_at=timestamp,
+            confidence=0.72,
+        ),
+        artifacts=[
+            ContinuityArtifact(
+                kind="source",
+                identifier="doi:10.0000/example-a",
+                summary="Prior study on retrieval latency",
+                source="library",
+                relevance=0.9,
+                last_seen_at=timestamp,
+                policy_reason="source metadata is allowed by policy",
+            ),
+            ContinuityArtifact(
+                kind="note",
+                identifier="notes/retrieval-latency-hypothesis.md",
+                summary="Hypothesis: lower latency may improve iterative answer quality",
+                source="notes",
+                relevance=0.85,
+                last_seen_at=timestamp,
+                policy_reason="note title metadata is allowed by policy",
+            ),
+        ],
+        decisions=[
+            ContinuityDecision(
+                kind="hypothesis",
+                summary="Treat latency as a possible quality confound until tested",
+                source="notes",
+                decided_at=timestamp,
+                policy_reason="decision summary is allowed by policy",
+            )
+        ],
+        attempts=[
+            ContinuityAttempt(
+                timestamp=timestamp,
+                source="notes",
+                type="hypothesis_check",
+                summary="Compared two papers without normalizing dataset size",
+                outcome="failure",
+                failure_reason="The attempt mixed latency effects with dataset-size effects.",
+                policy_reason="attempt summary is allowed by policy",
+            )
+        ],
+        blockers=[
+            ContinuityBlocker(
+                kind="missing_source",
+                summary="Need a matched dataset-size source before concluding",
+                confidence=0.8,
+                detected_at=timestamp,
+                reason="Current sources do not isolate the hypothesis.",
+                policy_reason="blocker summary is allowed by policy",
+            )
+        ],
+        preferences=[
+            ContinuityPreference(
+                summary="Prefer citations from local source notes before web search",
+                source="notes",
+                policy_reason="preference summary is allowed by policy",
+            )
+        ],
+        do_not_repeat=["Do not compare latency studies without normalizing dataset size."],
+        suggested_next_steps=["Find one source with matched dataset size and latency variation."],
+        policy_decision=policy,
+        generated_at=timestamp,
+    )
+
+    dumped = packet.model_dump(mode="json")
+
+    assert dumped["context_pack"] == "research"
+    assert dumped["surface"] == "research-agent"
+    assert dumped["artifacts"][0]["kind"] == "source"
+    assert dumped["decisions"][0]["kind"] == "hypothesis"
+    assert dumped["attempts"][0]["outcome"] == "failure"
+    assert dumped["blockers"][0]["kind"] == "missing_source"
+    assert dumped["do_not_repeat"] == [
+        "Do not compare latency studies without normalizing dataset size."
+    ]
+    assert "git_context" not in dumped["pack_metadata"]

@@ -15,7 +15,15 @@ from devcd.slices.ambient_context.models import (
     ContextFeedback,
     ContextFeedbackKind,
     ContextMemoryItem,
+    ContextPack,
+    ContextPackEventSupport,
     ContextQualityReport,
+    ContinuityArtifact,
+    ContinuityAttempt,
+    ContinuityBlocker,
+    ContinuityDecision,
+    ContinuityIntent,
+    ContinuityPacket,
     DetailLevel,
     EvidenceItem,
     FreshnessState,
@@ -96,6 +104,22 @@ _CONTEXT_SURFACES: dict[SurfaceKind, ContextSurfaceDefinition] = {
         allowed_memory_scopes=(MemoryScope.WORKING, MemoryScope.EPISODIC),
         max_relevant_artifacts=8,
     ),
+    SurfaceKind.RESEARCH_AGENT: ContextSurfaceDefinition(
+        kind=SurfaceKind.RESEARCH_AGENT,
+        detail_level=DetailLevel.STANDARD,
+        allowed_state_areas=(
+            "summary",
+            "active_goal",
+            "active_intent",
+            "relevant_artifacts",
+            "open_loops",
+            "recent_attempts",
+            "blockers",
+            "suggested_next_steps",
+        ),
+        allowed_memory_scopes=(MemoryScope.WORKING, MemoryScope.EPISODIC),
+        max_relevant_artifacts=12,
+    ),
     SurfaceKind.DEBUGGING_AGENT: ContextSurfaceDefinition(
         kind=SurfaceKind.DEBUGGING_AGENT,
         detail_level=DetailLevel.DIAGNOSTIC,
@@ -136,6 +160,143 @@ _CONTEXT_SURFACES: dict[SurfaceKind, ContextSurfaceDefinition] = {
         max_relevant_artifacts=1,
     ),
 }
+
+
+class ContextPackRegistry:
+    def __init__(self, packs: Iterable[ContextPack]) -> None:
+        sorted_packs = sorted(packs, key=lambda pack: pack.id)
+        seen_ids: set[str] = set()
+        for pack in sorted_packs:
+            if pack.id in seen_ids:
+                raise ValueError(f"duplicate context pack id: {pack.id}")
+            seen_ids.add(pack.id)
+        self._packs_by_id = {pack.id: pack for pack in sorted_packs}
+
+    def list_packs(self) -> list[ContextPack]:
+        return [pack.model_copy(deep=True) for pack in self._packs_by_id.values()]
+
+    def get_pack(self, pack_id: str) -> ContextPack:
+        try:
+            return self._packs_by_id[pack_id].model_copy(deep=True)
+        except KeyError as error:
+            raise KeyError(pack_id) from error
+
+
+_BUILT_IN_CONTEXT_PACKS = (
+    ContextPack(
+        id="developer",
+        display_name="Developer Context",
+        description=(
+            "Local developer continuity for IDE focus, Git state, tasks, tests, notes, "
+            "review/debugging handoffs, and agent resurrection metadata."
+        ),
+        supported_events=[
+            ContextPackEventSupport(source="git", event_types=["branch_change", "commit"]),
+            ContextPackEventSupport(source="ide", event_types=["file_focus"]),
+            ContextPackEventSupport(
+                source="notes",
+                event_types=["context_feedback", "note_update", "prompt_injection", "user_hint"],
+            ),
+            ContextPackEventSupport(
+                source="task",
+                event_types=[
+                    "code_change",
+                    "fix_attempt",
+                    "fix_failure",
+                    "fix_success",
+                    "goal_update",
+                    "patch_apply",
+                    "test_failure",
+                    "test_output",
+                ],
+            ),
+        ],
+        supported_surfaces=[
+            "artifact",
+            "cli",
+            "coding-agent",
+            "debugging-agent",
+            "http",
+            "mcp",
+            "public-demo",
+            "review-agent",
+            "subagent",
+            "vscode",
+        ],
+        default_sensitivity="metadata-only developer workflow context",
+        policy_notes=[
+            "Remote export is disabled by default.",
+            "Actions are denied by the default observe-only policy.",
+            "Sensitive events, full-text payloads, and disabled sources are withheld.",
+        ],
+        renderer_metadata={
+            "continuity_packet": {
+                "default_context_pack": "developer",
+                "legacy_handoff_contract": True,
+                "pack_metadata_keys": ["git_context", "resurrection"],
+            }
+        },
+    ),
+    ContextPack(
+        id="research",
+        display_name="Research Context",
+        description=(
+            "Local research continuity for source review metadata, browser and note "
+            "metadata, hypotheses, decisions, and failed attempts."
+        ),
+        supported_events=[
+            ContextPackEventSupport(source="browser", event_types=["research_focus", "url_focus"]),
+            ContextPackEventSupport(
+                source="notes",
+                event_types=[
+                    "decision",
+                    "failed_attempt",
+                    "hypothesis",
+                    "note_update",
+                    "source_review",
+                ],
+            ),
+            ContextPackEventSupport(
+                source="task",
+                event_types=["failed_attempt", "hypothesis_check", "research_goal"],
+            ),
+        ],
+        supported_surfaces=["cli", "mcp", "public-demo", "research-agent", "subagent"],
+        default_sensitivity="metadata-only research continuity context",
+        policy_notes=[
+            "Remote export is disabled by default.",
+            "Raw source text, private notes, and full browser payloads are withheld by policy.",
+            "The pack declares local metadata only and does not load remote connectors.",
+        ],
+        renderer_metadata={
+            "continuity_packet": {
+                "default_context_pack": "research",
+                "artifact_kinds": ["source", "note", "browser_reference"],
+                "decision_kinds": ["hypothesis", "decision"],
+                "attempt_event_types": ["failed_attempt", "hypothesis_check"],
+            }
+        },
+    ),
+)
+
+_CONTEXT_PACK_REGISTRY = ContextPackRegistry(_BUILT_IN_CONTEXT_PACKS)
+
+
+def list_context_packs() -> list[ContextPack]:
+    return _CONTEXT_PACK_REGISTRY.list_packs()
+
+
+def get_context_pack(pack_id: str) -> ContextPack:
+    return _CONTEXT_PACK_REGISTRY.get_pack(pack_id)
+
+
+def render_context_packs_json() -> str:
+    return json.dumps(
+        [pack.model_dump(mode="json") for pack in list_context_packs()],
+        indent=2,
+        sort_keys=True,
+        ensure_ascii=False,
+    )
 
 
 class AmbientContextService:
@@ -287,6 +448,21 @@ class AmbientContextService:
 
     def get_context_quality(self) -> ContextQualityReport:
         return ContextQualityReport(feedback=self._read_feedback())
+
+    def create_continuity_packet_from_brief(
+        self,
+        brief: ContextBrief,
+        *,
+        context_pack: str = "developer",
+    ) -> ContinuityPacket:
+        get_context_pack(context_pack)
+        packet = continuity_packet_from_context_brief(brief, context_pack=context_pack)
+        if context_pack != "research":
+            return packet
+
+        surface_definition = self._surface_definition(brief.surface)
+        entries = self._memory_for_surface(surface_definition)
+        return self._research_continuity_packet(packet, entries)
 
     def _feedback_payload(
         self,
@@ -758,10 +934,13 @@ class AmbientContextService:
         return limitations or ["No policy-withheld or unknown context is known for this brief."]
 
     def _active_goal_from_memory(self, entries: list[MemoryEntry]) -> str | None:
-        latest_goal = self._latest_payload_value(
+        latest_goal = self._latest_payload_value_any(
             entries,
-            event_type="goal_update",
-            key="current_goal",
+            (
+                ("goal_update", "current_goal"),
+                ("research_goal", "current_goal"),
+                ("research_goal", "goal"),
+            ),
         )
         if latest_goal is None:
             return None
@@ -799,8 +978,7 @@ class AmbientContextService:
         elif (
             not do_not_repeat
             and last_failure is not None
-            and last_failure.type != "test_failure"
-            and last_failure.type.endswith("_failure")
+            and self._is_failure_event_type(last_failure.type)
         ):
             do_not_repeat = [f"Do not repeat the failed attempt unchanged: {last_failure.summary}"]
 
@@ -851,7 +1029,7 @@ class AmbientContextService:
     ) -> RecentAttempt | None:
         for entry in sorted(entries, key=lambda item: item.timestamp, reverse=True):
             event_type = self._string_from_content(entry.content, "type")
-            if event_type is None or not event_type.endswith("failure"):
+            if event_type is None or not self._is_failure_event_type(event_type):
                 continue
             reason = self._payload_value(entry.content, "reason")
             attempt_summary = self._attempt_summary(entry.content)
@@ -939,6 +1117,9 @@ class AmbientContextService:
             return True
         return event_type.endswith(("_attempt", "_failure", "_success"))
 
+    def _is_failure_event_type(self, event_type: str) -> bool:
+        return event_type in {"failed_attempt", "test_failure"} or event_type.endswith("failure")
+
     def _attempt_summary(self, content: dict[str, Any]) -> str | None:
         for key in ("summary", "change", "message", "reason", "command"):
             value = self._payload_value(content, key)
@@ -1019,8 +1200,13 @@ class AmbientContextService:
         entries: list[MemoryEntry],
         evidence: list[EvidenceItem],
     ) -> IntentLine | None:
-        latest_goal = self._latest_payload_value(
-            entries, event_type="goal_update", key="current_goal"
+        latest_goal = self._latest_payload_value_any(
+            entries,
+            (
+                ("goal_update", "current_goal"),
+                ("research_goal", "current_goal"),
+                ("research_goal", "goal"),
+            ),
         )
         latest_branch = self._latest_payload_value(
             entries, event_type="branch_change", key="branch"
@@ -1029,14 +1215,13 @@ class AmbientContextService:
         if intent_source is None:
             return None
 
-        summary, timestamp = intent_source
-        event_type = "branch_change" if latest_branch is not None else "goal_update"
+        summary, timestamp, event_type = intent_source
         return IntentLine(
             summary=summary,
             evidence=self._evidence_for_event_type(evidence, event_type),
             started_at=timestamp,
             updated_at=timestamp,
-            confidence=0.9 if event_type == "goal_update" else 0.6,
+            confidence=0.9 if event_type in {"goal_update", "research_goal"} else 0.6,
             status=IntentStatus.ACTIVE,
         )
 
@@ -1049,8 +1234,13 @@ class AmbientContextService:
         candidates: list[IntentLine] = []
         if active_intent is not None:
             candidates.append(active_intent)
-        latest_goal = self._latest_payload_value(
-            entries, event_type="goal_update", key="current_goal"
+        latest_goal = self._latest_payload_value_any(
+            entries,
+            (
+                ("goal_update", "current_goal"),
+                ("research_goal", "current_goal"),
+                ("research_goal", "goal"),
+            ),
         )
         latest_branch = self._latest_payload_value(
             entries, event_type="branch_change", key="branch"
@@ -1075,7 +1265,13 @@ class AmbientContextService:
     def _artifacts_from_memory(self, entries: list[MemoryEntry]) -> list[RelevantArtifact]:
         artifacts: list[RelevantArtifact] = []
         for entry in sorted(entries, key=lambda item: item.timestamp, reverse=True):
-            if self._string_from_content(entry.content, "type") != "file_focus":
+            event_type = self._string_from_content(entry.content, "type")
+            if event_type == "source_review":
+                artifact = self._research_source_artifact(entry)
+                if artifact is not None:
+                    artifacts.append(artifact)
+                continue
+            if event_type != "file_focus":
                 continue
             file_path = self._payload_value(entry.content, "path")
             if not isinstance(file_path, str) or not file_path:
@@ -1093,6 +1289,28 @@ class AmbientContextService:
                 )
             )
         return artifacts
+
+    def _research_source_artifact(self, entry: MemoryEntry) -> RelevantArtifact | None:
+        identifier = self._first_payload_string(
+            entry.content,
+            ("source_id", "citation_key", "doi", "url", "title"),
+        )
+        if identifier is None:
+            return None
+        kind = self._payload_value(entry.content, "kind")
+        summary = self._research_payload_summary(
+            entry.content,
+            ("summary", "title", "claim", "finding"),
+        )
+        return RelevantArtifact(
+            kind=kind if isinstance(kind, str) and kind.strip() else "source",
+            identifier=identifier,
+            summary=summary or f"source_review: {identifier}",
+            source=entry.source or "unknown",
+            relevance=0.85,
+            last_seen_at=entry.timestamp,
+            policy_reason=entry.policy_reason or "source metadata is visible by policy",
+        )
 
     def _open_loops_and_blockers(
         self,
@@ -1164,9 +1382,12 @@ class AmbientContextService:
     def _suggested_next_actions_from_memory(self, entries: list[MemoryEntry]) -> dict[str, str]:
         suggestions: dict[str, str] = {}
         for entry in sorted(entries, key=lambda item: item.timestamp, reverse=True):
-            if self._string_from_content(entry.content, "type") != "test_failure":
+            event_type = self._string_from_content(entry.content, "type")
+            if event_type not in {"test_failure", "failed_attempt"}:
                 continue
-            reason = self._payload_value(entry.content, "reason")
+            reason = self._payload_value(entry.content, "reason") or self._payload_value(
+                entry.content, "summary"
+            )
             suggested_action = self._payload_value(entry.content, "suggested_next_action")
             if isinstance(reason, str) and isinstance(suggested_action, str):
                 suggestions.setdefault(reason, suggested_action)
@@ -1221,14 +1442,51 @@ class AmbientContextService:
         *,
         event_type: str,
         key: str,
-    ) -> tuple[str, datetime] | None:
+    ) -> tuple[str, datetime, str] | None:
         for entry in sorted(entries, key=lambda item: item.timestamp, reverse=True):
             if self._string_from_content(entry.content, "type") != event_type:
                 continue
             value = self._payload_value(entry.content, key)
             if isinstance(value, str) and value.strip():
-                return value, entry.timestamp
+                return value, entry.timestamp, event_type
         return None
+
+    def _latest_payload_value_any(
+        self,
+        entries: list[MemoryEntry],
+        candidates: tuple[tuple[str, str], ...],
+    ) -> tuple[str, datetime, str] | None:
+        for entry in sorted(entries, key=lambda item: item.timestamp, reverse=True):
+            event_type = self._string_from_content(entry.content, "type")
+            for candidate_event_type, key in candidates:
+                if event_type != candidate_event_type:
+                    continue
+                value = self._payload_value(entry.content, key)
+                if isinstance(value, str) and value.strip():
+                    return value, entry.timestamp, candidate_event_type
+        return None
+
+    def _first_payload_string(
+        self,
+        content: dict[str, Any],
+        keys: tuple[str, ...],
+    ) -> str | None:
+        for key in keys:
+            value = self._payload_value(content, key)
+            if isinstance(value, str) and value.strip():
+                return value
+        return None
+
+    def _research_payload_summary(
+        self,
+        content: dict[str, Any],
+        keys: tuple[str, ...],
+    ) -> str | None:
+        value = self._first_payload_string(content, keys)
+        if value is not None:
+            return value
+        summary = self._summary_from_content(content)
+        return summary if summary else None
 
     def _payload_value(self, content: dict[str, Any], key: str) -> Any:
         payload = content.get("payload")
@@ -1251,6 +1509,9 @@ class AmbientContextService:
                 or payload.get("branch")
                 or payload.get("current_goal")
                 or payload.get("reason")
+                or payload.get("summary")
+                or payload.get("title")
+                or payload.get("source_id")
             )
             if isinstance(target, str) and target:
                 return f"{event_type}: {target}"
@@ -1275,11 +1536,204 @@ class AmbientContextService:
         self,
         action_type: str,
     ) -> Literal["unknown", "success", "failure", "interrupted"]:
-        if action_type.endswith("failure") or action_type == "test_failure":
+        if self._is_failure_event_type(action_type):
             return "failure"
         if action_type.endswith("success"):
             return "success"
         return "unknown"
+
+    def _research_continuity_packet(
+        self,
+        packet: ContinuityPacket,
+        entries: list[MemoryEntry],
+    ) -> ContinuityPacket:
+        decisions = self._dedupe_continuity_decisions(self._research_decisions(entries))
+        research_attempts = self._research_attempts(entries)
+        research_attempt_keys = {
+            (attempt.timestamp, attempt.source, attempt.type) for attempt in research_attempts
+        }
+        attempts = self._dedupe_continuity_attempts(
+            [
+                *research_attempts,
+                *[
+                    attempt
+                    for attempt in packet.attempts
+                    if attempt.type in {"failed_attempt", "hypothesis_check"}
+                    and (attempt.timestamp, attempt.source, attempt.type)
+                    not in research_attempt_keys
+                ],
+            ]
+        )
+        failed_attempt = next(
+            (attempt for attempt in attempts if attempt.outcome == "failure"),
+            None,
+        )
+        blockers = packet.blockers
+        if not blockers and failed_attempt is not None:
+            blockers = [
+                ContinuityBlocker(
+                    kind="failed_approach",
+                    summary=failed_attempt.summary,
+                    confidence=0.8,
+                    detected_at=failed_attempt.timestamp,
+                    reason=failed_attempt.failure_reason,
+                    policy_reason=failed_attempt.policy_reason,
+                )
+            ]
+
+        do_not_repeat = packet.do_not_repeat or self._research_do_not_repeat(entries)
+        suggested_next_steps = packet.suggested_next_steps or self._research_suggested_next_steps(
+            entries
+        )
+        unknowns = [
+            unknown
+            for unknown in packet.unknowns
+            if unknown != "No prior attempted fix is visible in policy-allowed context."
+        ]
+        pack_metadata = dict(packet.pack_metadata)
+        pack_metadata["research"] = {
+            "current_hypothesis": self._current_research_hypothesis(decisions),
+            "reviewed_source_count": sum(
+                1 for artifact in packet.artifacts if artifact.kind == "source"
+            ),
+        }
+        return packet.model_copy(
+            update={
+                "decisions": decisions,
+                "attempts": attempts,
+                "blockers": blockers,
+                "do_not_repeat": do_not_repeat,
+                "suggested_next_steps": suggested_next_steps,
+                "unknowns": unknowns,
+                "pack_metadata": pack_metadata,
+            }
+        )
+
+    def _research_decisions(self, entries: list[MemoryEntry]) -> list[ContinuityDecision]:
+        decisions: list[ContinuityDecision] = []
+        for entry in sorted(entries, key=lambda item: item.timestamp, reverse=True):
+            event_type = self._string_from_content(entry.content, "type")
+            if event_type not in {"hypothesis", "decision"}:
+                continue
+            summary = self._research_payload_summary(
+                entry.content,
+                ("summary", "hypothesis", "decision", "title"),
+            )
+            if summary is None:
+                continue
+            decisions.append(
+                ContinuityDecision(
+                    kind=event_type,
+                    summary=summary,
+                    source=entry.source or "unknown",
+                    decided_at=entry.timestamp,
+                    policy_reason=(
+                        entry.policy_reason or "research decision metadata is visible by policy"
+                    ),
+                )
+            )
+        return decisions
+
+    def _research_attempts(self, entries: list[MemoryEntry]) -> list[ContinuityAttempt]:
+        attempts: list[ContinuityAttempt] = []
+        for entry in sorted(entries, key=lambda item: item.timestamp, reverse=True):
+            event_type = self._string_from_content(entry.content, "type")
+            if event_type not in {"failed_attempt", "hypothesis_check"}:
+                continue
+            summary = self._attempt_summary(entry.content)
+            if summary is None:
+                continue
+            outcome = self._research_attempt_outcome(entry.content, event_type)
+            failure_reason = self._first_payload_string(
+                entry.content,
+                ("why_attempt_failed", "why_failed", "failure_reason", "reason"),
+            )
+            attempts.append(
+                ContinuityAttempt(
+                    timestamp=entry.timestamp,
+                    source=entry.source or "unknown",
+                    type=event_type,
+                    summary=summary,
+                    outcome=outcome,
+                    failure_reason=failure_reason if outcome == "failure" else None,
+                    policy_reason=(
+                        entry.policy_reason or "research attempt metadata is visible by policy"
+                    ),
+                )
+            )
+        return attempts
+
+    def _research_attempt_outcome(
+        self,
+        content: dict[str, Any],
+        event_type: str,
+    ) -> Literal["unknown", "success", "failure", "interrupted"]:
+        if event_type == "failed_attempt":
+            return "failure"
+        outcome = self._payload_value(content, "outcome")
+        if outcome == "success":
+            return "success"
+        if outcome == "failure":
+            return "failure"
+        if outcome == "interrupted":
+            return "interrupted"
+        if outcome == "unknown":
+            return "unknown"
+        return "unknown"
+
+    def _research_do_not_repeat(self, entries: list[MemoryEntry]) -> list[str]:
+        for entry in sorted(entries, key=lambda item: item.timestamp, reverse=True):
+            value = self._payload_value(entry.content, "do_not_repeat")
+            if isinstance(value, str) and value.strip():
+                return [value]
+            if isinstance(value, list):
+                return [item for item in value if isinstance(item, str) and item.strip()]
+        return []
+
+    def _research_suggested_next_steps(self, entries: list[MemoryEntry]) -> list[str]:
+        for entry in sorted(entries, key=lambda item: item.timestamp, reverse=True):
+            value = self._first_payload_string(
+                entry.content,
+                ("suggested_next_action", "suggested_next_step", "next_step"),
+            )
+            if value is not None:
+                return [value]
+        return []
+
+    def _current_research_hypothesis(self, decisions: list[ContinuityDecision]) -> str | None:
+        hypothesis = next(
+            (decision for decision in decisions if decision.kind == "hypothesis"),
+            None,
+        )
+        return hypothesis.summary if hypothesis is not None else None
+
+    def _dedupe_continuity_attempts(
+        self,
+        attempts: list[ContinuityAttempt],
+    ) -> list[ContinuityAttempt]:
+        deduped: list[ContinuityAttempt] = []
+        seen: set[tuple[datetime, str, str, str]] = set()
+        for attempt in attempts:
+            key = (attempt.timestamp, attempt.source, attempt.type, attempt.summary)
+            if key in seen:
+                continue
+            deduped.append(attempt)
+            seen.add(key)
+        return deduped
+
+    def _dedupe_continuity_decisions(
+        self,
+        decisions: list[ContinuityDecision],
+    ) -> list[ContinuityDecision]:
+        deduped: list[ContinuityDecision] = []
+        seen: set[tuple[datetime, str, str, str]] = set()
+        for decision in decisions:
+            key = (decision.decided_at, decision.kind, decision.source, decision.summary)
+            if key in seen:
+                continue
+            deduped.append(decision)
+            seen.add(key)
+        return deduped
 
 
 def render_context_brief_markdown(brief: ContextBrief) -> str:
@@ -1418,78 +1872,345 @@ def render_context_brief_markdown(brief: ContextBrief) -> str:
 
 def render_context_brief_json(brief: ContextBrief) -> str:
     """Return the brief as a machine-readable JSON contract (no sensitive payloads)."""
+    return render_agent_handoff_packet_json(continuity_packet_from_context_brief(brief))
+
+
+def render_continuity_packet_json(packet: ContinuityPacket) -> str:
+    return packet.model_dump_json(indent=2)
+
+
+def render_continuity_packet_markdown(packet: ContinuityPacket) -> str:
+    if packet.context_pack == "research":
+        return _render_research_continuity_packet_markdown(packet)
+    return _render_generic_continuity_packet_markdown(packet)
+
+
+def _render_research_continuity_packet_markdown(packet: ContinuityPacket) -> str:
+    lines = ["# DevCD Research Continuity Packet", ""]
+    lines.extend(["## packet_id", packet.id, ""])
+    lines.extend(["## context_pack", packet.context_pack, ""])
+    lines.extend(
+        [
+            "## research_goal",
+            packet.intent.summary if packet.intent is not None else "No research goal visible.",
+            "",
+        ]
+    )
+
+    lines.extend(["## reviewed_sources"])
+    source_artifacts = [artifact for artifact in packet.artifacts if artifact.kind == "source"]
+    if source_artifacts:
+        for artifact in source_artifacts:
+            lines.append(f"- source: {artifact.identifier} - {artifact.summary}")
+    else:
+        lines.append("- None visible under current policy.")
+    lines.append("")
+
+    lines.extend(["## current_hypothesis"])
+    hypothesis = next(
+        (decision for decision in packet.decisions if decision.kind == "hypothesis"),
+        None,
+    )
+    if hypothesis is not None:
+        lines.append(f"- {hypothesis.summary}")
+    else:
+        lines.append("- None visible under current policy.")
+    lines.append("")
+
+    lines.extend(["## decisions"])
+    non_hypothesis_decisions = [
+        decision for decision in packet.decisions if decision.kind != "hypothesis"
+    ]
+    if non_hypothesis_decisions:
+        for decision in non_hypothesis_decisions:
+            lines.append(f"- {decision.kind}: {decision.summary}")
+    else:
+        lines.append("- None visible under current policy.")
+    lines.append("")
+
+    lines.extend(["## already_tried"])
+    if packet.attempts:
+        for attempt in packet.attempts[:5]:
+            lines.append(
+                f"- {attempt.outcome}: {attempt.summary} ({attempt.source}/{attempt.type})"
+            )
+    else:
+        lines.append("- None visible under current policy.")
+    lines.append("")
+
+    lines.extend(["## failed_approach"])
+    failed_attempt = next(
+        (attempt for attempt in packet.attempts if attempt.outcome == "failure"),
+        None,
+    )
+    if failed_attempt is not None:
+        lines.append(f"- {failed_attempt.summary}")
+        if failed_attempt.failure_reason:
+            lines.append(f"  why_failed: {failed_attempt.failure_reason}")
+    else:
+        lines.append("- None detected.")
+    lines.append("")
+
+    lines.extend(["## do_not_repeat"])
+    if packet.do_not_repeat:
+        for item in packet.do_not_repeat:
+            lines.append(f"- {item}")
+    else:
+        lines.append("- No failed research pattern is visible.")
+    lines.append("")
+
+    lines.extend(["## suggested_next_steps"])
+    if packet.suggested_next_steps:
+        for step in packet.suggested_next_steps:
+            lines.append(f"- {step}")
+    else:
+        lines.append("- Continue from the research goal using visible source metadata.")
+    lines.append("")
+
+    lines.extend(["## unknowns"])
+    if packet.unknowns:
+        for unknown in packet.unknowns:
+            lines.append(f"- {unknown}")
+    else:
+        lines.append("- No unknowns were inferred from visible context.")
+    lines.append("")
+
+    lines.extend(["## withheld_context"])
+    if packet.withheld_context:
+        for withheld in packet.withheld_context:
+            lines.append(f"- category: {withheld.category or withheld.kind}")
+            lines.append(f"  policy_reason: {withheld.policy_reason or withheld.reason}")
+            lines.append(
+                f"  safe_summary: {withheld.safe_summary or 'No safe replacement available.'}"
+            )
+    else:
+        lines.append("- None withheld for this packet.")
+    lines.append("")
+
+    lines.extend(["## policy_decision"])
+    lines.append(f"- allowed: {str(packet.policy_decision.allowed).lower()}")
+    lines.append(f"- operation: {packet.policy_decision.operation}")
+    lines.append(f"- reason: {packet.policy_decision.reason}")
+    return "\n".join(lines) + "\n"
+
+
+def _render_generic_continuity_packet_markdown(packet: ContinuityPacket) -> str:
+    lines = ["# DevCD Continuity Packet", ""]
+    lines.extend(["## packet_id", packet.id, ""])
+    lines.extend(["## context_pack", packet.context_pack, ""])
+    lines.extend(
+        [
+            "## goal",
+            packet.intent.summary if packet.intent is not None else "No goal visible.",
+            "",
+        ]
+    )
+    return "\n".join(lines) + "\n"
+
+
+def continuity_packet_from_context_brief(
+    brief: ContextBrief,
+    *,
+    context_pack: str = "developer",
+) -> ContinuityPacket:
+    intent = None
+    if brief.active_goal is not None:
+        intent = ContinuityIntent(
+            summary=brief.active_goal,
+            status=IntentStatus.ACTIVE,
+            evidence=brief.active_intent.evidence if brief.active_intent is not None else [],
+            started_at=brief.active_intent.started_at if brief.active_intent is not None else None,
+            updated_at=brief.active_intent.updated_at
+            if brief.active_intent is not None
+            else brief.generated_at,
+            confidence=brief.active_intent.confidence
+            if brief.active_intent is not None
+            else brief.confidence,
+        )
+    elif brief.active_intent is not None:
+        intent = ContinuityIntent(
+            summary=brief.active_intent.summary,
+            status=brief.active_intent.status,
+            evidence=brief.active_intent.evidence,
+            started_at=brief.active_intent.started_at,
+            updated_at=brief.active_intent.updated_at,
+            confidence=brief.active_intent.confidence,
+        )
+
+    attempts: list[ContinuityAttempt] = []
+    last_attempt = brief.resurrection.last_attempt or (
+        brief.recent_attempts[0] if brief.recent_attempts else None
+    )
+    if last_attempt is not None:
+        attempts.append(
+            _continuity_attempt_from_recent_attempt(
+                last_attempt,
+                failure_reason=brief.resurrection.why_attempt_failed
+                if last_attempt.outcome == "failure"
+                else None,
+            )
+        )
+    seen_attempts = {
+        (attempt.timestamp, attempt.source, attempt.type, attempt.summary) for attempt in attempts
+    }
+    for attempt in brief.recent_attempts:
+        attempt_key = (attempt.timestamp, attempt.source, attempt.type, attempt.summary)
+        if attempt_key in seen_attempts:
+            continue
+        attempts.append(_continuity_attempt_from_recent_attempt(attempt))
+        seen_attempts.add(attempt_key)
+
+    blockers = [
+        ContinuityBlocker(
+            kind="failure" if blocker.summary == brief.resurrection.last_failure else "blocker",
+            summary=blocker.summary,
+            evidence=blocker.evidence,
+            confidence=blocker.confidence,
+            detected_at=blocker.detected_at,
+            reason=brief.resurrection.why_attempt_failed if index == 0 else None,
+            policy_reason="visible blocker signal is allowed by policy",
+        )
+        for index, blocker in enumerate(brief.blockers)
+    ]
+
+    return ContinuityPacket(
+        schema_version=brief.schema_version,
+        id=brief.id,
+        context_pack=context_pack,
+        surface=brief.surface.kind.value,
+        intent=intent,
+        artifacts=[
+            ContinuityArtifact(
+                kind=artifact.kind,
+                identifier=artifact.identifier,
+                summary=artifact.summary,
+                source=artifact.source,
+                relevance=artifact.relevance,
+                last_seen_at=artifact.last_seen_at,
+                policy_reason=artifact.policy_reason,
+            )
+            for artifact in brief.relevant_artifacts
+        ],
+        attempts=attempts,
+        blockers=blockers,
+        do_not_repeat=brief.resurrection.do_not_repeat,
+        suggested_next_steps=[brief.resurrection.suggested_next_action]
+        if brief.resurrection.suggested_next_action is not None
+        else [suggestion.summary for suggestion in brief.suggested_next_steps[:1]],
+        unknowns=brief.resurrection.unknowns,
+        context_quality_notes=brief.context_quality_notes,
+        withheld_context=brief.withheld_context,
+        policy_decision=brief.policy_decision,
+        provenance=list(brief.surface.allowed_state_areas),
+        pack_metadata={
+            "brief_id": brief.id,
+            "git_context": brief.git_context.model_dump(mode="json"),
+            "resurrection": brief.resurrection.model_dump(mode="json"),
+        },
+        confidence=brief.confidence,
+        generated_at=brief.generated_at,
+    )
+
+
+def _continuity_attempt_from_recent_attempt(
+    attempt: RecentAttempt,
+    *,
+    failure_reason: str | None = None,
+) -> ContinuityAttempt:
+    return ContinuityAttempt(
+        timestamp=attempt.timestamp,
+        source=attempt.source,
+        type=attempt.type,
+        summary=attempt.summary,
+        outcome=attempt.outcome,
+        failure_reason=failure_reason,
+        policy_reason=attempt.policy_reason,
+    )
+
+
+def render_agent_handoff_packet_json(packet: ContinuityPacket) -> str:
+    """Render the current developer handoff contract from a continuity packet."""
+    contract = agent_handoff_packet_from_continuity_packet(packet)
+    return json.dumps(contract, indent=2, ensure_ascii=False)
+
+
+def agent_handoff_packet_from_continuity_packet(packet: ContinuityPacket) -> dict[str, Any]:
+    git_context = _mapping_from_pack_metadata(packet, "git_context")
+    resurrection = _mapping_from_pack_metadata(packet, "resurrection")
     last_attempt = None
-    if brief.resurrection.last_attempt is not None:
-        a = brief.resurrection.last_attempt
+    if packet.attempts:
+        attempt = packet.attempts[0]
         last_attempt = {
-            "summary": a.summary,
-            "outcome": a.outcome,
-            "source": a.source,
-            "type": a.type,
-            "timestamp": a.timestamp.isoformat(),
-        }
-    elif brief.recent_attempts:
-        a = brief.recent_attempts[0]
-        last_attempt = {
-            "summary": a.summary,
-            "outcome": a.outcome,
-            "source": a.source,
-            "type": a.type,
-            "timestamp": a.timestamp.isoformat(),
+            "summary": attempt.summary,
+            "outcome": attempt.outcome,
+            "source": attempt.source,
+            "type": attempt.type,
+            "timestamp": attempt.timestamp.isoformat(),
         }
 
-    last_failure: str | None = brief.resurrection.last_failure
-    if last_failure is None:
-        failed = next((at for at in brief.recent_attempts if at.outcome == "failure"), None)
-        if failed is not None:
-            last_failure = failed.summary
-        elif brief.blockers:
-            last_failure = brief.blockers[0].summary
+    last_failure = _optional_string(resurrection.get("last_failure"))
+    if last_failure is None and packet.blockers:
+        last_failure = packet.blockers[0].summary
+    why_attempt_failed = _optional_string(resurrection.get("why_attempt_failed"))
+    if why_attempt_failed is None and packet.blockers:
+        why_attempt_failed = packet.blockers[0].reason
 
-    contract: dict[str, Any] = {
-        "schema_version": brief.schema_version,
-        "brief_id": brief.id,
-        "surface": brief.surface.kind.value,
-        "goal": brief.active_goal,
+    return {
+        "schema_version": packet.schema_version,
+        "brief_id": _optional_string(packet.pack_metadata.get("brief_id")) or packet.id,
+        "surface": packet.surface,
+        "goal": packet.intent.summary if packet.intent is not None else None,
         "relevant_artifacts": [
             {
-                "kind": art.kind,
-                "identifier": art.identifier,
-                "summary": art.summary,
-                "relevance": art.relevance,
+                "kind": artifact.kind,
+                "identifier": artifact.identifier,
+                "summary": artifact.summary,
+                "relevance": artifact.relevance,
             }
-            for art in brief.relevant_artifacts
+            for artifact in packet.artifacts
         ],
         "git_context": {
-            "branch": brief.git_context.branch,
-            "latest_commit": brief.git_context.latest_commit,
-            "latest_commit_summary": brief.git_context.latest_commit_summary,
-            "repository": brief.git_context.repository,
+            "branch": _optional_string(git_context.get("branch")),
+            "latest_commit": _optional_string(git_context.get("latest_commit")),
+            "latest_commit_summary": _optional_string(git_context.get("latest_commit_summary")),
+            "repository": _optional_string(git_context.get("repository")),
         },
         "last_attempt": last_attempt,
         "last_failure": last_failure,
-        "why_attempt_failed": brief.resurrection.why_attempt_failed,
-        "do_not_repeat": brief.resurrection.do_not_repeat,
-        "blockers": [{"summary": b.summary, "confidence": b.confidence} for b in brief.blockers],
-        "suggested_next_action": brief.resurrection.suggested_next_action
-        or (brief.suggested_next_steps[0].summary if brief.suggested_next_steps else None),
+        "why_attempt_failed": why_attempt_failed,
+        "do_not_repeat": packet.do_not_repeat,
+        "blockers": [
+            {"summary": blocker.summary, "confidence": blocker.confidence}
+            for blocker in packet.blockers
+        ],
+        "suggested_next_action": packet.suggested_next_steps[0]
+        if packet.suggested_next_steps
+        else None,
         "policy_summary": {
-            "allowed": brief.policy_decision.allowed,
-            "operation": brief.policy_decision.operation,
-            "reason": brief.policy_decision.reason,
-            "withheld_sources": brief.policy_decision.withheld_sources,
-            "withheld_data_classes": brief.policy_decision.withheld_data_classes,
+            "allowed": packet.policy_decision.allowed,
+            "operation": packet.policy_decision.operation,
+            "reason": packet.policy_decision.reason,
+            "withheld_sources": packet.policy_decision.withheld_sources,
+            "withheld_data_classes": packet.policy_decision.withheld_data_classes,
         },
         "withheld_context_summary": [
             {
-                "category": w.category or w.kind,
-                "policy_reason": w.policy_reason or w.reason,
-                "safe_summary": w.safe_summary or "No safe replacement available.",
+                "category": item.category or item.kind,
+                "policy_reason": item.policy_reason or item.reason,
+                "safe_summary": item.safe_summary or "No safe replacement available.",
             }
-            for w in brief.withheld_context
+            for item in packet.withheld_context
         ],
-        "context_quality_notes": brief.context_quality_notes,
-        "unknowns": brief.resurrection.unknowns,
-        "confidence": brief.confidence,
+        "context_quality_notes": packet.context_quality_notes,
+        "unknowns": packet.unknowns,
+        "confidence": packet.confidence,
     }
-    return json.dumps(contract, indent=2, ensure_ascii=False)
+
+
+def _mapping_from_pack_metadata(packet: ContinuityPacket, key: str) -> dict[str, Any]:
+    value = packet.pack_metadata.get(key)
+    return value if isinstance(value, dict) else {}
+
+
+def _optional_string(value: object) -> str | None:
+    return value if isinstance(value, str) else None

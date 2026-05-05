@@ -21,14 +21,20 @@ from devcd.slices.ambient_context.models import (
     AgentContextSurface,
     ContextFeedback,
     ContextFeedbackKind,
+    ContextPack,
     ContextQualityReport,
     DetailLevel,
     SurfaceKind,
 )
 from devcd.slices.ambient_context.service import (
     AmbientContextService,
+    get_context_pack,
+    list_context_packs,
     render_context_brief_json,
     render_context_brief_markdown,
+    render_context_packs_json,
+    render_continuity_packet_json,
+    render_continuity_packet_markdown,
 )
 from devcd.slices.events.ledger import EventLedger
 from devcd.slices.events.models import DevEvent, EventSensitivity, EventSource
@@ -316,6 +322,17 @@ def context_brief(
     )
 
 
+@context_app.command("packs")
+def context_packs(
+    output_json: Annotated[
+        bool,
+        typer.Option("--json", help="Print machine-readable JSON output."),
+    ] = False,
+) -> None:
+    """List built-in local Context Packs."""
+    typer.echo(render_context_packs_json() if output_json else _render_context_packs())
+
+
 @context_app.command("feedback")
 def context_feedback(
     brief_id: Annotated[str, typer.Argument(help="Handoff brief identifier.")],
@@ -349,6 +366,7 @@ def context_quality(
 def context_handoff_demo(
     events: Annotated[Path, typer.Option("--events", help="JSONL file with DevCD events.")],
     surface: Annotated[str, typer.Option("--surface", help="Context surface kind.")] = "cli",
+    pack: Annotated[str, typer.Option("--pack", help="Context pack renderer id.")] = "developer",
     detail: Annotated[
         str, typer.Option("--detail", help="minimal, standard, or diagnostic.")
     ] = "standard",
@@ -357,6 +375,7 @@ def context_handoff_demo(
     ] = False,
 ) -> None:
     """Generate a read-only agent handoff brief from local JSONL events."""
+    pack_id = _context_pack_id(pack)
     with TemporaryDirectory() as temporary_directory:
         service, state_engine = _build_demo_context_service(Path(temporary_directory))
         for event in _read_jsonl_events(events):
@@ -369,10 +388,20 @@ def context_handoff_demo(
             )
         )
         brief = brief.model_copy(update={"id": "demo-handoff-brief"})
-        if output_json:
+        if pack_id == "developer" and output_json:
             typer.echo(render_context_brief_json(brief))
-        else:
+        elif pack_id == "developer":
             typer.echo(render_context_brief_markdown(brief))
+        else:
+            packet = service.create_continuity_packet_from_brief(
+                brief,
+                context_pack=pack_id,
+            )
+            typer.echo(
+                render_continuity_packet_json(packet)
+                if output_json
+                else render_continuity_packet_markdown(packet)
+            )
 
 
 @context_app.command("dismiss-suggestion")
@@ -1022,6 +1051,13 @@ def _detail_level(value: str) -> DetailLevel:
         raise typer.BadParameter(f"invalid detail level: {value}") from error
 
 
+def _context_pack_id(value: str) -> str:
+    try:
+        return get_context_pack(value).id
+    except KeyError as error:
+        raise typer.BadParameter(f"invalid context pack: {value}") from error
+
+
 def _context_feedback_kind(value: str) -> ContextFeedbackKind:
     try:
         return ContextFeedbackKind(value)
@@ -1046,6 +1082,31 @@ def _render_context_quality(report: ContextQualityReport) -> str:
         lines.append(f"- {feedback.brief_id}: {feedback.kind.value} - {note}")
         lines.append(f"  policy: {feedback.policy_reason}")
     return "\n".join(lines)
+
+
+def _render_context_packs() -> str:
+    lines = ["Context packs"]
+    for pack in list_context_packs():
+        lines.append(f"- {pack.id}: {pack.display_name}")
+        lines.append(f"  Description: {pack.description}")
+        lines.append(f"  Sources: {_render_pack_sources(pack)}")
+        lines.append(f"  Surfaces: {', '.join(pack.supported_surfaces)}")
+        lines.append(f"  Default sensitivity: {pack.default_sensitivity}")
+        remote_export = (
+            "enabled by default" if pack.remote_export_enabled_by_default else "disabled by default"
+        )
+        lines.append(f"  Remote export: {remote_export}")
+        if pack.policy_notes:
+            lines.append(f"  Policy notes: {'; '.join(pack.policy_notes)}")
+    return "\n".join(lines)
+
+
+def _render_pack_sources(pack: ContextPack) -> str:
+    source_parts = []
+    for supported_event in pack.supported_events:
+        event_types = ", ".join(supported_event.event_types) or "metadata"
+        source_parts.append(f"{supported_event.source}({event_types})")
+    return "; ".join(source_parts)
 
 
 def _get_json(endpoint: str, token: str | None = None) -> str:

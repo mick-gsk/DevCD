@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 from datetime import UTC, datetime
+from pathlib import Path
 
 from devcd.slices.ambient_context.service import AmbientContextService
 from devcd.slices.events.ledger import EventLedger
@@ -303,3 +304,105 @@ def test_mcp_server_policy_summary_contains_expected_fields(tmp_path) -> None:
     assert "reason" in body
     assert "included_sources" in body
     assert "withheld_sources" in body
+
+
+def test_mcp_server_continuity_packet_contains_core_fields(tmp_path) -> None:
+    server, state_engine = build_mcp_server(tmp_path)
+    state_engine.accept_event(
+        DevEvent(
+            source=EventSource.TASK,
+            type="goal_update",
+            timestamp=datetime(2026, 5, 5, 10, 0, tzinfo=UTC),
+            payload={"current_goal": "Ship the continuity packet MCP resource"},
+        )
+    )
+
+    body = read_resource(server, "devcd://context/continuity-packet")
+
+    assert body["schema_version"] == "1"
+    assert body["context_pack"] == "developer"
+    assert "surface" in body
+    assert "intent" in body
+    assert body["intent"]["summary"] == "Ship the continuity packet MCP resource"
+    assert "artifacts" in body
+    assert "attempts" in body
+    assert "blockers" in body
+    assert "do_not_repeat" in body
+    assert "suggested_next_steps" in body
+    assert "withheld_context" in body
+    assert "policy_decision" in body
+    assert body["policy_decision"]["allowed"] is True
+
+
+def test_mcp_server_continuity_packet_matches_required_schema_fields(tmp_path) -> None:
+    server, state_engine = build_mcp_server(tmp_path)
+    state_engine.accept_event(
+        DevEvent(
+            source=EventSource.TASK,
+            type="goal_update",
+            timestamp=datetime(2026, 5, 5, 10, 0, tzinfo=UTC),
+            payload={"current_goal": "Validate continuity packet schema shape"},
+        )
+    )
+
+    body = read_resource(server, "devcd://context/continuity-packet")
+    schema = json.loads(
+        Path("schemas/devcd-continuity-packet.schema.json").read_text(encoding="utf-8")
+    )
+
+    assert set(schema["required"]).issubset(body.keys())
+    assert body["context_pack"] == "developer"
+    assert body["intent"] is not None
+    assert "brief_id" not in body
+
+
+def test_mcp_server_continuity_packet_withholds_sensitive_payloads(tmp_path) -> None:
+    server, state_engine = build_mcp_server(tmp_path)
+    state_engine.accept_event(
+        DevEvent(
+            source=EventSource.NOTES,
+            type="note_update",
+            timestamp=datetime(2026, 5, 5, 10, 0, tzinfo=UTC),
+            payload={"title": "Secret token: tok-supersecret"},
+            sensitivity="sensitive",
+        )
+    )
+
+    raw = server.handle_message(
+        {
+            "jsonrpc": "2.0",
+            "id": 20,
+            "method": "resources/read",
+            "params": {"uri": "devcd://context/continuity-packet"},
+        }
+    )
+    assert raw is not None
+    text = raw["result"]["contents"][0]["text"]
+
+    assert "tok-supersecret" not in text
+    assert "Secret token" not in text
+
+
+def test_mcp_server_continuity_packet_listed_in_resources(tmp_path) -> None:
+    server, _state_engine = build_mcp_server(tmp_path)
+
+    resources_response = server.handle_message(
+        {"jsonrpc": "2.0", "id": 21, "method": "resources/list"}
+    )
+    assert resources_response is not None
+    uris = [r["uri"] for r in resources_response["result"]["resources"]]
+    assert "devcd://context/continuity-packet" in uris
+    names = [r["name"] for r in resources_response["result"]["resources"]]
+    assert "continuity_packet" in names
+
+
+def test_mcp_server_continuity_packet_and_handoff_packet_both_present(tmp_path) -> None:
+    server, _state_engine = build_mcp_server(tmp_path)
+
+    resources_response = server.handle_message(
+        {"jsonrpc": "2.0", "id": 22, "method": "resources/list"}
+    )
+    assert resources_response is not None
+    uris = [r["uri"] for r in resources_response["result"]["resources"]]
+    assert "devcd://context/agent-handoff-packet" in uris
+    assert "devcd://context/continuity-packet" in uris

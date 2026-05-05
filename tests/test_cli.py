@@ -58,7 +58,10 @@ def test_cli_exposes_mcp_serve_command() -> None:
     assert "--token" in output
 
 
-def test_mcp_token_gate_creates_local_token_file_when_missing(tmp_path) -> None:
+def test_mcp_token_gate_creates_local_token_file_when_missing(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.chdir(tmp_path)  # isolate from CWD .devcd/token
     runtime_dir = tmp_path / "runtime"
     settings = DevCDSettings(runtime_dir=runtime_dir)
 
@@ -220,6 +223,57 @@ def test_cli_exposes_context_brief_command() -> None:
     output = plain_help(result.output)
     assert "--surface" in output
     assert "--detail" in output
+
+
+def test_cli_lists_context_packs_without_mutating_local_state(tmp_path, monkeypatch) -> None:
+    runner = CliRunner()
+    monkeypatch.chdir(tmp_path)
+
+    result = runner.invoke(app, ["context", "packs"])
+
+    assert result.exit_code == 0
+    assert "Context packs" in result.output
+    assert "developer" in result.output
+    assert "Developer Context" in result.output
+    assert "research" in result.output
+    assert "Research Context" in result.output
+    assert "Remote export: disabled by default" in result.output
+    assert not (tmp_path / ".devcd").exists()
+
+
+def test_cli_lists_context_packs_as_stable_json() -> None:
+    runner = CliRunner()
+
+    first = runner.invoke(app, ["context", "packs", "--json"])
+    second = runner.invoke(app, ["context", "packs", "--json"])
+
+    assert first.exit_code == 0
+    assert second.exit_code == 0
+    assert first.output == second.output
+    body = json.loads(first.output)
+    assert [pack["id"] for pack in body] == ["developer", "research"]
+    assert all(pack["remote_export_enabled_by_default"] is False for pack in body)
+
+
+def test_cli_rejects_invalid_context_pack_name(tmp_path) -> None:
+    events_path = tmp_path / "events.jsonl"
+    events_path.write_text("", encoding="utf-8")
+    runner = CliRunner()
+
+    result = runner.invoke(
+        app,
+        [
+            "context",
+            "handoff-demo",
+            "--events",
+            str(events_path),
+            "--pack",
+            "unknown-pack",
+        ],
+    )
+
+    assert result.exit_code != 0
+    assert "invalid context pack: unknown-pack" in result.output
 
 
 def test_cli_records_context_feedback_without_echoing_note(tmp_path, monkeypatch) -> None:
@@ -452,6 +506,185 @@ def test_agent_switch_surfaces_filter_context_by_role() -> None:
         assert "SECRET_AGENT_SWITCH_TOKEN=fixture-secret-999" not in output
         assert "SECRET_REVIEW_LOG=fixture-output-999" not in output
         assert "internal.invalid/private-review-ticket" not in output
+
+
+def test_cli_handoff_demo_research_pack_outputs_actionable_continuity(tmp_path) -> None:
+    events_path = tmp_path / "research-events.jsonl"
+    events = [
+        {
+            "source": "task",
+            "type": "research_goal",
+            "timestamp": "2026-05-05T10:00:00+00:00",
+            "payload": {
+                "current_goal": "Assess whether retrieval latency changes answer quality"
+            },
+        },
+        {
+            "source": "notes",
+            "type": "source_review",
+            "timestamp": "2026-05-05T10:01:00+00:00",
+            "payload": {
+                "source_id": "paper-alpha",
+                "title": "Synthetic metadata-only paper on retrieval latency",
+            },
+        },
+        {
+            "source": "notes",
+            "type": "hypothesis",
+            "timestamp": "2026-05-05T10:02:00+00:00",
+            "payload": {
+                "summary": "Lower retrieval latency may improve iterative answer quality"
+            },
+        },
+        {
+            "source": "notes",
+            "type": "failed_attempt",
+            "timestamp": "2026-05-05T10:03:00+00:00",
+            "payload": {
+                "summary": "Compared latency notes without normalizing dataset size",
+                "why_attempt_failed": (
+                    "The comparison mixed latency effects with dataset-size effects."
+                ),
+                "do_not_repeat": (
+                    "Do not compare latency sources without matching dataset size."
+                ),
+                "suggested_next_action": (
+                    "Find one source with matched dataset size and latency variation."
+                ),
+            },
+        },
+        {
+            "source": "notes",
+            "type": "note_update",
+            "timestamp": "2026-05-05T10:04:00+00:00",
+            "payload": {"text": "PRIVATE_SYNTHETIC_RESEARCH_NOTE"},
+        },
+    ]
+    events_path.write_text(
+        "\n".join(json.dumps(event) for event in events),
+        encoding="utf-8",
+    )
+    runner = CliRunner()
+
+    result = runner.invoke(
+        app,
+        ["context", "handoff-demo", "--events", str(events_path), "--pack", "research"],
+    )
+
+    assert result.exit_code == 0
+    assert "# DevCD Research Continuity Packet" in result.output
+    assert "Assess whether retrieval latency changes answer quality" in result.output
+    assert "paper-alpha" in result.output
+    assert "Lower retrieval latency may improve iterative answer quality" in result.output
+    assert "Compared latency notes without normalizing dataset size" in result.output
+    assert "Do not compare latency sources without matching dataset size." in result.output
+    assert "Find one source with matched dataset size and latency variation." in result.output
+    assert "PRIVATE_SYNTHETIC_RESEARCH_NOTE" not in result.output
+    assert "metadata-only policy denied full-text payload content" in result.output
+
+
+def test_research_continuity_example_matches_checked_in_packet() -> None:
+    runner = CliRunner()
+    events_path = Path("examples/research-continuity/sample-events.jsonl")
+    expected_packet = Path("examples/research-continuity/continuity-packet.md")
+
+    result = runner.invoke(
+        app,
+        [
+            "context",
+            "handoff-demo",
+            "--events",
+            str(events_path),
+            "--surface",
+            "research-agent",
+            "--pack",
+            "research",
+        ],
+    )
+
+    assert result.exit_code == 0
+    assert normalized_text(result.output.rstrip("\n") + "\n") == normalized_text(
+        expected_packet.read_text(encoding="utf-8")
+    )
+    assert "Assess whether retrieval latency changes answer quality" in result.output
+    assert "synthetic-paper-alpha" in result.output
+    assert "synthetic-report-beta" in result.output
+    assert "Do not compare latency outcomes" in result.output
+    assert "Review one synthetic source with matched source set size" in result.output
+
+
+def test_research_continuity_example_withholds_full_text_and_private_context() -> None:
+    runner = CliRunner()
+    events_path = Path("examples/research-continuity/sample-events.jsonl")
+    fixture_text = events_path.read_text(encoding="utf-8")
+    forbidden_strings = [
+        "Synthetic full research note body withheld by policy",
+        "draft article excerpts",
+        "internal.invalid/research/private-draft",
+        "synthetic-placeholder",
+    ]
+
+    markdown_result = runner.invoke(
+        app,
+        [
+            "context",
+            "handoff-demo",
+            "--events",
+            str(events_path),
+            "--surface",
+            "research-agent",
+            "--pack",
+            "research",
+        ],
+    )
+    json_result = runner.invoke(
+        app,
+        [
+            "context",
+            "handoff-demo",
+            "--events",
+            str(events_path),
+            "--surface",
+            "research-agent",
+            "--pack",
+            "research",
+            "--json",
+        ],
+    )
+
+    assert markdown_result.exit_code == 0
+    assert json_result.exit_code == 0
+    assert all(secret in fixture_text for secret in forbidden_strings)
+    for secret in forbidden_strings:
+        assert secret not in markdown_result.output
+        assert secret not in json_result.output
+
+    contract = json.loads(json_result.output)
+    assert contract["context_pack"] == "research"
+    assert contract["surface"] == "research-agent"
+    assert contract["intent"]["summary"] == (
+        "Assess whether retrieval latency changes answer quality in multi-source research agents"
+    )
+    assert {artifact["identifier"] for artifact in contract["artifacts"]} == {
+        "synthetic-paper-alpha",
+        "synthetic-report-beta",
+    }
+    expected_hypothesis = (
+        "Lower retrieval latency may improve answer quality only when source set size "
+        "is controlled."
+    )
+    assert contract["pack_metadata"]["research"]["current_hypothesis"] == expected_hypothesis
+    assert contract["do_not_repeat"] == [
+        "Do not compare latency outcomes across sources until source set size is matched or "
+        "explicitly controlled."
+    ]
+    assert contract["suggested_next_steps"] == [
+        "Review one synthetic source with matched source set size before updating the hypothesis."
+    ]
+    assert {item["category"] for item in contract["withheld_context"]} >= {
+        "payload_content",
+        "source",
+    }
 
 
 def test_cli_handoff_demo_json_flag_emits_valid_json_contract(tmp_path) -> None:

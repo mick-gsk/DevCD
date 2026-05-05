@@ -4,7 +4,11 @@ import json
 from typing import Any, TextIO
 
 from devcd.slices.ambient_context.models import AgentContextSurface, SurfaceKind
-from devcd.slices.ambient_context.service import AmbientContextService, render_context_brief_json
+from devcd.slices.ambient_context.service import (
+    AmbientContextService,
+    render_context_brief_json,
+    render_continuity_packet_json,
+)
 from devcd.slices.events.ledger import EventLedger
 from devcd.slices.host_state_engine.service import StateEngine
 from devcd.slices.policy_layer.service import PolicyEngine
@@ -18,6 +22,7 @@ READ_ONLY_RESOURCE_URIS: tuple[str, ...] = (
     "devcd://context/policy-decisions",
     "devcd://context/withheld-context",
     "devcd://context/agent-handoff-packet",
+    "devcd://context/continuity-packet",
     "devcd://context/recent-timeline",
     "devcd://context/policy-summary",
 )
@@ -49,6 +54,15 @@ _RESOURCE_METADATA: dict[str, dict[str, str]] = {
             "Agent continuity handoff packet (coding-agent surface). "
             "Same JSON contract as 'devcd context handoff-demo --json'. "
             "Includes goal, resurrection context, blockers, and withheld-context summary. "
+            "No sensitive payloads."
+        ),
+    },
+    "devcd://context/continuity-packet": {
+        "name": "continuity_packet",
+        "description": (
+            "Domain-neutral policy-filtered continuity packet (developer pack by default). "
+            "Structured ContinuityPacket model: intent, artifacts, attempts, blockers, "
+            "do_not_repeat, suggested_next_steps, and withheld-context metadata. "
             "No sensitive payloads."
         ),
     },
@@ -173,6 +187,12 @@ class ReadOnlyMCPServer:
             surface = AgentContextSurface(kind=SurfaceKind.CODING_AGENT, name="devcd-mcp-handoff")
             brief = self._ambient_context_service.create_context_brief(surface)
             return render_context_brief_json(brief)
+        if uri == "devcd://context/continuity-packet":
+            brief = self._ambient_context_service.create_context_brief(self._mcp_surface())
+            packet = self._ambient_context_service.create_continuity_packet_from_brief(
+                brief, context_pack="developer"
+            )
+            return render_continuity_packet_json(packet)
         if uri == "devcd://context/recent-timeline":
             return self._json_text({"recent_timeline": self._recent_timeline()})
         if uri == "devcd://context/policy-summary":

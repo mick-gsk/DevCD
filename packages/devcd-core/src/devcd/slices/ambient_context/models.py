@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from datetime import UTC, datetime
 from enum import StrEnum
-from typing import Literal
+from typing import Any, Literal
 from uuid import uuid4
 
 from pydantic import BaseModel, Field
@@ -18,6 +18,7 @@ class FreshnessStatus(StrEnum):
 class SurfaceKind(StrEnum):
     CODING_AGENT = "coding-agent"
     REVIEW_AGENT = "review-agent"
+    RESEARCH_AGENT = "research-agent"
     DEBUGGING_AGENT = "debugging-agent"
     SUBAGENT = "subagent"
     PUBLIC_DEMO = "public-demo"
@@ -122,6 +123,23 @@ class AgentContextSurface(BaseModel):
     withheld_fields: list[str] = Field(default_factory=list)
 
 
+class ContextPackEventSupport(BaseModel):
+    source: str = Field(min_length=1)
+    event_types: list[str] = Field(default_factory=list)
+
+
+class ContextPack(BaseModel):
+    id: str = Field(min_length=1)
+    display_name: str = Field(min_length=1)
+    description: str = Field(min_length=1)
+    supported_events: list[ContextPackEventSupport] = Field(default_factory=list)
+    supported_surfaces: list[str] = Field(default_factory=list)
+    default_sensitivity: str = Field(min_length=1)
+    policy_notes: list[str] = Field(default_factory=list)
+    remote_export_enabled_by_default: bool = False
+    renderer_metadata: dict[str, Any] = Field(default_factory=dict)
+
+
 class IntentLine(BaseModel):
     summary: str
     evidence: list[EvidenceItem] = Field(default_factory=list)
@@ -190,6 +208,82 @@ class AgentResurrectionContext(BaseModel):
     do_not_repeat: list[str] = Field(default_factory=list)
     suggested_next_action: str | None = None
     unknowns: list[str] = Field(default_factory=list)
+
+
+class ContinuityIntent(BaseModel):
+    summary: str = Field(min_length=1)
+    status: IntentStatus = IntentStatus.ACTIVE
+    evidence: list[EvidenceItem] = Field(default_factory=list)
+    started_at: datetime | None = None
+    updated_at: datetime
+    confidence: float = Field(default=0.0, ge=0.0, le=1.0)
+
+
+class ContinuityArtifact(BaseModel):
+    kind: str = Field(min_length=1)
+    identifier: str = Field(min_length=1)
+    summary: str = Field(min_length=1)
+    source: str = Field(min_length=1)
+    relevance: float = Field(default=0.0, ge=0.0, le=1.0)
+    last_seen_at: datetime
+    policy_reason: str = Field(min_length=1)
+
+
+class ContinuityAttempt(BaseModel):
+    timestamp: datetime
+    source: str = Field(min_length=1)
+    type: str = Field(min_length=1)
+    summary: str = Field(min_length=1)
+    outcome: Literal["unknown", "success", "failure", "interrupted"] = "unknown"
+    failure_reason: str | None = None
+    policy_reason: str = Field(min_length=1)
+
+
+class ContinuityBlocker(BaseModel):
+    kind: str = Field(default="blocker", min_length=1)
+    summary: str = Field(min_length=1)
+    evidence: list[EvidenceItem] = Field(default_factory=list)
+    confidence: float = Field(default=0.0, ge=0.0, le=1.0)
+    detected_at: datetime
+    reason: str | None = None
+    policy_reason: str = Field(default="visible blocker signal is allowed by policy", min_length=1)
+
+
+class ContinuityDecision(BaseModel):
+    kind: str = Field(default="decision", min_length=1)
+    summary: str = Field(min_length=1)
+    source: str = Field(min_length=1)
+    decided_at: datetime
+    policy_reason: str = Field(min_length=1)
+
+
+class ContinuityPreference(BaseModel):
+    summary: str = Field(min_length=1)
+    source: str = Field(min_length=1)
+    policy_reason: str = Field(min_length=1)
+
+
+class ContinuityPacket(BaseModel):
+    schema_version: str = "1"
+    id: str = Field(default_factory=lambda: str(uuid4()), min_length=1)
+    context_pack: str = Field(min_length=1)
+    surface: str = Field(min_length=1)
+    intent: ContinuityIntent | None = None
+    artifacts: list[ContinuityArtifact] = Field(default_factory=list)
+    decisions: list[ContinuityDecision] = Field(default_factory=list)
+    attempts: list[ContinuityAttempt] = Field(default_factory=list)
+    blockers: list[ContinuityBlocker] = Field(default_factory=list)
+    preferences: list[ContinuityPreference] = Field(default_factory=list)
+    do_not_repeat: list[str] = Field(default_factory=list)
+    suggested_next_steps: list[str] = Field(default_factory=list)
+    unknowns: list[str] = Field(default_factory=list)
+    context_quality_notes: list[str] = Field(default_factory=list)
+    withheld_context: list[WithheldContext] = Field(default_factory=list)
+    policy_decision: PolicySummary
+    provenance: list[str] = Field(default_factory=list)
+    pack_metadata: dict[str, Any] = Field(default_factory=dict)
+    confidence: float = Field(default=0.0, ge=0.0, le=1.0)
+    generated_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
 
 
 class ContextMemoryItem(BaseModel):
