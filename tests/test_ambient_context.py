@@ -628,8 +628,7 @@ def test_resurrection_context_keeps_failure_history_after_later_success(tmp_path
     assert brief.resurrection.last_attempt is not None
     assert brief.resurrection.last_attempt.outcome == "success"
     assert (
-        brief.resurrection.last_attempt.summary
-        == "Added why_attempt_failed to the JSON contract"
+        brief.resurrection.last_attempt.summary == "Added why_attempt_failed to the JSON contract"
     )
     assert brief.resurrection.last_failure == "handoff JSON still omits why_attempt_failed"
     assert brief.resurrection.do_not_repeat == [

@@ -440,11 +440,14 @@ def test_agent_switch_surfaces_filter_context_by_role() -> None:
         "sensitivity",
         "source",
     }
-    assert sum(
-        1
-        for item in public_contract["withheld_context_summary"]
-        if item["category"] == "sensitive_field"
-    ) >= 3
+    assert (
+        sum(
+            1
+            for item in public_contract["withheld_context_summary"]
+            if item["category"] == "sensitive_field"
+        )
+        >= 3
+    )
     for output in (coding_result.output, review_result.output, public_result.output):
         assert "SECRET_AGENT_SWITCH_TOKEN=fixture-secret-999" not in output
         assert "SECRET_REVIEW_LOG=fixture-output-999" not in output
@@ -472,9 +475,7 @@ def test_cli_handoff_demo_json_flag_emits_valid_json_contract(tmp_path) -> None:
     )
     runner = CliRunner()
 
-    result = runner.invoke(
-        app, ["context", "handoff-demo", "--events", str(events_path), "--json"]
-    )
+    result = runner.invoke(app, ["context", "handoff-demo", "--events", str(events_path), "--json"])
 
     assert result.exit_code == 0
     contract = json.loads(result.output)
@@ -546,9 +547,7 @@ def test_cli_handoff_demo_json_contains_no_sensitive_payload(tmp_path) -> None:
     )
     runner = CliRunner()
 
-    result = runner.invoke(
-        app, ["context", "handoff-demo", "--events", str(events_path), "--json"]
-    )
+    result = runner.invoke(app, ["context", "handoff-demo", "--events", str(events_path), "--json"])
 
     assert result.exit_code == 0
     assert "hunter2" not in result.output
@@ -567,8 +566,7 @@ def test_recipe_pytest_failure_cli_emits_devcd_jsonl() -> None:
     assert events[0]["source"] == "task"
     assert events[0]["payload"]["reason"] == "pytest failed: tests/test_checkout.py::test_total"
     assert events[0]["payload"]["suggested_next_action"] == (
-        "Rerun pytest tests/test_checkout.py::test_total -q and inspect "
-        "tests/test_checkout.py:42"
+        "Rerun pytest tests/test_checkout.py::test_total -q and inspect tests/test_checkout.py:42"
     )
     assert "PRIVATE_TEST_OUTPUT" not in json.dumps(events[0])
     assert events[1]["sensitivity"] == "sensitive"
