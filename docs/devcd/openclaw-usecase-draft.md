@@ -90,7 +90,7 @@ $list = '{"jsonrpc":"2.0","id":2,"method":"resources/list","params":{}}'
 ```
 
 Expected: a `resources/list` response listing the current read-only DevCD MCP resources.
-Full verified output: [`examples/openclaw-mcp-context/README.md`](../../examples/openclaw-mcp-context/README.md).
+Full verified output: [`examples/openclaw-mcp-context/README.md`](https://github.com/mick-gsk/DevCD/blob/main/examples/openclaw-mcp-context/README.md).
 
 ### 4. Inspect a handoff packet without OpenClaw
 
@@ -101,7 +101,7 @@ devcd context handoff-demo \
   --json
 ```
 
-Checked-in fixture: [`examples/agent-resurrection/handoff-packet.json`](../../examples/agent-resurrection/handoff-packet.json).
+Checked-in fixture: [`examples/agent-resurrection/handoff-packet.json`](https://github.com/mick-gsk/DevCD/blob/main/examples/agent-resurrection/handoff-packet.json).
 
 ---
 
@@ -185,7 +185,7 @@ policy-filtered state that DevCD maintains automatically in the background.
   before it can appear in an MCP resource. Sensitive events (file contents,
   notes flagged `sensitivity=sensitive`, secrets, browser URLs) are withheld and
   replaced with safe summaries. See
-  [`devcd policy simulate`](../../docs/devcd/policy.md) for the policy CLI.
+  [`devcd policy simulate`](policy.md) for the policy CLI.
 - **No secret exposure**: The `payload_content` withheld category prevents raw
   payload content from reaching the MCP layer. A detected prompt-injection note
   event is represented only as:
@@ -219,8 +219,8 @@ policy-filtered state that DevCD maintains automatically in the background.
 
 | Step | Status | Evidence |
 |---|---|---|
-| `devcd mcp serve` starts and lists resources | Verified locally | [`examples/openclaw-mcp-context/README.md`](../../examples/openclaw-mcp-context/README.md) |
-| `devcd context handoff-demo --json` produces valid packet | Verified locally | [`examples/agent-resurrection/handoff-packet.json`](../../examples/agent-resurrection/handoff-packet.json) |
+| `devcd mcp serve` starts and lists resources | Verified locally | [`examples/openclaw-mcp-context/README.md`](https://github.com/mick-gsk/DevCD/blob/main/examples/openclaw-mcp-context/README.md) |
+| `devcd context handoff-demo --json` produces valid packet | Verified locally | [`examples/agent-resurrection/handoff-packet.json`](https://github.com/mick-gsk/DevCD/blob/main/examples/agent-resurrection/handoff-packet.json) |
 | MCP resources are read-only (no tools registered) | Verified locally | `resources/list` response in README |
 | Policy withholds sensitive events correctly | Verified via tests | `make check` → `tests/test_policy_layer.py`, `tests/test_ambient_context.py` |
 | OpenClaw gateway loads DevCD resources end-to-end | **Not verified** | Requires full OpenClaw gateway install |
