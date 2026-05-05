@@ -11,6 +11,11 @@ from typer.testing import CliRunner
 
 from devcd.cli import _ensure_mcp_token, _post_event, app
 from devcd.kernel.settings import DevCDSettings
+from devcd.slices.events.ledger import EventLedger
+from devcd.slices.events.models import DevEvent
+from devcd.slices.host_state_engine.service import StateEngine
+from devcd.slices.memory_layer.service import MemoryStore
+from devcd.slices.policy_layer.service import PolicyEngine
 
 ANSI_ESCAPE_RE = re.compile(r"\x1b\[[0-?]*[ -/]*[@-~]")
 
@@ -56,6 +61,127 @@ def test_cli_exposes_mcp_serve_command() -> None:
     assert "Run the local read-only DevCD MCP stdio server" in output
     assert "--config" in output
     assert "--token" in output
+
+
+def test_cli_generates_openclaw_integration_config() -> None:
+    runner = CliRunner()
+
+    result = runner.invoke(app, ["integrations", "openclaw"])
+
+    assert result.exit_code == 0
+    output = result.output
+    assert "OpenClaw + DevCD MCP" in output
+    assert "~/.openclaw/openclaw.json" in output
+    assert "mcp" in output
+    assert "servers" in output
+    assert "devcd" in output
+    assert 'command: "devcd"' in output
+    assert 'args: ["mcp", "serve"]' in output
+    assert "Does not install OpenClaw" in output
+    assert "Does not mutate OpenClaw config" in output
+
+
+def test_cli_generates_hermes_integration_config() -> None:
+    runner = CliRunner()
+
+    result = runner.invoke(app, ["integrations", "hermes"])
+
+    assert result.exit_code == 0
+    output = result.output
+    assert "Hermes-Agent + DevCD MCP" in output
+    assert "mcpServers" in output
+    assert '"devcd"' in output
+    assert '"command": "devcd"' in output
+    assert '"args": ["mcp", "serve"]' in output
+    assert "Does not install Hermes-Agent" in output
+    assert "Does not mutate Hermes-Agent config" in output
+
+
+def test_cli_generates_integration_config_as_stable_json() -> None:
+    runner = CliRunner()
+
+    first = runner.invoke(app, ["integrations", "openclaw", "--json"])
+    second = runner.invoke(app, ["integrations", "openclaw", "--json"])
+
+    assert first.exit_code == 0
+    assert second.exit_code == 0
+    assert first.output == second.output
+    body = json.loads(first.output)
+    assert body["runtime"] == "openclaw"
+    assert body["mutates_external_config"] is False
+    assert body["installs_external_tools"] is False
+    assert body["starts_external_daemons"] is False
+    assert body["config"]["mcp"]["servers"]["devcd"] == {
+        "command": "devcd",
+        "args": ["mcp", "serve"],
+    }
+
+
+def test_cli_integration_smoke_test_verifies_mcp_shape(tmp_path, monkeypatch) -> None:
+    monkeypatch.chdir(tmp_path)
+    config_path = tmp_path / "devcd.toml"
+    config_path.write_text('[devcd]\nruntime_dir = "runtime"\n', encoding="utf-8")
+    runner = CliRunner()
+
+    result = runner.invoke(
+        app,
+        ["integrations", "openclaw", "--config", str(config_path), "--smoke-test", "--json"],
+    )
+
+    assert result.exit_code == 0
+    body = json.loads(result.output)
+    assert body["smoke_test"]["status"] == "pass"
+    assert body["smoke_test"]["checked_methods"] == [
+        "initialize",
+        "resources/list",
+        "tools/list",
+        "prompts/list",
+    ]
+    assert "devcd://context/continuity-packet" in body["smoke_test"]["resource_uris"]
+    assert body["smoke_test"]["tools_count"] == 0
+    assert body["smoke_test"]["prompts_count"] == 0
+    assert body["smoke_test"]["command_check"]["command"] == "devcd"
+    assert body["smoke_test"]["command_check"]["found"] is True
+    assert body["smoke_test"]["command_check"]["path"]
+
+
+def test_cli_integration_smoke_test_fails_when_devcd_command_is_missing(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.setenv("PATH", "")
+    config_path = tmp_path / "devcd.toml"
+    config_path.write_text('[devcd]\nruntime_dir = "runtime"\n', encoding="utf-8")
+    runner = CliRunner()
+
+    result = runner.invoke(
+        app,
+        ["integrations", "openclaw", "--config", str(config_path), "--smoke-test", "--json"],
+    )
+
+    assert result.exit_code != 0
+    body = json.loads(result.output)
+    assert body["smoke_test"]["status"] == "fail"
+    assert body["smoke_test"]["command_check"] == {
+        "command": "devcd",
+        "found": False,
+        "path": None,
+    }
+    assert "devcd command was not found on PATH" in body["smoke_test"]["errors"]
+
+
+def test_cli_integrations_do_not_write_external_config(tmp_path, monkeypatch) -> None:
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.setenv("HOME", str(tmp_path / "home"))
+    monkeypatch.setenv("USERPROFILE", str(tmp_path / "home"))
+    runner = CliRunner()
+
+    result = runner.invoke(app, ["integrations", "hermes", "--smoke-test"])
+
+    assert result.exit_code == 0
+    assert not (tmp_path / "home" / ".openclaw").exists()
+    assert not (tmp_path / "home" / ".hermes").exists()
+    assert not (tmp_path / "home" / ".hermes-agent").exists()
 
 
 def test_mcp_token_gate_creates_local_token_file_when_missing(
@@ -302,7 +428,9 @@ def test_cli_records_context_feedback_without_echoing_note(tmp_path, monkeypatch
     assert "missing" in quality_result.output
     assert "Add the failing test name." not in quality_result.output
     assert "[withheld by policy]" in quality_result.output
-    assert "No ranking or scoring is computed in phase 1." in quality_result.output
+    assert "Quality score:" in quality_result.output
+    assert "missing: 1" in quality_result.output
+    assert "Ask the user which missing context" in quality_result.output
 
 
 def test_cli_withholds_too_sensitive_context_feedback_note(tmp_path, monkeypatch) -> None:
@@ -781,6 +909,357 @@ def test_cli_handoff_demo_json_contains_no_sensitive_payload(tmp_path) -> None:
     assert "PASSWORD=hunter2" not in result.output
 
 
+def test_cli_generates_live_passport_from_configured_ledger(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.chdir(tmp_path)
+    runtime_dir = tmp_path / "runtime"
+    runtime_dir.mkdir()
+    config_path = tmp_path / "devcd.toml"
+    config_path.write_text(
+        '[devcd]\nruntime_dir = "runtime"\nworking_memory_ttl_seconds = 315360000\n',
+        encoding="utf-8",
+    )
+    (runtime_dir / "events.jsonl").write_text(
+        "\n".join(
+            [
+                live_ledger_record(
+                    source="task",
+                    event_type="goal_update",
+                    timestamp="2026-05-05T10:00:00Z",
+                    payload={"current_goal": "Ship the live Agent Passport"},
+                ),
+                live_ledger_record(
+                    source="ide",
+                    event_type="file_focus",
+                    timestamp="2026-05-05T10:01:00Z",
+                    payload={"path": "packages/devcd-core/src/devcd/cli.py"},
+                ),
+                live_ledger_record(
+                    source="task",
+                    event_type="test_failure",
+                    timestamp="2026-05-05T10:02:00Z",
+                    payload={
+                        "reason": "passport command missing",
+                        "suggested_next_action": "Add devcd context passport",
+                    },
+                ),
+            ]
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+    runner = CliRunner()
+
+    result = runner.invoke(app, ["context", "passport", "--config", str(config_path)])
+
+    assert result.exit_code == 0
+    assert "# DevCD Agent Passport" in result.output
+    assert "Ship the live Agent Passport" in result.output
+    assert "packages/devcd-core/src/devcd/cli.py" in result.output
+    assert "passport command missing" in result.output
+    assert "Add devcd context passport" in result.output
+
+
+def test_cli_live_passport_empty_state_includes_next_commands(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.chdir(tmp_path)
+    runtime_dir = tmp_path / "runtime"
+    runtime_dir.mkdir()
+    config_path = tmp_path / "devcd.toml"
+    config_path.write_text('[devcd]\nruntime_dir = "runtime"\n', encoding="utf-8")
+    runner = CliRunner()
+
+    result = runner.invoke(app, ["context", "passport", "--config", str(config_path)])
+
+    assert result.exit_code == 0
+    assert "No goal visible" in result.output
+    assert 'devcd event task goal_update --payload' in result.output
+    assert "devcd recipe pytest-failure" in result.output
+    assert "devcd context passport" in result.output
+
+
+def test_cli_live_passport_json_emits_continuity_packet(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.chdir(tmp_path)
+    runtime_dir = tmp_path / "runtime"
+    runtime_dir.mkdir()
+    config_path = tmp_path / "devcd.toml"
+    config_path.write_text(
+        '[devcd]\nruntime_dir = "runtime"\nworking_memory_ttl_seconds = 315360000\n',
+        encoding="utf-8",
+    )
+    (runtime_dir / "events.jsonl").write_text(
+        live_ledger_record(
+            source="task",
+            event_type="goal_update",
+            timestamp="2026-05-05T10:00:00Z",
+            payload={"current_goal": "Emit live passport JSON"},
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+    runner = CliRunner()
+
+    result = runner.invoke(
+        app,
+        ["context", "passport", "--config", str(config_path), "--json"],
+    )
+
+    assert result.exit_code == 0
+    body = json.loads(result.output)
+    assert body["schema_version"] == "1"
+    assert body["context_pack"] == "developer"
+    assert body["surface"] == "coding-agent"
+    assert body["intent"]["summary"] == "Emit live passport JSON"
+    assert "brief_id" not in body
+    assert "# DevCD Agent Passport" not in result.output
+
+
+def test_cli_live_passport_reflects_context_feedback_in_json_and_markdown(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.chdir(tmp_path)
+    runtime_dir = tmp_path / "runtime"
+    runtime_dir.mkdir()
+    config_path = tmp_path / "devcd.toml"
+    config_path.write_text(
+        '[devcd]\nruntime_dir = "runtime"\nworking_memory_ttl_seconds = 315360000\n',
+        encoding="utf-8",
+    )
+    (runtime_dir / "events.jsonl").write_text(
+        live_ledger_record(
+            source="task",
+            event_type="goal_update",
+            timestamp="2026-05-05T10:00:00Z",
+            payload={"current_goal": "Emit feedback-aware passport"},
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+    runner = CliRunner()
+
+    feedback_result = runner.invoke(
+        app,
+        [
+            "context",
+            "feedback",
+            "brief-123",
+            "--kind",
+            "missing",
+            "--note",
+            "Include private customer ticket ACME-123.",
+            "--config",
+            str(config_path),
+        ],
+    )
+    markdown_result = runner.invoke(app, ["context", "passport", "--config", str(config_path)])
+    json_result = runner.invoke(
+        app,
+        ["context", "passport", "--config", str(config_path), "--json"],
+    )
+
+    assert feedback_result.exit_code == 0
+    assert markdown_result.exit_code == 0
+    assert json_result.exit_code == 0
+    body = json.loads(json_result.output)
+    assert "missing feedback" in markdown_result.output
+    assert "Ask the user which missing context" in markdown_result.output
+    assert any("missing feedback" in note for note in body["context_quality_notes"])
+    assert any("missing context" in step for step in body["suggested_next_steps"])
+    assert "ACME-123" not in markdown_result.output
+    assert "ACME-123" not in json_result.output
+
+
+def test_cli_context_control_reports_human_readable_summary(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.chdir(tmp_path)
+    runtime_dir = tmp_path / "runtime"
+    runtime_dir.mkdir()
+    config_path = tmp_path / "devcd.toml"
+    config_path.write_text(
+        '[devcd]\nruntime_dir = "runtime"\nworking_memory_ttl_seconds = 315360000\n',
+        encoding="utf-8",
+    )
+    (runtime_dir / "events.jsonl").write_text(
+        "\n".join(
+            [
+                live_ledger_record(
+                    source="task",
+                    event_type="goal_update",
+                    timestamp="2026-05-05T10:00:00Z",
+                    payload={"current_goal": "Ship the context control report"},
+                ),
+                live_ledger_record(
+                    source="ide",
+                    event_type="file_focus",
+                    timestamp="2026-05-05T10:01:00Z",
+                    payload={"path": "packages/devcd-core/src/devcd/cli.py"},
+                ),
+            ]
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+    runner = CliRunner()
+
+    result = runner.invoke(app, ["context", "control", "--config", str(config_path)])
+
+    assert result.exit_code == 0
+    assert "DevCD context control" in result.output
+    assert "Active goal: Ship the context control report" in result.output
+    assert "Surface: coding-agent" in result.output
+    assert "Pack: developer" in result.output
+    assert "Visible sources" in result.output
+    assert "task" in result.output
+    assert "Memory counts" in result.output
+    assert "Continuity Packet preview" in result.output
+    assert "Next commands" in result.output
+
+
+def test_cli_context_control_json_reports_policy_safe_contract(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.chdir(tmp_path)
+    runtime_dir = tmp_path / "runtime"
+    runtime_dir.mkdir()
+    config_path = tmp_path / "devcd.toml"
+    config_path.write_text(
+        '[devcd]\nruntime_dir = "runtime"\nworking_memory_ttl_seconds = 315360000\n',
+        encoding="utf-8",
+    )
+    (runtime_dir / "events.jsonl").write_text(
+        live_ledger_record(
+            source="task",
+            event_type="goal_update",
+            timestamp="2026-05-05T10:00:00Z",
+            payload={"current_goal": "Emit context control JSON"},
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+    runner = CliRunner()
+
+    result = runner.invoke(
+        app,
+        ["context", "control", "--config", str(config_path), "--json"],
+    )
+
+    assert result.exit_code == 0
+    body = json.loads(result.output)
+    assert body["schema_version"] == "1"
+    assert body["active_goal"] == "Emit context control JSON"
+    assert body["selected_pack"] == "developer"
+    assert body["selected_surface"] == "coding-agent"
+    assert body["included_data_classes"] == ["metadata"]
+    assert body["continuity_packet_preview"]["active_goal"] == "Emit context control JSON"
+    assert "DevCD context control" not in result.output
+
+
+def test_cli_context_control_empty_state_includes_next_commands(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.chdir(tmp_path)
+    runtime_dir = tmp_path / "runtime"
+    runtime_dir.mkdir()
+    config_path = tmp_path / "devcd.toml"
+    config_path.write_text('[devcd]\nruntime_dir = "runtime"\n', encoding="utf-8")
+    runner = CliRunner()
+
+    result = runner.invoke(app, ["context", "control", "--config", str(config_path)])
+
+    assert result.exit_code == 0
+    assert "Active goal: none" in result.output
+    assert 'devcd event task goal_update --payload' in result.output
+    assert "devcd context control" in result.output
+
+
+def test_cli_context_control_omits_sensitive_payloads(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.chdir(tmp_path)
+    runtime_dir = tmp_path / "runtime"
+    runtime_dir.mkdir()
+    config_path = tmp_path / "devcd.toml"
+    config_path.write_text(
+        '[devcd]\nruntime_dir = "runtime"\nworking_memory_ttl_seconds = 315360000\n',
+        encoding="utf-8",
+    )
+    (runtime_dir / "events.jsonl").write_text(
+        live_ledger_record(
+            source="task",
+            event_type="goal_update",
+            timestamp="2026-05-05T10:00:00Z",
+            payload={"current_goal": "Control report without secrets"},
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+    runner = CliRunner()
+
+    result = runner.invoke(app, ["context", "control", "--config", str(config_path), "--json"])
+
+    assert result.exit_code == 0
+    assert "SECRET_TEST_OUTPUT" not in result.output
+    assert "PRIVATE_BROWSER_URL" not in result.output
+
+
+def test_cli_live_passport_honors_pack_and_surface(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.chdir(tmp_path)
+    runtime_dir = tmp_path / "runtime"
+    runtime_dir.mkdir()
+    config_path = tmp_path / "devcd.toml"
+    config_path.write_text(
+        '[devcd]\nruntime_dir = "runtime"\nworking_memory_ttl_seconds = 315360000\n',
+        encoding="utf-8",
+    )
+    (runtime_dir / "events.jsonl").write_text(
+        "\n".join(
+            [
+                live_ledger_record(
+                    source="task",
+                    event_type="research_goal",
+                    timestamp="2026-05-05T10:00:00Z",
+                    payload={"current_goal": "Assess live research continuity"},
+                ),
+                live_ledger_record(
+                    source="notes",
+                    event_type="hypothesis",
+                    timestamp="2026-05-05T10:01:00Z",
+                    payload={"summary": "Live packets should work for research metadata"},
+                ),
+            ]
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+    runner = CliRunner()
+
+    result = runner.invoke(
+        app,
+        [
+            "context",
+            "passport",
+            "--config",
+            str(config_path),
+            "--pack",
+            "research",
+            "--surface",
+            "research-agent",
+        ],
+    )
+
+    assert result.exit_code == 0
+    assert "# DevCD Research Continuity Packet" in result.output
+    assert "Assess live research continuity" in result.output
+    assert "Live packets should work for research metadata" in result.output
+
+
 def test_recipe_pytest_failure_cli_emits_devcd_jsonl() -> None:
     runner = CliRunner()
     input_path = Path("examples/event-source-recipes/pytest-failure/input.json")
@@ -798,6 +1277,180 @@ def test_recipe_pytest_failure_cli_emits_devcd_jsonl() -> None:
     assert "PRIVATE_TEST_OUTPUT" not in json.dumps(events[0])
     assert events[1]["sensitivity"] == "sensitive"
     assert "PRIVATE_TEST_OUTPUT" in events[1]["payload"]["output"]
+
+
+def test_recipe_research_session_cli_writes_devcd_jsonl(tmp_path: Path) -> None:
+    runner = CliRunner()
+    input_path = tmp_path / "research-session.json"
+    output_path = tmp_path / "research-events.jsonl"
+    input_path.write_text(
+        json.dumps(
+            {
+                "goal": "Assess whether retrieval latency changes answer quality",
+                "timestamp": "2026-05-05T10:00:00Z",
+                "reviewed_sources": [
+                    {
+                        "title": "Latency and answer quality",
+                        "url": "https://example.invalid/paper",
+                        "source_type": "paper",
+                        "summary": "Metadata-only source summary",
+                        "full_text": "PRIVATE_ARTICLE_TEXT",
+                    }
+                ],
+                "notes": [
+                    {
+                        "title": "Latency note",
+                        "summary": "Note metadata summary",
+                        "raw_text": "PRIVATE_NOTE_TEXT",
+                    }
+                ],
+                "hypotheses": ["Lower latency may improve iterative answer quality"],
+                "decisions": ["Treat dataset size as a confound"],
+                "failed_attempts": [
+                    {
+                        "summary": "Compared papers without matching source count",
+                        "why_failed": "The comparison mixed latency with source-count effects.",
+                    }
+                ],
+                "suggested_next_step": "Find a matched source-count comparison",
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    result = runner.invoke(
+        app,
+        ["recipe", "research-session", "--input", str(input_path), "--output", str(output_path)],
+    )
+
+    assert result.exit_code == 0
+    assert f"Wrote {output_path}" in result.output
+    events = [json.loads(line) for line in output_path.read_text(encoding="utf-8").splitlines()]
+    assert [event["type"] for event in events[:6]] == [
+        "research_goal",
+        "source_review",
+        "note_update",
+        "hypothesis",
+        "decision",
+        "failed_attempt",
+    ]
+    assert events[0]["source"] == "task"
+    assert events[0]["payload"]["current_goal"] == (
+        "Assess whether retrieval latency changes answer quality"
+    )
+    assert events[1]["payload"]["title"] == "Latency and answer quality"
+    assert events[1]["payload"]["source_type"] == "paper"
+    assert events[5]["payload"]["suggested_next_action"] == (
+        "Find a matched source-count comparison"
+    )
+    assert "PRIVATE_ARTICLE_TEXT" not in json.dumps(events[:6])
+    assert any(event["type"] == "source_full_text" for event in events)
+    assert any(event["sensitivity"] == "sensitive" for event in events)
+
+
+def test_recipe_research_session_events_feed_live_research_passport(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.chdir(tmp_path)
+    runner = CliRunner()
+    input_path = Path.cwd() / "research-session.json"
+    output_path = Path.cwd() / "research-events.jsonl"
+    runtime_dir = Path.cwd() / "runtime"
+    config_path = Path.cwd() / "devcd.toml"
+    runtime_dir.mkdir()
+    config_path.write_text(
+        '[devcd]\nruntime_dir = "runtime"\nworking_memory_ttl_seconds = 315360000\n',
+        encoding="utf-8",
+    )
+    input_path.write_text(
+        json.dumps(
+            {
+                "goal": "Assess live research continuity from an imported session",
+                "timestamp": "2026-05-05T10:00:00Z",
+                "reviewed_sources": [
+                    {
+                        "title": "Latency and answer quality",
+                        "reference": "paper-alpha",
+                        "source_type": "paper",
+                        "summary": "Metadata-only source summary",
+                        "full_text": "PRIVATE_ARTICLE_TEXT",
+                    }
+                ],
+                "hypotheses": ["Lower latency may improve iterative answer quality"],
+                "decisions": ["Treat dataset size as a confound"],
+                "failed_attempts": [
+                    {
+                        "summary": "Compared papers without matching source count",
+                        "why_failed": "The comparison mixed latency with source-count effects.",
+                    }
+                ],
+                "suggested_next_step": "Find a matched source-count comparison",
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    recipe_result = runner.invoke(
+        app,
+        ["recipe", "research-session", "--input", str(input_path), "--output", str(output_path)],
+    )
+    settings = DevCDSettings.load(config_path)
+    policy_engine = PolicyEngine.from_settings(settings)
+    memory_store = MemoryStore.with_ttl_seconds(settings.working_memory_ttl_seconds)
+    state_engine = StateEngine(policy_engine, memory_store, EventLedger(settings.ledger_path))
+    for line in output_path.read_text(encoding="utf-8").splitlines():
+        state_engine.accept_event(DevEvent.model_validate_json(line))
+
+    passport_result = runner.invoke(
+        app,
+        [
+            "context",
+            "passport",
+            "--config",
+            str(config_path),
+            "--surface",
+            "research-agent",
+            "--pack",
+            "research",
+        ],
+    )
+
+    assert recipe_result.exit_code == 0
+    assert passport_result.exit_code == 0
+    assert "# DevCD Research Continuity Packet" in passport_result.output
+    assert "Assess live research continuity from an imported session" in passport_result.output
+    assert "paper-alpha" in passport_result.output
+    assert "Treat dataset size as a confound" in passport_result.output
+    assert "Find a matched source-count comparison" in passport_result.output
+    assert "PRIVATE_ARTICLE_TEXT" not in passport_result.output
+
+
+def live_ledger_record(
+    *,
+    source: str,
+    event_type: str,
+    timestamp: str,
+    payload: dict[str, object],
+) -> str:
+    return json.dumps(
+        {
+            "event": {
+                "source": source,
+                "type": event_type,
+                "timestamp": timestamp,
+                "payload": payload,
+            },
+            "policy_decision": {
+                "kind": "allow",
+                "reason": "local storage is allowed by policy",
+                "operation": "store",
+                "source": source,
+                "data_class": "metadata",
+            },
+        },
+        sort_keys=True,
+    )
 
 
 def test_agent_docs_name_mcp_handoff_packet_resource() -> None:

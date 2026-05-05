@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 import os
+import shutil
 import sys
 import urllib.error
 import urllib.request
@@ -32,26 +33,39 @@ from devcd.slices.ambient_context.service import (
     list_context_packs,
     render_context_brief_json,
     render_context_brief_markdown,
+    render_context_control_report_json,
+    render_context_control_report_text,
     render_context_packs_json,
     render_continuity_packet_json,
     render_continuity_packet_markdown,
 )
 from devcd.slices.events.ledger import EventLedger
 from devcd.slices.events.models import DevEvent, EventSensitivity, EventSource
-from devcd.slices.events.recipes import PytestFailureRecipeInput, events_from_pytest_failure
+from devcd.slices.events.recipes import (
+    PytestFailureRecipeInput,
+    ResearchSessionRecipeInput,
+    events_from_pytest_failure,
+    events_from_research_session,
+)
 from devcd.slices.git_source.service import GitEventSource
 from devcd.slices.host_state_engine.service import StateEngine
-from devcd.slices.mcp_server.service import ReadOnlyMCPServer, serve_stdio
+from devcd.slices.mcp_server.service import (
+    READ_ONLY_RESOURCE_URIS,
+    ReadOnlyMCPServer,
+    serve_stdio,
+)
 from devcd.slices.memory_layer.service import MemoryStore
 from devcd.slices.policy_layer.service import PolicyEngine
 
 app = typer.Typer(help="DevCD local context daemon.")
 context_app = typer.Typer(help="Inspect ambient developer context.")
 mcp_app = typer.Typer(help="Serve read-only DevCD context through MCP.")
+integrations_app = typer.Typer(help="Print local runtime integration snippets.")
 policy_app = typer.Typer(help="Explain and simulate local policy decisions.")
 recipe_app = typer.Typer(help="Convert local workflow reports into DevCD events.")
 app.add_typer(context_app, name="context")
 app.add_typer(mcp_app, name="mcp")
+app.add_typer(integrations_app, name="integrations")
 app.add_typer(policy_app, name="policy")
 app.add_typer(recipe_app, name="recipe")
 
@@ -203,6 +217,11 @@ def mcp() -> None:
     """MCP commands."""
 
 
+@integrations_app.callback()
+def integrations() -> None:
+    """Runtime integration snippets."""
+
+
 @policy_app.callback()
 def policy() -> None:
     """Policy commands."""
@@ -227,6 +246,30 @@ def recipe_pytest_failure(
     """Convert a local pytest failure report into DevCD JSONL events."""
     report = PytestFailureRecipeInput.model_validate_json(input_path.read_text(encoding="utf-8"))
     jsonl = "\n".join(event.model_dump_json() for event in events_from_pytest_failure(report))
+    jsonl = f"{jsonl}\n"
+    if output is not None:
+        output.write_text(jsonl, encoding="utf-8")
+        typer.echo(f"Wrote {output}")
+        return
+    typer.echo(jsonl, nl=False)
+
+
+@recipe_app.command("research-session")
+def recipe_research_session(
+    input_path: Annotated[
+        Path,
+        typer.Option("--input", help="JSON research-session export to convert."),
+    ],
+    output: Annotated[
+        Path | None,
+        typer.Option("--output", help="Optional JSONL output path."),
+    ] = None,
+) -> None:
+    """Convert a local research-session export into DevCD JSONL events."""
+    report = ResearchSessionRecipeInput.model_validate_json(
+        input_path.read_text(encoding="utf-8")
+    )
+    jsonl = "\n".join(event.model_dump_json() for event in events_from_research_session(report))
     jsonl = f"{jsonl}\n"
     if output is not None:
         output.write_text(jsonl, encoding="utf-8")
@@ -288,6 +331,48 @@ def mcp_serve(
     settings = DevCDSettings.load(config)
     _ensure_mcp_token(settings=settings, token=token)
     serve_stdio(_build_mcp_server(settings), sys.stdin, sys.stdout)
+
+
+@integrations_app.command("openclaw")
+def integrations_openclaw(
+    config: Annotated[Path | None, typer.Option("--config", help="Config file to load.")] = None,
+    output_json: Annotated[
+        bool,
+        typer.Option("--json", help="Print machine-readable JSON output."),
+    ] = False,
+    smoke_test: Annotated[
+        bool,
+        typer.Option("--smoke-test", help="Verify the local DevCD MCP server shape."),
+    ] = False,
+) -> None:
+    """Print a local OpenClaw MCP config snippet for DevCD."""
+    _print_integration_report(
+        runtime="openclaw",
+        config=config,
+        output_json=output_json,
+        smoke_test=smoke_test,
+    )
+
+
+@integrations_app.command("hermes")
+def integrations_hermes(
+    config: Annotated[Path | None, typer.Option("--config", help="Config file to load.")] = None,
+    output_json: Annotated[
+        bool,
+        typer.Option("--json", help="Print machine-readable JSON output."),
+    ] = False,
+    smoke_test: Annotated[
+        bool,
+        typer.Option("--smoke-test", help="Verify the local DevCD MCP server shape."),
+    ] = False,
+) -> None:
+    """Print a local Hermes-Agent MCP config snippet for DevCD."""
+    _print_integration_report(
+        runtime="hermes",
+        config=config,
+        output_json=output_json,
+        smoke_test=smoke_test,
+    )
 
 
 @context_app.command("state")
@@ -404,6 +489,75 @@ def context_handoff_demo(
             )
 
 
+@context_app.command("passport")
+def context_passport(
+    config: Annotated[Path | None, typer.Option("--config", help="Config file to load.")] = None,
+    surface: Annotated[
+        str,
+        typer.Option("--surface", help="Context surface kind."),
+    ] = "coding-agent",
+    pack: Annotated[str, typer.Option("--pack", help="Context pack renderer id.")] = "developer",
+    detail: Annotated[
+        str,
+        typer.Option("--detail", help="minimal, standard, or diagnostic."),
+    ] = "standard",
+    output_json: Annotated[
+        bool,
+        typer.Option("--json", help="Emit JSON ContinuityPacket instead of Markdown."),
+    ] = False,
+) -> None:
+    """Generate a live policy-filtered Agent Passport from the configured local ledger."""
+    service = _build_local_context_service(config)
+    packet = service.create_continuity_packet(
+        AgentContextSurface(
+            kind=_surface_kind(surface),
+            name="devcd-cli-passport",
+            detail_level=_detail_level(detail),
+        ),
+        context_pack=_context_pack_id(pack),
+        include_empty_guidance=True,
+    )
+    typer.echo(
+        render_continuity_packet_json(packet)
+        if output_json
+        else render_continuity_packet_markdown(packet)
+    )
+
+
+@context_app.command("control")
+def context_control(
+    config: Annotated[Path | None, typer.Option("--config", help="Config file to load.")] = None,
+    surface: Annotated[
+        str,
+        typer.Option("--surface", help="Context surface kind."),
+    ] = "coding-agent",
+    pack: Annotated[str, typer.Option("--pack", help="Context pack renderer id.")] = "developer",
+    detail: Annotated[
+        str,
+        typer.Option("--detail", help="minimal, standard, or diagnostic."),
+    ] = "standard",
+    output_json: Annotated[
+        bool,
+        typer.Option("--json", help="Emit JSON ContextControlReport instead of text."),
+    ] = False,
+) -> None:
+    """Print what an agent may know, what is withheld, and why."""
+    service = _build_local_context_service(config)
+    report = service.create_context_control_report(
+        AgentContextSurface(
+            kind=_surface_kind(surface),
+            name="devcd-cli-control",
+            detail_level=_detail_level(detail),
+        ),
+        context_pack=_context_pack_id(pack),
+    )
+    typer.echo(
+        render_context_control_report_json(report)
+        if output_json
+        else render_context_control_report_text(report)
+    )
+
+
 @context_app.command("dismiss-suggestion")
 def context_dismiss_suggestion(
     suggestion_id: Annotated[str, typer.Argument(help="suggestion-id to dismiss")],
@@ -459,6 +613,252 @@ def context_memory_delete(
     """Delete a retained context memory item."""
     url = f"{endpoint}/{quote(item_id, safe='')}"
     typer.echo(_delete_json(endpoint=url, token=token))
+
+
+def _print_integration_report(
+    *,
+    runtime: str,
+    config: Path | None,
+    output_json: bool,
+    smoke_test: bool,
+) -> None:
+    report = _build_integration_report(runtime=runtime, config=config, smoke_test=smoke_test)
+    typer.echo(
+        json.dumps(report, indent=2, sort_keys=True)
+        if output_json
+        else _render_integration_report(report)
+    )
+    smoke = report.get("smoke_test")
+    if isinstance(smoke, dict) and smoke.get("status") != "pass":
+        raise typer.Exit(1)
+
+
+def _build_integration_report(
+    *,
+    runtime: str,
+    config: Path | None,
+    smoke_test: bool,
+) -> dict[str, Any]:
+    runtime_spec = _integration_runtime_spec(runtime)
+    report: dict[str, Any] = {
+        "runtime": runtime,
+        "display_name": runtime_spec["display_name"],
+        "config_path_hint": runtime_spec["config_path_hint"],
+        "config": runtime_spec["config"],
+        "mcp_server": {
+            "transport": "stdio",
+            "command": "devcd",
+            "args": ["mcp", "serve"],
+            "resources": list(READ_ONLY_RESOURCE_URIS),
+            "tools": [],
+            "prompts": [],
+        },
+        "privacy": {
+            "local_command_execution_only": True,
+            "remote_calls": False,
+            "embeds_bearer_token": False,
+            "token_note": (
+                "No bearer token is embedded. devcd mcp serve can use DEVCD_TOKEN "
+                "or the local .devcd/token pattern already supported by DevCD."
+            ),
+        },
+        "mutates_external_config": False,
+        "installs_external_tools": False,
+        "starts_external_daemons": False,
+    }
+    if smoke_test:
+        report["smoke_test"] = _smoke_test_mcp_server(config)
+    return report
+
+
+def _integration_runtime_spec(runtime: str) -> dict[str, Any]:
+    if runtime == "openclaw":
+        return {
+            "display_name": "OpenClaw",
+            "config_path_hint": "~/.openclaw/openclaw.json",
+            "config": {
+                "mcp": {
+                    "servers": {
+                        "devcd": {
+                            "command": "devcd",
+                            "args": ["mcp", "serve"],
+                        }
+                    }
+                }
+            },
+        }
+    if runtime == "hermes":
+        return {
+            "display_name": "Hermes-Agent",
+            "config_path_hint": "Hermes-Agent local MCP configuration",
+            "config": {
+                "mcpServers": {
+                    "devcd": {
+                        "command": "devcd",
+                        "args": ["mcp", "serve"],
+                    }
+                }
+            },
+        }
+    raise typer.BadParameter(f"unsupported integration runtime: {runtime}")
+
+
+def _render_integration_report(report: dict[str, Any]) -> str:
+    display_name = str(report["display_name"])
+    runtime = str(report["runtime"])
+    lines = [
+        f"{display_name} + DevCD MCP",
+        "",
+        f"Paste this snippet into: {report['config_path_hint']}",
+        "",
+        "Config snippet",
+        *_render_integration_snippet(runtime),
+        "",
+        "Compatibility",
+        "- Starts DevCD through local stdio command execution only.",
+        f"- Does not install {display_name}.",
+        f"- Does not mutate {display_name} config.",
+        "- Does not start external daemons from this command.",
+        "- Does not embed bearer tokens or secrets.",
+        "- Exposes read-only MCP resources; tools and prompts remain empty.",
+    ]
+    smoke = report.get("smoke_test")
+    if isinstance(smoke, dict):
+        checked_methods = smoke.get("checked_methods")
+        checked_text = (
+            ", ".join(checked_methods)
+            if isinstance(checked_methods, list)
+            and all(isinstance(method, str) for method in checked_methods)
+            else "unknown"
+        )
+        resource_uris = smoke.get("resource_uris")
+        resource_count = len(resource_uris) if isinstance(resource_uris, list) else 0
+        lines.extend(
+            [
+                "",
+                "Smoke test",
+                f"- status: {smoke['status']}",
+                f"- checked: {checked_text}",
+                f"- resources: {resource_count}",
+                f"- tools: {smoke['tools_count']}",
+                f"- prompts: {smoke['prompts_count']}",
+            ]
+        )
+        errors = smoke.get("errors")
+        if errors:
+            lines.append(f"- errors: {'; '.join(str(error) for error in errors)}")
+    return "\n".join(lines)
+
+
+def _render_integration_snippet(runtime: str) -> list[str]:
+    if runtime == "openclaw":
+        return [
+            "```json5",
+            "{",
+            "  mcp: {",
+            "    servers: {",
+            "      devcd: {",
+            '        command: "devcd",',
+            '        args: ["mcp", "serve"],',
+            "      },",
+            "    },",
+            "  },",
+            "}",
+            "```",
+        ]
+    return [
+        "```json",
+        "{",
+        '  "mcpServers": {',
+        '    "devcd": {',
+        '      "command": "devcd",',
+        '      "args": ["mcp", "serve"]',
+        "    }",
+        "  }",
+        "}",
+        "```",
+    ]
+
+
+def _smoke_test_mcp_server(config: Path | None) -> dict[str, Any]:
+    server = _build_mcp_server(DevCDSettings.load(config))
+    checked_methods = ["initialize", "resources/list", "tools/list", "prompts/list"]
+    errors: list[str] = []
+    command_path = shutil.which("devcd")
+    command_check = {
+        "command": "devcd",
+        "found": command_path is not None,
+        "path": command_path,
+    }
+    if command_path is None:
+        errors.append("devcd command was not found on PATH")
+
+    initialize = _mcp_result(server, 1, "initialize", errors)
+    resources = _mcp_result(server, 2, "resources/list", errors)
+    tools = _mcp_result(server, 3, "tools/list", errors)
+    prompts = _mcp_result(server, 4, "prompts/list", errors)
+
+    server_info = initialize.get("serverInfo") if isinstance(initialize, dict) else None
+    if not isinstance(server_info, dict) or server_info.get("name") != "devcd":
+        errors.append("initialize did not return DevCD serverInfo")
+
+    resource_entries = resources.get("resources") if isinstance(resources, dict) else None
+    resource_uris = _resource_uris(resource_entries)
+    if "devcd://context/continuity-packet" not in resource_uris:
+        errors.append("resources/list did not include devcd://context/continuity-packet")
+
+    tool_entries = tools.get("tools") if isinstance(tools, dict) else None
+    prompt_entries = prompts.get("prompts") if isinstance(prompts, dict) else None
+    tools_count = len(tool_entries) if isinstance(tool_entries, list) else -1
+    prompts_count = len(prompt_entries) if isinstance(prompt_entries, list) else -1
+    if tools_count != 0:
+        errors.append("tools/list was not empty")
+    if prompts_count != 0:
+        errors.append("prompts/list was not empty")
+
+    return {
+        "status": "fail" if errors else "pass",
+        "checked_methods": checked_methods,
+        "server_name": server_info.get("name") if isinstance(server_info, dict) else None,
+        "command_check": command_check,
+        "resource_uris": resource_uris,
+        "tools_count": tools_count,
+        "prompts_count": prompts_count,
+        "errors": errors,
+    }
+
+
+def _mcp_result(
+    server: ReadOnlyMCPServer,
+    request_id: int,
+    method: str,
+    errors: list[str],
+) -> dict[str, Any]:
+    response = server.handle_message({"jsonrpc": "2.0", "id": request_id, "method": method})
+    if response is None:
+        errors.append(f"{method} returned no response")
+        return {}
+    if "error" in response:
+        errors.append(f"{method} returned error: {response['error']}")
+        return {}
+    result = response.get("result")
+    if not isinstance(result, dict):
+        errors.append(f"{method} returned an invalid result")
+        return {}
+    return result
+
+
+def _resource_uris(resources: object) -> list[str]:
+    if not isinstance(resources, list):
+        return []
+    uris: list[str] = []
+    for resource in resources:
+        if not isinstance(resource, dict):
+            continue
+        uri = resource.get("uri")
+        if isinstance(uri, str):
+            uris.append(uri)
+    return uris
 
 
 def _build_status_report(
@@ -742,7 +1142,10 @@ def _probe_daemon(endpoint: str, token: str | None) -> dict[str, Any]:
 
 def _state_engine_readiness(settings: DevCDSettings) -> dict[str, Any]:
     policy_engine = PolicyEngine.from_settings(settings)
-    memory_store = MemoryStore.with_ttl_seconds(settings.working_memory_ttl_seconds)
+    memory_store = MemoryStore.with_ttl_seconds(
+        settings.working_memory_ttl_seconds,
+        settings.episodic_memory_ttl_seconds,
+    )
     event_ledger = EventLedger(settings.ledger_path)
     state_engine = StateEngine(policy_engine, memory_store, event_ledger)
     state_engine.rebuild_from_ledger()
@@ -887,7 +1290,10 @@ def _build_demo_context_service(
 
 def _build_mcp_server(settings: DevCDSettings) -> ReadOnlyMCPServer:
     policy_engine = PolicyEngine.from_settings(settings)
-    memory_store = MemoryStore.with_ttl_seconds(settings.working_memory_ttl_seconds)
+    memory_store = MemoryStore.with_ttl_seconds(
+        settings.working_memory_ttl_seconds,
+        settings.episodic_memory_ttl_seconds,
+    )
     event_ledger = EventLedger(settings.ledger_path)
     state_engine = StateEngine(
         policy_engine=policy_engine,
@@ -912,7 +1318,10 @@ def _build_mcp_server(settings: DevCDSettings) -> ReadOnlyMCPServer:
 def _build_local_context_service(config: Path | None = None) -> AmbientContextService:
     settings = DevCDSettings.load(config)
     policy_engine = PolicyEngine.from_settings(settings)
-    memory_store = MemoryStore.with_ttl_seconds(settings.working_memory_ttl_seconds)
+    memory_store = MemoryStore.with_ttl_seconds(
+        settings.working_memory_ttl_seconds,
+        settings.episodic_memory_ttl_seconds,
+    )
     event_ledger = EventLedger(settings.ledger_path)
     state_engine = StateEngine(
         policy_engine=policy_engine,
@@ -1073,7 +1482,31 @@ def _render_feedback_result(feedback: ContextFeedback) -> str:
 
 
 def _render_context_quality(report: ContextQualityReport) -> str:
-    lines = ["Context quality feedback", "No ranking or scoring is computed in phase 1.", ""]
+    lines = [
+        "Context quality feedback",
+        f"Quality score: {report.score:.2f}",
+        f"Phase: {report.phase}",
+        f"Ranking or scoring: {report.ranking_or_scoring}",
+        "",
+        "Category counts",
+    ]
+    for category, count in report.category_counts.items():
+        lines.append(f"- {category}: {count}")
+    lines.extend(["", "Quality notes"])
+    if report.summary_notes:
+        lines.extend(f"- {note}" for note in report.summary_notes)
+    else:
+        lines.append("- No context feedback recorded.")
+    if report.risk_notes:
+        lines.append("")
+        lines.append("Risk notes")
+        lines.extend(f"- {note}" for note in report.risk_notes)
+    if report.suggested_next_actions:
+        lines.append("")
+        lines.append("Suggested next actions")
+        lines.extend(f"- {action}" for action in report.suggested_next_actions)
+    lines.append("")
+    lines.append("Stored feedback")
     if not report.feedback:
         lines.append("No feedback recorded.")
         return "\n".join(lines)
