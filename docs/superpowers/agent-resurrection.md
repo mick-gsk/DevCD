@@ -41,6 +41,17 @@ devcd context handoff-demo --events examples/agent-resurrection/sample-events.js
 devcd context handoff-demo --events examples/agent-resurrection/sample-events.jsonl --json
 ```
 
+For daily use, generate the live policy-filtered Agent Passport from the configured
+local ledger without passing a fixture file:
+
+```bash
+devcd context passport
+devcd context passport --json --surface coding-agent --pack developer
+```
+
+If the ledger is empty, the passport still renders safely and includes concrete
+next commands for recording a goal or converting a local pytest failure report.
+
 The expected handoff packet is checked in at
 `examples/agent-resurrection/handoff-packet.md`. The expected machine-readable
 packet is checked in at `examples/agent-resurrection/handoff-packet.json` and

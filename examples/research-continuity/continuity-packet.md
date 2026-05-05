@@ -35,6 +35,9 @@ Assess whether retrieval latency changes answer quality in multi-source research
 ## unknowns
 - Original chat history is not available in the handoff packet.
 
+## context_quality_notes
+- No context feedback recorded.
+
 ## withheld_context
 - category: payload_content
   policy_reason: metadata-only policy denied full-text payload content

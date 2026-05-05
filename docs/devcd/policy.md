@@ -27,6 +27,8 @@ Proactive suggestions are advisory context, not actions. They may explain a like
 
 Context memory inspection, correction, and deletion operate only on policy-visible local memory items. Local context-control mutations receive an explicit policy decision, corrections carry an audit reason, and deleted or expired items are excluded from later work-state derivation.
 
+Context feedback is a deterministic local quality signal. Feedback categories such as `missing`, `wrong`, `stale`, `too_broad`, and `too_sensitive` are counted locally to adjust the next ContextBrief, ContinuityPacket, and Agent Passport. The loop computes safe quality notes, risk notes, suggested next actions, and a local confidence score without calling a model, training anything, or applying corrections automatically. Feedback text remains policy-gated: denied notes are not stored or rendered, and quality reports expose only category metadata, counts, safe summaries, and policy reasons.
+
 ## Open Questions
 
 - Which data classes count as sensitive by default?

@@ -52,6 +52,8 @@ See [docs/superpowers/agent-resurrection.md](docs/superpowers/agent-resurrection
 - 5-minute TTL working-memory with configurable scopes
 - CLI for config initialization and event submission
 - Read-only local MCP stdio resources for policy-filtered context
+- `devcd integrations openclaw` and `devcd integrations hermes` — copyable local MCP
+    config snippets with optional shape checks
 - `devcd://context/continuity-packet` — domain-neutral Continuity Packet via MCP
 - `devcd://context/agent-handoff-packet` — legacy developer handoff contract via MCP (kept for compatibility)
 
@@ -118,6 +120,21 @@ Ask DevCD for a policy-filtered context brief a coding agent can use:
 
 ```bash
 devcd context brief --surface cli --detail standard
+```
+
+Generate the current live Agent Passport from your configured local ledger:
+
+```bash
+devcd context passport
+devcd context passport --json --surface coding-agent --pack developer
+```
+
+Generate a local MCP config snippet for an external runtime and verify DevCD's
+read-only MCP shape without editing that runtime's config:
+
+```bash
+devcd integrations openclaw --smoke-test
+devcd integrations hermes --json --smoke-test
 ```
 
 Inspect ambient context:

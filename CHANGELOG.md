@@ -6,10 +6,18 @@ The project follows Conventional Commits and Semantic Versioning once public rel
 
 ## 0.1.0 - Unreleased
 
-Short version: Initial local-first context daemon foundation.
+Short version: Initial local-first context daemon foundation with context quality scoring, control-plane report, research-session recipe, live Agent Passport, and MCP integration snippets.
 
 ### Added
 
+- Research-session event recipe (`devcd recipe research-session`) with policy-gated source, note, and full-text events.
+- Context quality scoring: deterministic local score, category counts, risk notes, and suggested next actions on `ContextQualityReport`.
+- Context control-plane report model (`ContextControlReport`) with visible/withheld sources, memory counts, continuity preview, and quality summary.
+- `GET /context/control-plane` API endpoint exposing the control-plane report.
+- `devcd context passport` CLI command to generate a live policy-filtered Agent Passport from the local ledger.
+- `devcd context control` CLI command to display the control-plane report (`--json` supported).
+- `devcd integrations openclaw` and `devcd integrations hermes` CLI commands with copyable local MCP config snippets and optional `--smoke-test` shape check.
+- Default `devcd.toml` configuration file committed to the repository root.
 - Python monorepo scaffold with Vertical Slice Architecture.
 - MVP daemon API for `POST /event`, `GET /state`, and `GET /memory/{scope}`.
 - Default observe-only policy layer with explicit policy reasoning.

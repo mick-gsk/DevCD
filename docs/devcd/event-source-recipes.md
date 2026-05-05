@@ -68,3 +68,22 @@ events = events_from_pytest_failure(
 ```
 
 Feed the resulting events through `StateEngine.accept_event(...)` so normal policy, ledger, memory, and ambient-context behavior applies.
+
+## Research Session Recipe
+
+The research-session recipe turns a local research export into DevCD events for the Research Context Pack. It accepts structured metadata as the safe path: research goal, reviewed source titles and references, source type, note titles or summaries, hypotheses, decisions, failed attempts, why attempts failed, and a suggested next step.
+
+Raw note text, article text, transcript text, and full content can be present in the input, but the recipe emits those as sensitive/full-text events so the default policy withholds them from agent-facing output. The recipe does not scrape browsers, import private notes directly, call remote APIs, or add telemetry.
+
+```bash
+devcd recipe research-session --input examples/event-source-recipes/research-session/input.json --output research-events.jsonl
+devcd context handoff-demo --events research-events.jsonl --surface research-agent --pack research
+```
+
+For the live Agent Passport path, feed the emitted events through normal local ingestion so DevCD records policy decisions in the configured ledger, then run:
+
+```bash
+devcd context passport --surface research-agent --pack research
+```
+
+The checked-in input at `examples/event-source-recipes/research-session/input.json` includes synthetic raw text fields to demonstrate withholding. Those raw fields must not appear in the Research Continuity Packet.

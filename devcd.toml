@@ -1,0 +1,22 @@
+[devcd]
+host = "127.0.0.1"
+port = 8765
+runtime_dir = ".devcd"
+ledger_file = "events.jsonl"
+working_memory_ttl_seconds = 300
+episodic_memory_ttl_seconds = 604800
+ide_coalesce_window_ms = 500
+enabled_sources = [
+    "git",
+    "ide",
+    "notes",
+    "system",
+    "task",
+]
+allowed_data_classes = [
+    "metadata",
+]
+allow_observation = true
+allow_local_storage = true
+allow_remote_export = false
+allow_actions = false

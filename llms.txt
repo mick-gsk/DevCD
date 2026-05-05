@@ -13,6 +13,7 @@ Agent context paths:
 - MCP stdio: `devcd mcp serve`; use as a read-only MCP context source for MCP-native agent runtimes such as OpenClaw; exposes read-only resources only, no tools or prompts
   - `devcd://context/continuity-packet` — domain-neutral policy-filtered Continuity Packet (developer pack by default)
   - `devcd://context/agent-handoff-packet` — legacy developer handoff JSON contract (kept for backward compatibility)
+- Integration snippets: `devcd integrations openclaw` and `devcd integrations hermes`; add `--json` for machine-readable output or `--smoke-test` to verify initialize/resources/list/tools/list/prompts/list locally without mutating external config
 - Context Packs: `devcd context packs` or `devcd context packs --json`; developer and research packs are built-in
 - Pytest failure recipe: `devcd recipe pytest-failure --input examples/event-source-recipes/pytest-failure/input.json`
 
