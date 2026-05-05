@@ -27,10 +27,12 @@ from devcd.slices.ambient_context.models import (
 )
 from devcd.slices.ambient_context.service import (
     AmbientContextService,
+    render_context_brief_json,
     render_context_brief_markdown,
 )
 from devcd.slices.events.ledger import EventLedger
-from devcd.slices.events.models import DevEvent
+from devcd.slices.events.models import DevEvent, EventSensitivity, EventSource
+from devcd.slices.events.recipes import PytestFailureRecipeInput, events_from_pytest_failure
 from devcd.slices.git_source.service import GitEventSource
 from devcd.slices.host_state_engine.service import StateEngine
 from devcd.slices.mcp_server.service import ReadOnlyMCPServer, serve_stdio
@@ -41,9 +43,11 @@ app = typer.Typer(help="DevCD local context daemon.")
 context_app = typer.Typer(help="Inspect ambient developer context.")
 mcp_app = typer.Typer(help="Serve read-only DevCD context through MCP.")
 policy_app = typer.Typer(help="Explain and simulate local policy decisions.")
+recipe_app = typer.Typer(help="Convert local workflow reports into DevCD events.")
 app.add_typer(context_app, name="context")
 app.add_typer(mcp_app, name="mcp")
 app.add_typer(policy_app, name="policy")
+app.add_typer(recipe_app, name="recipe")
 
 _LOCAL_TOKEN_PATH = Path(".devcd") / "token"
 _LOOPBACK_HOSTS = {"127.0.0.1", "::1", "localhost"}
@@ -91,6 +95,41 @@ def run_daemon(
 def _run_daemon(config: Path | None, host: str | None, port: int | None) -> None:
     settings = DevCDSettings.load(config)
     uvicorn.run(create_app(settings), host=host or settings.host, port=port or settings.port)
+
+
+@app.command()
+def status(
+    config: Annotated[Path | None, typer.Option("--config", help="Config file to load.")] = None,
+    endpoint: Annotated[
+        str,
+        typer.Option("--endpoint", help="DevCD daemon state endpoint."),
+    ] = "http://127.0.0.1:8765/state",
+    token: Annotated[str | None, typer.Option("--token", help="Local API bearer token.")] = None,
+) -> None:
+    """Print local DevCD runtime readiness."""
+    report = _build_status_report(config=config, endpoint=endpoint, token=token)
+    typer.echo(_render_status_report(report))
+
+
+@app.command()
+def doctor(
+    config: Annotated[Path | None, typer.Option("--config", help="Config file to load.")] = None,
+    endpoint: Annotated[
+        str,
+        typer.Option("--endpoint", help="DevCD daemon state endpoint."),
+    ] = "http://127.0.0.1:8765/state",
+    output_json: Annotated[
+        bool,
+        typer.Option("--json", help="Print machine-readable JSON output."),
+    ] = False,
+) -> None:
+    """Run local DevCD operational readiness checks."""
+    report = _build_doctor_report(config=config, endpoint=endpoint)
+    typer.echo(
+        json.dumps(report, indent=2, sort_keys=True)
+        if output_json
+        else _render_doctor_report(report)
+    )
 
 
 @app.command()
@@ -161,6 +200,37 @@ def mcp() -> None:
 @policy_app.callback()
 def policy() -> None:
     """Policy commands."""
+
+
+@recipe_app.callback()
+def recipe() -> None:
+    """Event recipe commands."""
+
+
+@recipe_app.command("pytest-failure")
+def recipe_pytest_failure(
+    input_path: Annotated[
+        Path,
+        typer.Option("--input", help="JSON pytest failure report to convert."),
+    ],
+    output: Annotated[
+        Path | None,
+        typer.Option("--output", help="Optional JSONL output path."),
+    ] = None,
+) -> None:
+    """Convert a local pytest failure report into DevCD JSONL events."""
+    report = PytestFailureRecipeInput.model_validate_json(
+        input_path.read_text(encoding="utf-8")
+    )
+    jsonl = "\n".join(
+        event.model_dump_json() for event in events_from_pytest_failure(report)
+    )
+    jsonl = f"{jsonl}\n"
+    if output is not None:
+        output.write_text(jsonl, encoding="utf-8")
+        typer.echo(f"Wrote {output}")
+        return
+    typer.echo(jsonl, nl=False)
 
 
 @policy_app.command("simulate")
@@ -286,6 +356,9 @@ def context_handoff_demo(
     detail: Annotated[
         str, typer.Option("--detail", help="minimal, standard, or diagnostic.")
     ] = "standard",
+    output_json: Annotated[
+        bool, typer.Option("--json", help="Emit JSON contract instead of Markdown.")
+    ] = False,
 ) -> None:
     """Generate a read-only agent handoff brief from local JSONL events."""
     with TemporaryDirectory() as temporary_directory:
@@ -300,7 +373,10 @@ def context_handoff_demo(
             )
         )
         brief = brief.model_copy(update={"id": "demo-handoff-brief"})
-        typer.echo(render_context_brief_markdown(brief))
+        if output_json:
+            typer.echo(render_context_brief_json(brief))
+        else:
+            typer.echo(render_context_brief_markdown(brief))
 
 
 @context_app.command("dismiss-suggestion")
@@ -358,6 +434,400 @@ def context_memory_delete(
     """Delete a retained context memory item."""
     url = f"{endpoint}/{quote(item_id, safe='')}"
     typer.echo(_delete_json(endpoint=url, token=token))
+
+
+def _build_status_report(
+    *,
+    config: Path | None,
+    endpoint: str,
+    token: str | None,
+) -> dict[str, Any]:
+    config_path = _readiness_config_path(config)
+    config_exists = config_path.exists()
+    settings = DevCDSettings.load(config)
+    token_source, resolved_token = _readiness_token_source(settings, endpoint, token)
+    daemon = _probe_daemon(endpoint=endpoint, token=resolved_token)
+    records = EventLedger(settings.ledger_path).read_records()
+
+    return {
+        "config_path": str(config_path),
+        "config_exists": config_exists,
+        "endpoint": endpoint,
+        "daemon": daemon,
+        "token_source": token_source,
+        "workspace": str(Path.cwd()),
+        "events_count": len(records),
+        "last_event_timestamp": _last_event_timestamp(records),
+        "active_goal": _latest_payload_string(
+            records,
+            event_type="goal_update",
+            key="current_goal",
+        ),
+        "current_branch": _latest_payload_string(records, event_type="branch_change", key="branch"),
+        "policy_mode": _policy_mode(settings),
+        "policy_decision_count": len(records),
+        "memory_path": str(settings.ledger_path),
+        "memory_available": settings.runtime_dir.exists(),
+        "handoff_available": _handoff_available(settings),
+        "mcp_available": True,
+        "next_command": _next_status_command(
+            config_exists=config_exists,
+            token_source=token_source,
+            daemon_reachable=bool(daemon["reachable"]),
+            events_count=len(records),
+        ),
+    }
+
+
+def _build_doctor_report(*, config: Path | None, endpoint: str) -> dict[str, Any]:
+    config_path = _readiness_config_path(config)
+    settings = DevCDSettings.load(config)
+    token_source, resolved_token = _readiness_token_source(settings, endpoint, None)
+    daemon = _probe_daemon(endpoint=endpoint, token=resolved_token)
+    state_status = _state_engine_readiness(settings)
+    checks = [
+        _doctor_check(
+            "config_exists",
+            "pass" if config_path.exists() else "warn",
+            f"Config found at {config_path}" if config_path.exists() else "No devcd.toml found",
+            {"path": str(config_path)},
+            "devcd init" if not config_path.exists() else "devcd status",
+        ),
+        _doctor_check(
+            "token_exists",
+            "pass" if token_source != "missing" else "warn",
+            f"Token source: {token_source}"
+            if token_source != "missing"
+            else "No local token found",
+            {"source": token_source},
+            "devcd run" if token_source == "missing" else "devcd status",
+        ),
+        _doctor_check(
+            "daemon_reachable",
+            "pass" if daemon["reachable"] else "warn",
+            "Daemon state endpoint is reachable"
+            if daemon["reachable"]
+            else "Daemon is not reachable",
+            daemon,
+            "devcd run" if not daemon["reachable"] else "devcd context brief --surface cli",
+        ),
+        _doctor_check(
+            "event_ingestion_or_demo",
+            "pass" if daemon["reachable"] or _sample_events_path().exists() else "warn",
+            "Daemon is reachable or local handoff demo events exist",
+            {"daemon_reachable": daemon["reachable"], "demo_events": str(_sample_events_path())},
+            "devcd context handoff-demo --events examples/agent-handoff/sample-events.jsonl",
+        ),
+        _doctor_check(
+            "state_engine_state",
+            "pass" if state_status["has_state"] else "warn",
+            "State engine has local state"
+            if state_status["has_state"]
+            else "No local state found",
+            state_status,
+            "devcd event ide file_focus --payload '{\"path\":\"src/app.py\"}'",
+        ),
+        _policy_sensitive_denial_check(settings),
+        _sample_events_valid_check(),
+        _handoff_demo_check(),
+        _docs_commands_check(),
+    ]
+    return {
+        "summary": {
+            "status": "ready"
+            if all(check["status"] == "pass" for check in checks)
+            else "attention",
+            "remote_export": "enabled" if settings.allow_remote_export else "disabled",
+            "telemetry": "not implemented",
+            "workspace": str(Path.cwd()),
+        },
+        "checks": checks,
+    }
+
+
+def _doctor_check(
+    check_id: str,
+    status_value: str,
+    summary: str,
+    details: dict[str, Any],
+    next_step: str,
+) -> dict[str, Any]:
+    return {
+        "id": check_id,
+        "status": status_value,
+        "summary": summary,
+        "details": details,
+        "next_step": next_step,
+    }
+
+
+def _policy_sensitive_denial_check(settings: DevCDSettings) -> dict[str, Any]:
+    event = DevEvent(
+        source=EventSource.NOTES,
+        type="note_update",
+        payload={"title": "Synthetic sensitive readiness sample"},
+        sensitivity=EventSensitivity.SENSITIVE,
+    )
+    decision = PolicyEngine.from_settings(settings).decide_observation(event)
+    return _doctor_check(
+        "policy_sensitive_denial",
+        "pass" if not decision.allowed else "fail",
+        "Sensitive sample is denied" if not decision.allowed else "Sensitive sample was allowed",
+        {"decision": decision.kind.value, "reason": decision.reason},
+        "Review allowed_data_classes and sensitivity policy"
+        if decision.allowed
+        else "devcd policy simulate --surface coding-agent --event <file>",
+    )
+
+
+def _sample_events_valid_check() -> dict[str, Any]:
+    sample_path = _sample_events_path()
+    try:
+        events = _read_jsonl_events(sample_path)
+    except (OSError, typer.BadParameter, ValueError) as error:
+        return _doctor_check(
+            "sample_events_valid",
+            "fail",
+            "Agent handoff sample events are not valid",
+            {"path": str(sample_path), "error": str(error)},
+            "Fix examples/agent-handoff/sample-events.jsonl",
+        )
+    return _doctor_check(
+        "sample_events_valid",
+        "pass",
+        "Agent handoff sample events are valid",
+        {"path": str(sample_path), "events_count": len(events)},
+        "devcd context handoff-demo --events examples/agent-handoff/sample-events.jsonl",
+    )
+
+
+def _handoff_demo_check() -> dict[str, Any]:
+    sample_path = _sample_events_path()
+    try:
+        with TemporaryDirectory() as temporary_directory:
+            service, state_engine = _build_demo_context_service(Path(temporary_directory))
+            for event in _read_jsonl_events(sample_path):
+                state_engine.accept_event(event)
+            brief = service.create_context_brief(
+                AgentContextSurface(kind=SurfaceKind.CLI, name="devcd-doctor")
+            )
+    except (OSError, typer.BadParameter, ValueError) as error:
+        return _doctor_check(
+            "handoff_demo",
+            "fail",
+            "Context handoff demo could not be generated",
+            {"path": str(sample_path), "error": str(error)},
+            "devcd context handoff-demo --events examples/agent-handoff/sample-events.jsonl",
+        )
+    return _doctor_check(
+        "handoff_demo",
+        "pass",
+        "Context handoff demo can be generated",
+        {"path": str(sample_path), "brief_id": brief.id},
+        "devcd context handoff-demo --events examples/agent-handoff/sample-events.jsonl",
+    )
+
+
+def _docs_commands_check() -> dict[str, Any]:
+    docs_path = Path("docs/getting-started.md")
+    try:
+        content = docs_path.read_text(encoding="utf-8")
+    except OSError as error:
+        return _doctor_check(
+            "docs_commands",
+            "warn",
+            "Getting Started docs could not be read",
+            {"path": str(docs_path), "error": str(error)},
+            "Check docs/getting-started.md",
+        )
+    missing = [command for command in ("devcd status", "devcd doctor") if command not in content]
+    return _doctor_check(
+        "docs_commands",
+        "pass" if not missing else "warn",
+        "Docs mention readiness commands" if not missing else "Docs are missing readiness commands",
+        {"path": str(docs_path), "missing": missing},
+        "Update docs/getting-started.md" if missing else "devcd doctor",
+    )
+
+
+def _readiness_config_path(config: Path | None) -> Path:
+    if config is not None:
+        return config
+    env_config = os.environ.get("DEVCD_CONFIG", "").strip()
+    return Path(env_config) if env_config else Path("devcd.toml")
+
+
+def _readiness_token_source(
+    settings: DevCDSettings,
+    endpoint: str,
+    token: str | None,
+) -> tuple[str, str | None]:
+    if token:
+        return "option", token
+    if not _is_loopback_endpoint(endpoint):
+        return "not sent to non-loopback endpoint", None
+    env_token = os.environ.get("DEVCD_TOKEN", "").strip()
+    if env_token:
+        return "env:DEVCD_TOKEN", env_token
+    if settings.api_token:
+        return "config:api_token", settings.api_token
+
+    for token_path in (settings.runtime_dir / "token", _LOCAL_TOKEN_PATH):
+        if token_path.exists():
+            file_token = token_path.read_text(encoding="utf-8").strip()
+            if file_token:
+                return f"file:{token_path}", file_token
+    return "missing", None
+
+
+def _probe_daemon(endpoint: str, token: str | None) -> dict[str, Any]:
+    headers = {"Accept": "application/json"}
+    if token is not None:
+        headers["Authorization"] = f"Bearer {token}"
+    request = urllib.request.Request(endpoint, headers=headers, method="GET")
+    try:
+        with urllib.request.urlopen(request, timeout=2) as response:
+            body = response.read().decode("utf-8")
+    except urllib.error.HTTPError as error:
+        if error.code in {401, 403}:
+            return {
+                "endpoint": endpoint,
+                "reachable": True,
+                "authorized": False,
+                "reason": f"HTTP {error.code}",
+            }
+        return {
+            "endpoint": endpoint,
+            "reachable": False,
+            "authorized": False,
+            "reason": f"HTTP {error.code}",
+        }
+    except (TimeoutError, urllib.error.URLError) as error:
+        return {
+            "endpoint": endpoint,
+            "reachable": False,
+            "authorized": False,
+            "reason": str(error),
+        }
+
+    try:
+        parsed = json.loads(body)
+    except ValueError:
+        parsed = None
+    return {"endpoint": endpoint, "reachable": True, "authorized": True, "state": parsed}
+
+
+def _state_engine_readiness(settings: DevCDSettings) -> dict[str, Any]:
+    policy_engine = PolicyEngine.from_settings(settings)
+    memory_store = MemoryStore.with_ttl_seconds(settings.working_memory_ttl_seconds)
+    event_ledger = EventLedger(settings.ledger_path)
+    state_engine = StateEngine(policy_engine, memory_store, event_ledger)
+    state_engine.rebuild_from_ledger()
+    state = state_engine.state
+    records = event_ledger.read_records()
+    return {
+        "has_state": bool(state.current_goal or state.recent_actions or state.source_active_map),
+        "events_count": len(records),
+        "last_event": _last_event_timestamp(records),
+        "recent_actions": len(state.recent_actions),
+    }
+
+
+def _last_event_timestamp(records: list[tuple[DevEvent, Any]]) -> str | None:
+    if not records:
+        return None
+    return max(event.timestamp for event, _decision in records).isoformat()
+
+
+def _latest_payload_string(
+    records: list[tuple[DevEvent, Any]],
+    *,
+    event_type: str,
+    key: str,
+) -> str | None:
+    for event, _decision in reversed(records):
+        if event.type != event_type:
+            continue
+        value = event.payload.get(key)
+        if isinstance(value, str) and value.strip():
+            return value
+    return None
+
+
+def _policy_mode(settings: DevCDSettings) -> str:
+    return (
+        f"observe={'yes' if settings.allow_observation else 'no'}, "
+        f"store={'yes' if settings.allow_local_storage else 'no'}, "
+        f"remote_export={'yes' if settings.allow_remote_export else 'no'}, "
+        f"actions={'yes' if settings.allow_actions else 'no'}"
+    )
+
+
+def _handoff_available(settings: DevCDSettings) -> bool:
+    policy_engine = PolicyEngine.from_settings(settings)
+    memory_store = MemoryStore.with_ttl_seconds(settings.working_memory_ttl_seconds)
+    state_engine = StateEngine(policy_engine, memory_store, EventLedger.disabled())
+    service = AmbientContextService(state_engine, memory_store, policy_engine)
+    brief = service.create_context_brief(AgentContextSurface(kind=SurfaceKind.CLI, name="status"))
+    return bool(brief.id)
+
+
+def _next_status_command(
+    *,
+    config_exists: bool,
+    token_source: str,
+    daemon_reachable: bool,
+    events_count: int,
+) -> str:
+    if not config_exists:
+        return "devcd init"
+    if token_source == "missing" or not daemon_reachable:
+        return "devcd run"
+    if events_count == 0:
+        return "devcd event ide file_focus --payload '{\"path\":\"src/app.py\"}'"
+    return "devcd context brief --surface cli --detail standard"
+
+
+def _sample_events_path() -> Path:
+    return Path("examples/agent-handoff/sample-events.jsonl")
+
+
+def _render_status_report(report: dict[str, Any]) -> str:
+    daemon = report["daemon"]
+    daemon_status = "reachable" if daemon["reachable"] else "unreachable"
+    lines = [
+        "DevCD status",
+        f"Daemon: {daemon_status} ({report['endpoint']})",
+        f"Auth token: {report['token_source']}",
+        f"Workspace: {report['workspace']}",
+        f"Events: {report['events_count']}",
+        f"Last event: {report['last_event_timestamp'] or 'none'}",
+        f"Active goal: {report['active_goal'] or 'none'}",
+        f"Current branch: {report['current_branch'] or 'unknown'}",
+        f"Policy: {report['policy_mode']} ({report['policy_decision_count']} decisions)",
+        (
+            f"Memory: {'available' if report['memory_available'] else 'missing'} "
+            f"({report['memory_path']})"
+        ),
+        f"Handoff: {'available' if report['handoff_available'] else 'unavailable'}",
+        f"MCP: {'available' if report['mcp_available'] else 'unavailable'}",
+        f"Next: {report['next_command']}",
+    ]
+    return "\n".join(lines)
+
+
+def _render_doctor_report(report: dict[str, Any]) -> str:
+    lines = ["DevCD doctor"]
+    for check in report["checks"]:
+        lines.append(f"{check['id']}: {check['status']} - {check['summary']}")
+    next_steps = [check["next_step"] for check in report["checks"] if check["status"] != "pass"]
+    if next_steps:
+        lines.extend(["", "Next steps"])
+        for next_step in dict.fromkeys(next_steps):
+            lines.append(f"- {next_step}")
+    else:
+        lines.extend(["", "Next steps", "- devcd status"])
+    return "\n".join(lines)
 
 
 def _post_event(endpoint: str, event: dict[str, Any], token: str | None = None) -> str:
