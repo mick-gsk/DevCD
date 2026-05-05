@@ -210,9 +210,7 @@ class LiveSetupScreen(Screen[None]):  # type: ignore[type-arg]
                             markup=False,
                             classes="cmd-block",
                         )
-                        yield Label(
-                            f"Success: {step['success_looks_like']}", classes="step-prose"
-                        )
+                        yield Label(f"Success: {step['success_looks_like']}", classes="step-prose")
                         if can_run:
                             yield Button(
                                 "▶  Run now",
@@ -304,16 +302,16 @@ class McpScreen(Screen[None]):  # type: ignore[type-arg]
                         classes="step-prose",
                     )
                     yield Static(
-                        '  {\n'
+                        "  {\n"
                         '    "mcp": {\n'
                         '      "servers": {\n'
                         '        "devcd": {\n'
                         '          "command": "devcd",\n'
                         '          "args": ["mcp", "serve"]\n'
-                        '        }\n'
-                        '      }\n'
-                        '    }\n'
-                        '  }',
+                        "        }\n"
+                        "      }\n"
+                        "    }\n"
+                        "  }",
                         markup=False,
                         classes="cmd-block",
                     )

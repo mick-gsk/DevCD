@@ -191,9 +191,7 @@ class PolicyEngine:
         if not self._allow_agentic_context_runs:
             return PolicyDecision(
                 kind=PolicyDecisionKind.DENY,
-                reason=(
-                    "local scout runner start is denied by the default local-first policy"
-                ),
+                reason=("local scout runner start is denied by the default local-first policy"),
                 operation="agentic_runner_start",
                 source=runner_id,
                 data_class="metadata",

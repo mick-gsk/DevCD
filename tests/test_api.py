@@ -235,8 +235,7 @@ def test_context_control_plane_api_empty_state_is_useful() -> None:
         for command in body["next_commands"]
     )
     assert all(
-        "devcd event task goal_update --payload" not in command
-        for command in body["next_commands"]
+        "devcd event task goal_update --payload" not in command for command in body["next_commands"]
     )
     assert body["continuity_packet_preview"]["active_goal"] is None
 
