@@ -266,9 +266,7 @@ def recipe_research_session(
     ] = None,
 ) -> None:
     """Convert a local research-session export into DevCD JSONL events."""
-    report = ResearchSessionRecipeInput.model_validate_json(
-        input_path.read_text(encoding="utf-8")
-    )
+    report = ResearchSessionRecipeInput.model_validate_json(input_path.read_text(encoding="utf-8"))
     jsonl = "\n".join(event.model_dump_json() for event in events_from_research_session(report))
     jsonl = f"{jsonl}\n"
     if output is not None:

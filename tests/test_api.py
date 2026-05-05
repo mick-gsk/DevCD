@@ -223,8 +223,7 @@ def test_context_control_plane_api_empty_state_is_useful() -> None:
     assert body["visible_sources"] == []
     assert body["memory_counts_by_scope"] == {"working": 0, "episodic": 0, "semantic": 0}
     assert any(
-        "devcd event task goal_update --payload" in command
-        for command in body["next_commands"]
+        "devcd event task goal_update --payload" in command for command in body["next_commands"]
     )
     assert body["continuity_packet_preview"]["active_goal"] is None
 

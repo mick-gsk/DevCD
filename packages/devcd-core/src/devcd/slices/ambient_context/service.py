@@ -299,8 +299,7 @@ _EMPTY_PASSPORT_UNKNOWN = "No local ledger events are visible in this passport y
 _EMPTY_CONTROL_NEXT_STEPS = (
     "devcd init",
     "devcd run",
-    "devcd event task goal_update --payload "
-    '\'{"current_goal":"Describe the task"}\'',
+    'devcd event task goal_update --payload \'{"current_goal":"Describe the task"}\'',
     "devcd recipe pytest-failure --input examples/event-source-recipes/pytest-failure/input.json",
     "devcd context control",
 )
@@ -911,8 +910,7 @@ class AmbientContextService:
         for feedback in feedback_items:
             category_counts[feedback.kind.value] += 1
         penalty = sum(
-            _QUALITY_PENALTIES[kind] * category_counts[kind.value]
-            for kind in ContextFeedbackKind
+            _QUALITY_PENALTIES[kind] * category_counts[kind.value] for kind in ContextFeedbackKind
         )
         summary_notes = self._quality_summary_notes(category_counts)
         risk_notes = self._quality_risk_notes(category_counts)

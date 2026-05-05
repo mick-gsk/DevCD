@@ -199,8 +199,7 @@ def events_from_research_session(report: ResearchSessionRecipeInput) -> list[Dev
             "recipe": "research_session",
             "summary": attempt.summary,
             "why_attempt_failed": attempt.why_failed,
-            "suggested_next_action": attempt.suggested_next_step
-            or report.suggested_next_step,
+            "suggested_next_action": attempt.suggested_next_step or report.suggested_next_step,
         }
         if attempt.do_not_repeat is not None:
             payload["do_not_repeat"] = attempt.do_not_repeat
