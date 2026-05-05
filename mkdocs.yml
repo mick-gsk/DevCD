@@ -7,6 +7,8 @@ edit_uri: edit/main/docs/
 
 theme:
   name: material
+  logo: assets/devcd-mark.svg
+  favicon: assets/devcd-mark.svg
   palette:
     - media: "(prefers-color-scheme: light)"
       scheme: default
@@ -48,7 +50,14 @@ nav:
       - Memory Model: devcd/memory.md
       - Policy Layer: devcd/policy.md
       - Agent Consumption: devcd/agent-consumption.md
+      - OpenClaw Integration: devcd/openclaw-integration.md
+      - Context Packs: devcd/context-packs.md
+      - Brand System: devcd/brand-system.md
       - Naming and Positioning: devcd/naming-and-positioning.md
+      - Release Readiness: devcd/release-readiness.md
+      - Publishing: devcd/publishing.md
+      - Container Sandbox: devcd/container.md
       - Event Source Recipes: devcd/event-source-recipes.md
   - Decisions:
       - ADR-001 Vertical Slice Architecture: decisions/ADR-001-vertical-slice-architecture.md
+      - ADR-012 Public Alpha Agent Passport Surface: decisions/ADR-012-public-alpha-agent-passport-surface.md

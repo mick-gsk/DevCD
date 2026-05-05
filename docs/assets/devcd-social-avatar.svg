@@ -1,0 +1,29 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1024" height="1024" viewBox="0 0 1024 1024" role="img" aria-labelledby="title desc">
+  <title id="title">DevCD social avatar</title>
+  <desc id="desc">A square high-contrast DevCD pixel sticker mark for social avatars.</desc>
+  <defs>
+    <rect id="px" width="86" height="86" rx="10" fill="currentColor"/>
+    <g id="d-pixels">
+      <use href="#px" x="0" y="0"/><use href="#px" x="100" y="0"/><use href="#px" x="200" y="0"/><use href="#px" x="300" y="0"/>
+      <use href="#px" x="0" y="100"/><use href="#px" x="400" y="100"/>
+      <use href="#px" x="0" y="200"/><use href="#px" x="400" y="200"/>
+      <use href="#px" x="0" y="300"/><use href="#px" x="400" y="300"/>
+      <use href="#px" x="0" y="400"/><use href="#px" x="400" y="400"/>
+      <use href="#px" x="0" y="500"/><use href="#px" x="400" y="500"/>
+      <use href="#px" x="0" y="600"/><use href="#px" x="100" y="600"/><use href="#px" x="200" y="600"/><use href="#px" x="300" y="600"/>
+    </g>
+  </defs>
+  <rect width="1024" height="1024" rx="196" fill="#080a0f"/>
+  <path d="M96 236h832" stroke="#18b7a6" stroke-width="32" opacity="0.94"/>
+  <path d="M96 796h832" stroke="#18b7a6" stroke-width="32" opacity="0.94"/>
+  <path d="M786 0h108L360 1024H252z" fill="#18b7a6" opacity="0.17"/>
+  <path d="M882 0h54L402 1024h-54z" fill="#f2b84b" opacity="0.22"/>
+  <g transform="translate(270 198) scale(0.92)">
+    <use href="#d-pixels" color="#000000" transform="translate(34 42)" opacity="0.92"/>
+    <use href="#d-pixels" color="#9b5419" transform="translate(18 24)" opacity="1"/>
+    <use href="#d-pixels" color="#f7c948"/>
+  </g>
+  <path d="M268 854h386" stroke="#18b7a6" stroke-width="32" stroke-linecap="square"/>
+  <path d="M690 854h72" stroke="#18b7a6" stroke-width="32" stroke-linecap="square" opacity="0.52"/>
+  <rect x="52" y="52" width="920" height="920" rx="148" fill="none" stroke="#263142" stroke-width="14"/>
+</svg>

@@ -1,0 +1,28 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="500" height="140" viewBox="100 22 500 140" role="img" aria-labelledby="title desc">
+  <title id="title">DevCD wordmark</title>
+  <desc id="desc">A transparent hand-built pixel wordmark for DevCD.</desc>
+  <defs>
+    <rect id="px" width="12" height="12" rx="1.5" fill="currentColor"/>
+    <g id="devcd-pixels">
+      <use href="#px" x="0" y="0"/><use href="#px" x="14" y="0"/><use href="#px" x="28" y="0"/><use href="#px" x="42" y="0"/>
+      <use href="#px" x="0" y="14"/><use href="#px" x="56" y="14"/><use href="#px" x="0" y="28"/><use href="#px" x="56" y="28"/><use href="#px" x="0" y="42"/><use href="#px" x="56" y="42"/><use href="#px" x="0" y="56"/><use href="#px" x="56" y="56"/><use href="#px" x="0" y="70"/><use href="#px" x="56" y="70"/>
+      <use href="#px" x="0" y="84"/><use href="#px" x="14" y="84"/><use href="#px" x="28" y="84"/><use href="#px" x="42" y="84"/>
+      <use href="#px" x="88" y="0"/><use href="#px" x="102" y="0"/><use href="#px" x="116" y="0"/><use href="#px" x="130" y="0"/><use href="#px" x="144" y="0"/>
+      <use href="#px" x="88" y="14"/><use href="#px" x="88" y="28"/><use href="#px" x="88" y="42"/><use href="#px" x="102" y="42"/><use href="#px" x="116" y="42"/><use href="#px" x="130" y="42"/>
+      <use href="#px" x="88" y="56"/><use href="#px" x="88" y="70"/><use href="#px" x="88" y="84"/><use href="#px" x="102" y="84"/><use href="#px" x="116" y="84"/><use href="#px" x="130" y="84"/><use href="#px" x="144" y="84"/>
+      <use href="#px" x="176" y="0"/><use href="#px" x="232" y="0"/><use href="#px" x="176" y="14"/><use href="#px" x="232" y="14"/><use href="#px" x="176" y="28"/><use href="#px" x="232" y="28"/><use href="#px" x="176" y="42"/><use href="#px" x="232" y="42"/>
+      <use href="#px" x="190" y="56"/><use href="#px" x="218" y="56"/><use href="#px" x="190" y="70"/><use href="#px" x="218" y="70"/><use href="#px" x="204" y="84"/>
+      <use href="#px" x="276" y="0"/><use href="#px" x="290" y="0"/><use href="#px" x="304" y="0"/><use href="#px" x="318" y="0"/>
+      <use href="#px" x="262" y="14"/><use href="#px" x="262" y="28"/><use href="#px" x="262" y="42"/><use href="#px" x="262" y="56"/><use href="#px" x="262" y="70"/>
+      <use href="#px" x="276" y="84"/><use href="#px" x="290" y="84"/><use href="#px" x="304" y="84"/><use href="#px" x="318" y="84"/>
+      <use href="#px" x="348" y="0"/><use href="#px" x="362" y="0"/><use href="#px" x="376" y="0"/><use href="#px" x="390" y="0"/>
+      <use href="#px" x="348" y="14"/><use href="#px" x="404" y="14"/><use href="#px" x="348" y="28"/><use href="#px" x="404" y="28"/><use href="#px" x="348" y="42"/><use href="#px" x="404" y="42"/><use href="#px" x="348" y="56"/><use href="#px" x="404" y="56"/><use href="#px" x="348" y="70"/><use href="#px" x="404" y="70"/>
+      <use href="#px" x="348" y="84"/><use href="#px" x="362" y="84"/><use href="#px" x="376" y="84"/><use href="#px" x="390" y="84"/>
+    </g>
+  </defs>
+  <use href="#devcd-pixels" x="115" y="34" color="#080a0f" transform="translate(8 10)" opacity="0.95"/>
+  <use href="#devcd-pixels" x="115" y="34" color="#9b5419" transform="translate(4 6)" opacity="0.95"/>
+  <use href="#devcd-pixels" x="115" y="34" color="#f7c948"/>
+  <path d="M118 142h420" stroke="#18b7a6" stroke-width="7" stroke-linecap="square"/>
+  <path d="M548 142h18" stroke="#18b7a6" stroke-width="7" stroke-linecap="square" opacity="0.55"/>
+</svg>
