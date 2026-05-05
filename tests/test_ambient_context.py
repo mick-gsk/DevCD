@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 from datetime import UTC, datetime
 
 import pytest
@@ -29,6 +30,7 @@ from devcd.slices.ambient_context.models import (
 )
 from devcd.slices.ambient_context.service import (
     AmbientContextService,
+    render_context_brief_json,
     render_context_brief_markdown,
 )
 from devcd.slices.events.ledger import EventLedger
@@ -117,6 +119,28 @@ def test_context_feedback_is_stored_locally_without_note_text(tmp_path) -> None:
     assert feedback.withheld_context[0].category == "payload_content"
     assert quality.feedback == [feedback]
     assert (tmp_path / "context-feedback.jsonl").exists()
+
+
+def test_context_brief_surfaces_policy_safe_quality_notes_without_feedback_text(tmp_path) -> None:
+    service, _state_engine = build_ambient_context_service(tmp_path)
+    service.record_feedback(
+        brief_id="brief-123",
+        kind=ContextFeedbackKind.MISSING,
+        note="Add the private failing test name to the handoff.",
+    )
+
+    brief = service.create_context_brief(AgentContextSurface(kind="cli", name="copilot"))
+    markdown = render_context_brief_markdown(brief)
+    contract = json.loads(render_context_brief_json(brief))
+
+    assert brief.context_quality_notes == [
+        "brief-123: missing feedback recorded; note withheld by policy."
+    ]
+    assert "## context_quality_notes" in markdown
+    assert "brief-123: missing feedback recorded; note withheld by policy." in markdown
+    assert contract["context_quality_notes"] == brief.context_quality_notes
+    assert "private failing test name" not in markdown
+    assert "private failing test name" not in json.dumps(contract)
 
 
 def test_sensitive_context_feedback_note_is_withheld(tmp_path) -> None:
@@ -478,6 +502,211 @@ def test_context_brief_contains_agent_handoff_fields_and_policy_boundaries(tmp_p
     assert any("cannot see" in item for item in brief.agent_limitations)
 
 
+def test_context_brief_derives_agent_resurrection_context(tmp_path) -> None:
+    service, state_engine = build_ambient_context_service(tmp_path)
+
+    state_engine.accept_event(
+        DevEvent(
+            source=EventSource.TASK,
+            type="goal_update",
+            timestamp=datetime(2026, 5, 4, 12, 0, tzinfo=UTC),
+            payload={"current_goal": "Restore the agent handoff after context loss"},
+        )
+    )
+    state_engine.accept_event(
+        DevEvent(
+            source=EventSource.IDE,
+            type="file_focus",
+            timestamp=datetime(2026, 5, 4, 12, 1, tzinfo=UTC),
+            payload={"path": "packages/devcd-core/src/devcd/slices/ambient_context/service.py"},
+        )
+    )
+    state_engine.accept_event(
+        DevEvent(
+            source=EventSource.TASK,
+            type="test_failure",
+            timestamp=datetime(2026, 5, 4, 12, 2, tzinfo=UTC),
+            payload={"reason": "make check failed: missing resurrection sections"},
+        )
+    )
+    state_engine.accept_event(
+        DevEvent(
+            source=EventSource.TASK,
+            type="fix_attempt",
+            timestamp=datetime(2026, 5, 4, 12, 3, tzinfo=UTC),
+            payload={"summary": "Added only a Last failure section to the markdown renderer"},
+        )
+    )
+    state_engine.accept_event(
+        DevEvent(
+            source=EventSource.TASK,
+            type="test_failure",
+            timestamp=datetime(2026, 5, 4, 12, 4, tzinfo=UTC),
+            payload={
+                "reason": "make check still fails: do_not_repeat is absent",
+                "suggested_next_action": "Add a first-class resurrection context before rendering",
+            },
+        )
+    )
+    state_engine.accept_event(
+        DevEvent(
+            source=EventSource.NOTES,
+            type="note_update",
+            timestamp=datetime(2026, 5, 4, 12, 5, tzinfo=UTC),
+            payload={"title": "SECRET_TOKEN=do-not-print"},
+            sensitivity="sensitive",
+        )
+    )
+
+    brief = service.create_context_brief(AgentContextSurface(kind="cli", name="copilot"))
+    markdown = render_context_brief_markdown(brief)
+
+    assert brief.resurrection.current_goal == "Restore the agent handoff after context loss"
+    assert brief.resurrection.last_attempt is not None
+    assert brief.resurrection.last_attempt.type == "test_failure"
+    assert brief.resurrection.last_failure == "make check still fails: do_not_repeat is absent"
+    assert (
+        brief.resurrection.last_attempted_fix
+        == "Added only a Last failure section to the markdown renderer"
+    )
+    assert "happened after the attempted fix" in brief.resurrection.why_attempt_failed
+    assert brief.resurrection.do_not_repeat == [
+        "Do not repeat the last attempted fix unchanged: Added only a Last failure section "
+        "to the markdown renderer"
+    ]
+    assert (
+        brief.resurrection.suggested_next_action
+        == "Add a first-class resurrection context before rendering"
+    )
+    assert (
+        "Original chat history is not available in the handoff packet."
+        in brief.resurrection.unknowns
+    )
+    assert "## do_not_repeat" in markdown
+    assert "## unknowns" in markdown
+    assert "SECRET_TOKEN" not in markdown
+
+
+def test_resurrection_context_keeps_failure_history_after_later_success(tmp_path) -> None:
+    service, state_engine = build_ambient_context_service(tmp_path)
+
+    state_engine.accept_event(
+        DevEvent(
+            source=EventSource.TASK,
+            type="goal_update",
+            timestamp=datetime(2026, 5, 4, 12, 0, tzinfo=UTC),
+            payload={"current_goal": "Finish the continuity handoff"},
+        )
+    )
+    state_engine.accept_event(
+        DevEvent(
+            source=EventSource.TASK,
+            type="fix_attempt",
+            timestamp=datetime(2026, 5, 4, 12, 1, tzinfo=UTC),
+            payload={"summary": "Only renamed the renderer heading"},
+        )
+    )
+    state_engine.accept_event(
+        DevEvent(
+            source=EventSource.TASK,
+            type="test_failure",
+            timestamp=datetime(2026, 5, 4, 12, 2, tzinfo=UTC),
+            payload={"reason": "handoff JSON still omits why_attempt_failed"},
+        )
+    )
+    state_engine.accept_event(
+        DevEvent(
+            source=EventSource.TASK,
+            type="fix_success",
+            timestamp=datetime(2026, 5, 4, 12, 3, tzinfo=UTC),
+            payload={"summary": "Added why_attempt_failed to the JSON contract"},
+        )
+    )
+
+    brief = service.create_context_brief(AgentContextSurface(kind="cli", name="copilot"))
+
+    assert brief.resurrection.last_attempt is not None
+    assert brief.resurrection.last_attempt.outcome == "success"
+    assert (
+        brief.resurrection.last_attempt.summary
+        == "Added why_attempt_failed to the JSON contract"
+    )
+    assert brief.resurrection.last_failure == "handoff JSON still omits why_attempt_failed"
+    assert brief.resurrection.do_not_repeat == [
+        "Do not repeat the last attempted fix unchanged: Only renamed the renderer heading"
+    ]
+    assert "appears resolved by" in brief.resurrection.why_attempt_failed
+    assert "Added why_attempt_failed to the JSON contract" in brief.resurrection.why_attempt_failed
+    assert (
+        brief.resurrection.suggested_next_action
+        == "Continue from the successful attempt: Added why_attempt_failed to the JSON contract"
+    )
+
+
+def test_resurrection_context_generates_do_not_repeat_for_failed_attempt(tmp_path) -> None:
+    service, state_engine = build_ambient_context_service(tmp_path)
+
+    state_engine.accept_event(
+        DevEvent(
+            source=EventSource.TASK,
+            type="fix_failure",
+            timestamp=datetime(2026, 5, 4, 12, 0, tzinfo=UTC),
+            payload={
+                "summary": "Retried the stale renderer-only patch",
+                "why_attempt_failed": "The patch only changed markdown and skipped JSON output.",
+                "suggested_next_action": "Update the continuity contract and renderer together",
+            },
+        )
+    )
+
+    brief = service.create_context_brief(AgentContextSurface(kind="cli", name="copilot"))
+
+    assert brief.resurrection.last_attempt is not None
+    assert brief.resurrection.last_attempt.outcome == "failure"
+    assert brief.resurrection.last_failure == "Retried the stale renderer-only patch"
+    assert brief.resurrection.do_not_repeat == [
+        "Do not repeat the failed attempt unchanged: Retried the stale renderer-only patch"
+    ]
+    assert (
+        brief.resurrection.why_attempt_failed
+        == "The patch only changed markdown and skipped JSON output."
+    )
+    assert (
+        brief.resurrection.suggested_next_action
+        == "Update the continuity contract and renderer together"
+    )
+
+
+def test_resurrection_context_uses_latest_relevant_failure(tmp_path) -> None:
+    service, state_engine = build_ambient_context_service(tmp_path)
+
+    state_engine.accept_event(
+        DevEvent(
+            source=EventSource.TASK,
+            type="test_failure",
+            timestamp=datetime(2026, 5, 4, 12, 0, tzinfo=UTC),
+            payload={"reason": "older failure should remain history"},
+        )
+    )
+    state_engine.accept_event(
+        DevEvent(
+            source=EventSource.TASK,
+            type="test_failure",
+            timestamp=datetime(2026, 5, 4, 12, 1, tzinfo=UTC),
+            payload={
+                "reason": "latest failure should drive continuity",
+                "suggested_next_action": "Rerun the latest targeted test",
+            },
+        )
+    )
+
+    brief = service.create_context_brief(AgentContextSurface(kind="cli", name="copilot"))
+
+    assert brief.resurrection.last_failure == "latest failure should drive continuity"
+    assert brief.resurrection.suggested_next_action == "Rerun the latest targeted test"
+    assert "older failure" not in (brief.resurrection.why_attempt_failed or "")
+
+
 def test_context_brief_explains_sensitive_withheld_signal_without_payload(tmp_path) -> None:
     service, state_engine = build_ambient_context_service(tmp_path)
 
@@ -748,7 +977,11 @@ def test_pytest_failure_recipe_feeds_policy_gated_handoff_packet(tmp_path) -> No
     assert "## Last failure" in markdown
     assert "## brief_id" in markdown
     assert brief.id in markdown
+    assert brief.resurrection.last_attempt is not None
+    assert brief.resurrection.last_attempt.type == "test_failure"
+    assert brief.resurrection.last_attempt.outcome == "failure"
     assert "pytest failed: tests/test_checkout.py::test_total" in markdown
+    assert "## why_attempt_failed" in markdown
     assert "## Suggested next action" in markdown
     assert "Rerun pytest tests/test_checkout.py::test_total -q" in markdown
     assert brief.blockers[0].summary == "pytest failed: tests/test_checkout.py::test_total"
@@ -885,3 +1118,170 @@ def build_ambient_context_service(tmp_path) -> tuple[AmbientContextService, Stat
         feedback_path=tmp_path / "context-feedback.jsonl",
     )
     return service, state_engine
+
+
+# ---------------------------------------------------------------------------
+# JSON contract tests
+# ---------------------------------------------------------------------------
+
+
+def test_context_brief_json_contract_contains_all_required_fields(tmp_path) -> None:
+    service, state_engine = build_ambient_context_service(tmp_path)
+
+    state_engine.accept_event(
+        DevEvent(
+            source=EventSource.TASK,
+            type="goal_update",
+            timestamp=datetime(2026, 5, 4, 12, 0, tzinfo=UTC),
+            payload={"current_goal": "Ship Agent-Handoff JSON Contract"},
+        )
+    )
+    state_engine.accept_event(
+        DevEvent(
+            source=EventSource.GIT,
+            type="branch_change",
+            timestamp=datetime(2026, 5, 4, 12, 1, tzinfo=UTC),
+            payload={"repo": ".", "branch": "feat/json-contract"},
+        )
+    )
+    state_engine.accept_event(
+        DevEvent(
+            source=EventSource.TASK,
+            type="test_failure",
+            timestamp=datetime(2026, 5, 4, 12, 2, tzinfo=UTC),
+            payload={"reason": "render_context_brief_json not yet implemented"},
+        )
+    )
+
+    brief = service.create_context_brief(AgentContextSurface(kind="cli", name="test"))
+    contract = json.loads(render_context_brief_json(brief))
+
+    required_fields = {
+        "schema_version",
+        "brief_id",
+        "surface",
+        "goal",
+        "relevant_artifacts",
+        "git_context",
+        "last_attempt",
+        "last_failure",
+        "why_attempt_failed",
+        "do_not_repeat",
+        "blockers",
+        "suggested_next_action",
+        "policy_summary",
+        "withheld_context_summary",
+        "unknowns",
+        "confidence",
+    }
+    assert required_fields.issubset(contract.keys())
+    assert contract["schema_version"] == "1"
+    assert contract["surface"] == "cli"
+    assert contract["goal"] == "Ship Agent-Handoff JSON Contract"
+    assert contract["git_context"]["branch"] == "feat/json-contract"
+    assert contract["last_failure"] == "render_context_brief_json not yet implemented"
+    assert contract["why_attempt_failed"] == (
+        "The latest visible blocker is still unresolved: render_context_brief_json not yet "
+        "implemented"
+    )
+    assert isinstance(contract["blockers"], list)
+    assert isinstance(contract["relevant_artifacts"], list)
+    assert isinstance(contract["do_not_repeat"], list)
+    assert isinstance(contract["unknowns"], list)
+    assert isinstance(contract["policy_summary"], dict)
+    assert isinstance(contract["withheld_context_summary"], list)
+    assert isinstance(contract["confidence"], float)
+
+
+def test_context_brief_json_contract_contains_no_secret_payloads(tmp_path) -> None:
+    service, state_engine = build_ambient_context_service(tmp_path)
+
+    state_engine.accept_event(
+        DevEvent(
+            source=EventSource.NOTES,
+            type="note_update",
+            timestamp=datetime(2026, 5, 4, 12, 0, tzinfo=UTC),
+            payload={"title": "API_KEY=super-secret-value-12345"},
+            sensitivity="sensitive",
+        )
+    )
+    state_engine.accept_event(
+        DevEvent(
+            source=EventSource.BROWSER,
+            type="url_focus",
+            timestamp=datetime(2026, 5, 4, 12, 1, tzinfo=UTC),
+            payload={"url": "https://internal.corp/secret-board"},
+        )
+    )
+
+    brief = service.create_context_brief(AgentContextSurface(kind="cli", name="test"))
+    json_output = render_context_brief_json(brief)
+
+    assert "super-secret-value-12345" not in json_output
+    assert "API_KEY=super-secret-value-12345" not in json_output
+    assert "secret-board" not in json_output
+
+
+def test_context_brief_json_and_markdown_are_consistent(tmp_path) -> None:
+    service, state_engine = build_ambient_context_service(tmp_path)
+
+    state_engine.accept_event(
+        DevEvent(
+            source=EventSource.TASK,
+            type="goal_update",
+            timestamp=datetime(2026, 5, 4, 12, 0, tzinfo=UTC),
+            payload={"current_goal": "Consistency check between JSON and Markdown"},
+        )
+    )
+    state_engine.accept_event(
+        DevEvent(
+            source=EventSource.GIT,
+            type="commit",
+            timestamp=datetime(2026, 5, 4, 12, 1, tzinfo=UTC),
+            payload={"repo": ".", "sha": "deadbeef", "message": "add json contract"},
+        )
+    )
+
+    brief = service.create_context_brief(AgentContextSurface(kind="cli", name="test"))
+    contract = json.loads(render_context_brief_json(brief))
+    markdown = render_context_brief_markdown(brief)
+
+    assert contract["goal"] == brief.active_goal
+    assert contract["goal"] in markdown
+    assert contract["schema_version"] == brief.schema_version
+    assert contract["brief_id"] == brief.id
+    assert brief.id in markdown
+    assert contract["git_context"]["latest_commit"] == brief.git_context.latest_commit
+    assert (contract["git_context"]["latest_commit"] or "unknown") in markdown
+
+
+def test_context_brief_json_policy_summary_omits_included_sources(tmp_path) -> None:
+    service, _state_engine = build_ambient_context_service(tmp_path)
+
+    brief = service.create_context_brief(AgentContextSurface(kind="cli", name="test"))
+    contract = json.loads(render_context_brief_json(brief))
+
+    ps = contract["policy_summary"]
+    assert "allowed" in ps
+    assert "operation" in ps
+    assert "reason" in ps
+    assert "withheld_sources" in ps
+    assert "withheld_data_classes" in ps
+    # The full included_sources list is intentionally not in the contract
+    assert "included_sources" not in ps
+
+
+def test_context_brief_has_schema_version_and_confidence_fields() -> None:
+    policy = PolicySummary(
+        allowed=True,
+        operation="export",
+        reason="test",
+    )
+    brief = ContextBrief(
+        surface=AgentContextSurface(),
+        summary="test brief",
+        policy_decision=policy,
+    )
+
+    assert brief.schema_version == "1"
+    assert brief.confidence == 0.0
