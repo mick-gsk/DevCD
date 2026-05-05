@@ -975,7 +975,7 @@ def test_cli_live_passport_empty_state_includes_next_commands(
 
     assert result.exit_code == 0
     assert "No goal visible" in result.output
-    assert 'devcd event task goal_update --payload' in result.output
+    assert "devcd event task goal_update --payload" in result.output
     assert "devcd recipe pytest-failure" in result.output
     assert "devcd context passport" in result.output
 
@@ -1173,7 +1173,7 @@ def test_cli_context_control_empty_state_includes_next_commands(
 
     assert result.exit_code == 0
     assert "Active goal: none" in result.output
-    assert 'devcd event task goal_update --payload' in result.output
+    assert "devcd event task goal_update --payload" in result.output
     assert "devcd context control" in result.output
 
 

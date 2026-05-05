@@ -38,9 +38,7 @@ def test_mcp_resource_descriptions_state_no_mutation_boundary(tmp_path) -> None:
     resources = server.handle_message({"jsonrpc": "2.0", "id": 2, "method": "resources/list"})
 
     assert resources is not None
-    descriptions = [
-        resource["description"] for resource in resources["result"]["resources"]
-    ]
+    descriptions = [resource["description"] for resource in resources["result"]["resources"]]
     assert descriptions
     assert all("No MCP tools, prompts, or mutations" in description for description in descriptions)
 
@@ -433,8 +431,7 @@ def test_mcp_server_empty_continuity_packet_matches_passport_guidance(tmp_path) 
     assert body["context_pack"] == "developer"
     assert body["intent"] is None
     assert any(
-        "devcd event task goal_update --payload" in step
-        for step in body["suggested_next_steps"]
+        "devcd event task goal_update --payload" in step for step in body["suggested_next_steps"]
     )
     assert any("devcd context passport" in step for step in body["suggested_next_steps"])
 
