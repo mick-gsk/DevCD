@@ -1,0 +1,41 @@
+{
+  "goal": "Assess whether retrieval latency changes answer quality in multi-source research agents",
+  "timestamp": "2026-05-05T10:00:00Z",
+  "reviewed_sources": [
+    {
+      "title": "Synthetic study metadata: retrieval latency and answer revision quality",
+      "reference": "synthetic-paper-alpha",
+      "source_type": "paper",
+      "summary": "Synthetic study metadata: retrieval latency and answer revision quality",
+      "full_text": "Synthetic full article text withheld by policy; contains draft article excerpts that must not be exported."
+    },
+    {
+      "title": "Synthetic benchmark metadata: dataset size effects in retrieval evaluation",
+      "reference": "synthetic-report-beta",
+      "source_type": "report",
+      "summary": "Synthetic benchmark metadata: dataset size effects in retrieval evaluation"
+    }
+  ],
+  "notes": [
+    {
+      "title": "Retrieval latency research note",
+      "summary": "Metadata-only note summary: source set size remains a confound.",
+      "raw_text": "Synthetic full research note body withheld by policy; contains draft article excerpts that must not be exported."
+    }
+  ],
+  "hypotheses": [
+    "Lower retrieval latency may improve answer quality only when source set size is controlled."
+  ],
+  "decisions": [
+    "Treat dataset size as a confound before comparing latency outcomes."
+  ],
+  "failed_attempts": [
+    {
+      "summary": "Compared the latency study against the benchmark report without matching source set size",
+      "why_failed": "The comparison mixed latency effects with source set size effects, so it could not support the hypothesis.",
+      "do_not_repeat": "Do not compare latency outcomes across sources until source set size is matched or explicitly controlled."
+    }
+  ],
+  "suggested_next_step": "Review one synthetic source with matched source set size before updating the hypothesis.",
+  "transcript_text": "Synthetic transcript text withheld by policy."
+}
