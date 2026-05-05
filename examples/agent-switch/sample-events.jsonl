@@ -1,0 +1,12 @@
+{"source":"task","type":"goal_update","timestamp":"2026-05-05T09:00:00Z","payload":{"current_goal":"Ship the agent-switch review handoff demo"}}
+{"source":"ide","type":"file_focus","timestamp":"2026-05-05T09:01:00Z","payload":{"path":"packages/devcd-core/src/devcd/slices/ambient_context/service.py","duration_seconds":180}}
+{"source":"ide","type":"file_focus","timestamp":"2026-05-05T09:02:00Z","payload":{"path":"tests/test_cli.py","duration_seconds":150}}
+{"source":"ide","type":"file_focus","timestamp":"2026-05-05T09:03:00Z","payload":{"path":"examples/agent-switch/expected-review-agent-handoff.md","duration_seconds":120}}
+{"source":"git","type":"branch_change","timestamp":"2026-05-05T09:04:00Z","payload":{"repo":".","branch":"agent-switch-demo"}}
+{"source":"git","type":"commit","timestamp":"2026-05-05T09:05:00Z","payload":{"repo":".","sha":"def5678","message":"add surface-specific handoff fixtures"}}
+{"source":"task","type":"test_failure","timestamp":"2026-05-05T09:06:00Z","payload":{"reason":"review-agent handoff lacks expected fixture comparison"}}
+{"source":"task","type":"fix_attempt","timestamp":"2026-05-05T09:07:00Z","payload":{"summary":"Created a coding-agent-only handoff and skipped review-agent output"}}
+{"source":"task","type":"test_failure","timestamp":"2026-05-05T09:08:00Z","payload":{"reason":"review-agent expected handoff still missing review artifacts","suggested_next_action":"Add review-agent expected output and compare surfaces"}}
+{"source":"notes","type":"note_update","timestamp":"2026-05-05T09:09:00Z","payload":{"title":"SECRET_AGENT_SWITCH_TOKEN=fixture-secret-999"},"sensitivity":"sensitive"}
+{"source":"task","type":"test_output","timestamp":"2026-05-05T09:10:00Z","payload":{"summary":"pytest stderr was withheld","stderr":"SECRET_REVIEW_LOG=fixture-output-999"},"sensitivity":"sensitive"}
+{"source":"browser","type":"url_focus","timestamp":"2026-05-05T09:11:00Z","payload":{"url":"https://internal.invalid/private-review-ticket?token=fixture-url-999"}}

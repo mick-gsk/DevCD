@@ -1,0 +1,9 @@
+{"source":"task","type":"goal_update","timestamp":"2026-05-04T12:00:00Z","payload":{"current_goal":"Finish the before/after continuity proof demo for DevCD"}}
+{"source":"ide","type":"file_focus","timestamp":"2026-05-04T12:01:00Z","payload":{"path":"examples/before-after-agent-continuity/README.md","duration_seconds":90}}
+{"source":"ide","type":"file_focus","timestamp":"2026-05-04T12:02:00Z","payload":{"path":"examples/before-after-agent-continuity/with-devcd.md","duration_seconds":120}}
+{"source":"git","type":"branch_change","timestamp":"2026-05-04T12:03:00Z","payload":{"repo":".","branch":"main"}}
+{"source":"task","type":"test_failure","timestamp":"2026-05-04T12:04:00Z","payload":{"reason":"make check failed: before/after demo did not document withheld sensitive context"}}
+{"source":"task","type":"fix_attempt","timestamp":"2026-05-04T12:05:00Z","payload":{"summary":"Added a generic handoff paragraph but did not regenerate the CLI output from the fixture"}}
+{"source":"task","type":"test_failure","timestamp":"2026-05-04T12:06:00Z","payload":{"reason":"make check still fails: expected CLI output is stale and omits do_not_repeat","suggested_next_action":"Regenerate with-devcd.md from sample-events.jsonl and verify withheld_context is present"}}
+{"source":"notes","type":"note_update","timestamp":"2026-05-04T12:07:00Z","payload":{"title":"PRIVATE_TOKEN=do-not-print"},"sensitivity":"sensitive"}
+{"source":"browser","type":"url_focus","timestamp":"2026-05-04T12:08:00Z","payload":{"url":"https://internal.invalid/private-continuity-ticket"}}
