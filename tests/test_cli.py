@@ -515,9 +515,7 @@ def test_cli_handoff_demo_research_pack_outputs_actionable_continuity(tmp_path) 
             "source": "task",
             "type": "research_goal",
             "timestamp": "2026-05-05T10:00:00+00:00",
-            "payload": {
-                "current_goal": "Assess whether retrieval latency changes answer quality"
-            },
+            "payload": {"current_goal": "Assess whether retrieval latency changes answer quality"},
         },
         {
             "source": "notes",
@@ -532,9 +530,7 @@ def test_cli_handoff_demo_research_pack_outputs_actionable_continuity(tmp_path) 
             "source": "notes",
             "type": "hypothesis",
             "timestamp": "2026-05-05T10:02:00+00:00",
-            "payload": {
-                "summary": "Lower retrieval latency may improve iterative answer quality"
-            },
+            "payload": {"summary": "Lower retrieval latency may improve iterative answer quality"},
         },
         {
             "source": "notes",
@@ -545,9 +541,7 @@ def test_cli_handoff_demo_research_pack_outputs_actionable_continuity(tmp_path) 
                 "why_attempt_failed": (
                     "The comparison mixed latency effects with dataset-size effects."
                 ),
-                "do_not_repeat": (
-                    "Do not compare latency sources without matching dataset size."
-                ),
+                "do_not_repeat": ("Do not compare latency sources without matching dataset size."),
                 "suggested_next_action": (
                     "Find one source with matched dataset size and latency variation."
                 ),
