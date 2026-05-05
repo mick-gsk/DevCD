@@ -421,6 +421,44 @@ def test_work_state_derives_current_goal_artifact_attempt_and_open_loop(tmp_path
     assert work_state.policy_summary.included_sources == ["ide", "task"]
 
 
+def test_work_state_derives_relevant_artifact_from_artifact_ref(tmp_path) -> None:
+    service, state_engine = build_ambient_context_service(tmp_path)
+
+    state_engine.accept_event(
+        DevEvent(
+            source=EventSource.IDE,
+            type="artifact_ref",
+            timestamp=datetime(2026, 5, 5, 10, 0, tzinfo=UTC),
+            payload={
+                "path": "packages/devcd-core/src/devcd/cli.py",
+                "summary": "CLI entrypoint",
+            },
+        )
+    )
+
+    packet = service.create_continuity_packet(AgentContextSurface(kind="coding-agent"))
+
+    assert packet.artifacts[0].identifier == "packages/devcd-core/src/devcd/cli.py"
+    assert packet.artifacts[0].summary == "artifact_ref: CLI entrypoint"
+
+
+def test_work_state_derives_blocker_from_blocker_event(tmp_path) -> None:
+    service, state_engine = build_ambient_context_service(tmp_path)
+
+    state_engine.accept_event(
+        DevEvent(
+            source=EventSource.TASK,
+            type="blocker",
+            timestamp=datetime(2026, 5, 5, 10, 0, tzinfo=UTC),
+            payload={"summary": "Agent has no shell access"},
+        )
+    )
+
+    packet = service.create_continuity_packet(AgentContextSurface(kind="coding-agent"))
+
+    assert packet.blockers[0].summary == "Agent has no shell access"
+
+
 def test_work_state_marks_old_goal_stale_after_branch_change(tmp_path) -> None:
     service, state_engine = build_ambient_context_service(tmp_path)
 

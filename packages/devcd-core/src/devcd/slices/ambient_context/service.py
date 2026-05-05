@@ -287,10 +287,10 @@ _CONTEXT_PACK_REGISTRY = ContextPackRegistry(_BUILT_IN_CONTEXT_PACKS)
 _EMPTY_PASSPORT_NEXT_STEPS = (
     "Initialize local config: devcd init",
     "Start the local daemon: devcd run",
-    "Record a current goal: "
-    'devcd event task goal_update --payload \'{"current_goal":"Describe the task"}\'',
-    "Convert a pytest failure: devcd recipe pytest-failure --input "
-    "examples/event-source-recipes/pytest-failure/input.json",
+    "Agents with shell access capture continuity metadata themselves: "
+    'devcd capture --kind goal --summary "Describe the task"',
+    "Agents without shell access read DevCD only; Do not ask the user to perform "
+    "DevCD bookkeeping.",
     "Regenerate this passport: devcd context passport",
 )
 
@@ -299,8 +299,9 @@ _EMPTY_PASSPORT_UNKNOWN = "No local ledger events are visible in this passport y
 _EMPTY_CONTROL_NEXT_STEPS = (
     "devcd init",
     "devcd run",
-    'devcd event task goal_update --payload \'{"current_goal":"Describe the task"}\'',
-    "devcd recipe pytest-failure --input examples/event-source-recipes/pytest-failure/input.json",
+    'devcd capture --kind goal --summary "Describe the task"',
+    "Agents without shell access read DevCD only; Do not ask the user to perform "
+    "DevCD bookkeeping.",
     "devcd context control",
 )
 
@@ -1683,16 +1684,22 @@ class AmbientContextService:
                 if artifact is not None:
                     artifacts.append(artifact)
                 continue
-            if event_type != "file_focus":
+            if event_type not in {"file_focus", "artifact_ref"}:
                 continue
-            file_path = self._payload_value(entry.content, "path")
+            file_path = self._payload_value(entry.content, "path") or self._payload_value(
+                entry.content,
+                "artifact",
+            )
             if not isinstance(file_path, str) or not file_path:
                 continue
+            artifact_summary = self._payload_value(entry.content, "summary")
+            if not isinstance(artifact_summary, str) or not artifact_summary:
+                artifact_summary = file_path
             artifacts.append(
                 RelevantArtifact(
                     kind="file",
                     identifier=file_path,
-                    summary=f"file_focus: {file_path}",
+                    summary=f"{event_type}: {artifact_summary}",
                     source=entry.source or "unknown",
                     relevance=0.8,
                     last_seen_at=entry.timestamp,
