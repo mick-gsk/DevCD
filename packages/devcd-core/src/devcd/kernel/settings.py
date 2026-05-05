@@ -34,6 +34,8 @@ class DevCDSettings(BaseSettings):
     allow_local_storage: bool = True
     allow_remote_export: bool = False
     allow_actions: bool = False
+    allow_agentic_context_runs: bool = False
+    agentic_context_runners: list[dict[str, Any]] = Field(default_factory=list)
 
     @property
     def ledger_path(self) -> Path:
@@ -67,5 +69,7 @@ class DevCDSettings(BaseSettings):
             "allow_local_storage": self.allow_local_storage,
             "allow_remote_export": self.allow_remote_export,
             "allow_actions": self.allow_actions,
+            "allow_agentic_context_runs": self.allow_agentic_context_runs,
+            "agentic_context_runners": self.agentic_context_runners,
         }
         return {k: v for k, v in result.items() if v is not None}

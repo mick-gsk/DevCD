@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from devcd.kernel.settings import DevCDSettings
 from devcd.slices.events.models import DevEvent, EventSensitivity, EventSource
 from devcd.slices.policy_layer.service import PolicyEngine
 
@@ -175,3 +176,56 @@ def test_policy_simulation_denies_sensitive_event_with_safe_summary() -> None:
     assert "notes note_update signal was withheld" in report.decisions[0].safe_summary
     assert report.withheld[0].category == "sensitivity"
     assert report.withheld[0].safe_summary == report.decisions[0].safe_summary
+
+
+def test_agentic_runner_start_is_denied_by_default() -> None:
+    policy = PolicyEngine.default()
+
+    decision = policy.decide_agentic_runner_start("local-scout", "identify_current_goal")
+
+    assert decision.allowed is False
+    assert decision.operation == "agentic_runner_start"
+    assert "denied" in decision.reason
+
+
+def test_agentic_runner_start_allows_configured_runner() -> None:
+    settings = DevCDSettings(
+        allow_agentic_context_runs=True,
+        agentic_context_runners=[
+            {"id": "local-scout", "command": "python", "args": ["scout.py"], "enabled": True}
+        ],
+    )
+    policy = PolicyEngine.from_settings(settings)
+
+    decision = policy.decide_agentic_runner_start("local-scout", "identify_current_goal")
+
+    assert decision.allowed is True
+    assert decision.operation == "agentic_runner_start"
+    assert "local scout runner" in decision.reason
+
+
+def test_agentic_runner_start_denies_unknown_runner() -> None:
+    settings = DevCDSettings(
+        allow_agentic_context_runs=True,
+        agentic_context_runners=[
+            {"id": "local-scout", "command": "python", "args": ["scout.py"], "enabled": True}
+        ],
+    )
+    policy = PolicyEngine.from_settings(settings)
+
+    decision = policy.decide_agentic_runner_start("unknown", "identify_current_goal")
+
+    assert decision.allowed is False
+    assert decision.operation == "agentic_runner_start"
+    assert "not configured" in decision.reason
+
+
+def test_agentic_runner_output_store_requires_metadata() -> None:
+    policy = PolicyEngine.default()
+
+    decision = policy.decide_agentic_runner_output_store(data_class="full_text")
+
+    assert decision.allowed is False
+    assert decision.operation == "agentic_runner_output_store"
+    assert decision.data_class == "full_text"
+    assert "metadata" in decision.reason

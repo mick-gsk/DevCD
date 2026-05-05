@@ -21,6 +21,8 @@ class PolicyEngine:
         allow_actions: bool,
         enabled_sources: set[str] | None = None,
         allowed_data_classes: set[str] | None = None,
+        allow_agentic_context_runs: bool = False,
+        agentic_context_runners: list[dict[str, object]] | None = None,
     ) -> None:
         self._allow_observation = allow_observation
         self._allow_local_storage = allow_local_storage
@@ -28,6 +30,12 @@ class PolicyEngine:
         self._allow_actions = allow_actions
         self._enabled_sources = enabled_sources or {"ide", "git", "task", "notes", "system"}
         self._allowed_data_classes = allowed_data_classes or {"metadata"}
+        self._allow_agentic_context_runs = allow_agentic_context_runs
+        self._agentic_context_runner_ids = {
+            str(runner.get("id"))
+            for runner in agentic_context_runners or []
+            if runner.get("enabled", True) and runner.get("id")
+        }
 
     @classmethod
     def default(cls) -> PolicyEngine:
@@ -38,6 +46,8 @@ class PolicyEngine:
             allow_actions=False,
             enabled_sources={"ide", "git", "task", "notes", "system"},
             allowed_data_classes={"metadata"},
+            allow_agentic_context_runs=False,
+            agentic_context_runners=[],
         )
 
     @classmethod
@@ -49,6 +59,8 @@ class PolicyEngine:
             allow_actions=settings.allow_actions,
             enabled_sources=settings.enabled_sources,
             allowed_data_classes=settings.allowed_data_classes,
+            allow_agentic_context_runs=settings.allow_agentic_context_runs,
+            agentic_context_runners=settings.agentic_context_runners,
         )
 
     def decide_observation(self, event: DevEvent) -> PolicyDecision:
@@ -173,6 +185,55 @@ class PolicyEngine:
             kind=PolicyDecisionKind.DENY,
             reason=f"action '{action_name}' is denied by the default observe-only policy",
             operation="action",
+        )
+
+    def decide_agentic_runner_start(self, runner_id: str, task_kind: str) -> PolicyDecision:
+        if not self._allow_agentic_context_runs:
+            return PolicyDecision(
+                kind=PolicyDecisionKind.DENY,
+                reason=(
+                    "local scout runner start is denied by the default local-first policy"
+                ),
+                operation="agentic_runner_start",
+                source=runner_id,
+                data_class="metadata",
+            )
+        if runner_id not in self._agentic_context_runner_ids:
+            return PolicyDecision(
+                kind=PolicyDecisionKind.DENY,
+                reason=f"local scout runner '{runner_id}' is not configured or enabled",
+                operation="agentic_runner_start",
+                source=runner_id,
+                data_class="metadata",
+            )
+        return PolicyDecision(
+            kind=PolicyDecisionKind.ALLOW,
+            reason=f"local scout runner '{runner_id}' is allowed for task '{task_kind}'",
+            operation="agentic_runner_start",
+            source=runner_id,
+            data_class="metadata",
+        )
+
+    def decide_agentic_runner_output_store(self, data_class: str = "metadata") -> PolicyDecision:
+        if data_class != "metadata" or "metadata" not in self._allowed_data_classes:
+            return PolicyDecision(
+                kind=PolicyDecisionKind.DENY,
+                reason="agentic runner output storage requires metadata-only summaries",
+                operation="agentic_runner_output_store",
+                data_class=data_class,
+            )
+        if not self._allow_local_storage:
+            return PolicyDecision(
+                kind=PolicyDecisionKind.DENY,
+                reason="local storage is disabled by policy",
+                operation="agentic_runner_output_store",
+                data_class=data_class,
+            )
+        return PolicyDecision(
+            kind=PolicyDecisionKind.ALLOW,
+            reason="agentic runner metadata summaries may be stored locally by policy",
+            operation="agentic_runner_output_store",
+            data_class=data_class,
         )
 
     def explain_decision(
