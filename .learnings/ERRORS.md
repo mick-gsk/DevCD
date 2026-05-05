@@ -1,5 +1,35 @@
 # Errors
 
+## [ERR-20260505-001] make_check
+
+**Logged**: 2026-05-05T00:00:00Z
+**Priority**: low
+**Status**: resolved
+**Area**: tests
+
+### Summary
+`make check` failed on Ruff after adding a long assertion to the secure resurrection CLI test.
+
+### Error
+Ruff reported line-length errors in `tests/test_cli.py` around the suggested next action and category assertions.
+
+### Context
+- Command: `make check`
+- Related file: `tests/test_cli.py`
+
+### Suggested Fix
+Wrap long assertion values immediately when adding contract-heavy tests.
+
+### Resolution
+- **Resolved**: 2026-05-05T00:00:00Z
+- **Notes**: Split the long assertions across multiple lines before rerunning verification.
+
+### Metadata
+- Reproducible: yes
+- Related Files: tests/test_cli.py
+
+---
+
 ## [ERR-20260504-001] pytest_mcp_server
 
 **Logged**: 2026-05-04T00:00:00Z
