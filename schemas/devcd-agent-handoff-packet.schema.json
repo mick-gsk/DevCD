@@ -1,0 +1,119 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://devcd.local/schemas/devcd-agent-handoff-packet.schema.json",
+  "title": "DevCD Agent Handoff Packet",
+  "type": "object",
+  "required": [
+    "schema_version",
+    "brief_id",
+    "surface",
+    "goal",
+    "relevant_artifacts",
+    "git_context",
+    "last_attempt",
+    "last_failure",
+    "why_attempt_failed",
+    "do_not_repeat",
+    "blockers",
+    "suggested_next_action",
+    "policy_summary",
+    "withheld_context_summary",
+    "context_quality_notes",
+    "unknowns",
+    "confidence"
+  ],
+  "properties": {
+    "schema_version": { "type": "string" },
+    "brief_id": { "type": "string", "minLength": 1 },
+    "surface": { "type": "string" },
+    "goal": { "type": ["string", "null"] },
+    "relevant_artifacts": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["kind", "identifier", "summary", "relevance"],
+        "properties": {
+          "kind": { "type": "string" },
+          "identifier": { "type": "string" },
+          "summary": { "type": "string" },
+          "relevance": { "type": "number", "minimum": 0, "maximum": 1 }
+        },
+        "additionalProperties": false
+      }
+    },
+    "git_context": {
+      "type": "object",
+      "required": ["branch", "latest_commit", "latest_commit_summary", "repository"],
+      "properties": {
+        "branch": { "type": ["string", "null"] },
+        "latest_commit": { "type": ["string", "null"] },
+        "latest_commit_summary": { "type": ["string", "null"] },
+        "repository": { "type": ["string", "null"] }
+      },
+      "additionalProperties": false
+    },
+    "last_attempt": {
+      "type": ["object", "null"],
+      "required": ["summary", "outcome", "source", "type", "timestamp"],
+      "properties": {
+        "summary": { "type": "string" },
+        "outcome": { "type": "string" },
+        "source": { "type": "string" },
+        "type": { "type": "string" },
+        "timestamp": { "type": "string", "format": "date-time" }
+      },
+      "additionalProperties": false
+    },
+    "last_failure": { "type": ["string", "null"] },
+    "why_attempt_failed": { "type": ["string", "null"] },
+    "do_not_repeat": { "type": "array", "items": { "type": "string" } },
+    "blockers": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["summary", "confidence"],
+        "properties": {
+          "summary": { "type": "string" },
+          "confidence": { "type": "number", "minimum": 0, "maximum": 1 }
+        },
+        "additionalProperties": false
+      }
+    },
+    "suggested_next_action": { "type": ["string", "null"] },
+    "policy_summary": {
+      "type": "object",
+      "required": [
+        "allowed",
+        "operation",
+        "reason",
+        "withheld_sources",
+        "withheld_data_classes"
+      ],
+      "properties": {
+        "allowed": { "type": "boolean" },
+        "operation": { "type": "string" },
+        "reason": { "type": "string" },
+        "withheld_sources": { "type": "array", "items": { "type": "string" } },
+        "withheld_data_classes": { "type": "array", "items": { "type": "string" } }
+      },
+      "additionalProperties": false
+    },
+    "withheld_context_summary": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["category", "policy_reason", "safe_summary"],
+        "properties": {
+          "category": { "type": "string" },
+          "policy_reason": { "type": "string" },
+          "safe_summary": { "type": "string" }
+        },
+        "additionalProperties": false
+      }
+    },
+    "context_quality_notes": { "type": "array", "items": { "type": "string" } },
+    "unknowns": { "type": "array", "items": { "type": "string" } },
+    "confidence": { "type": "number", "minimum": 0, "maximum": 1 }
+  },
+  "additionalProperties": false
+}

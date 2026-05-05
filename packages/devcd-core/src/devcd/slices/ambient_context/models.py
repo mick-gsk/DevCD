@@ -180,6 +180,18 @@ class ProactiveSuggestion(BaseModel):
     suppressed_until: datetime | None = None
 
 
+class AgentResurrectionContext(BaseModel):
+    current_goal: str | None = None
+    last_attempt: RecentAttempt | None = None
+    last_failure: str | None = None
+    last_attempted_fix: str | None = None
+    why_attempt_failed: str | None = None
+    why_it_failed: str | None = None
+    do_not_repeat: list[str] = Field(default_factory=list)
+    suggested_next_action: str | None = None
+    unknowns: list[str] = Field(default_factory=list)
+
+
 class ContextMemoryItem(BaseModel):
     id: str
     scope: Literal["working", "episodic", "semantic"]
@@ -236,10 +248,12 @@ class WorkState(BaseModel):
 
 
 class ContextBrief(BaseModel):
+    schema_version: str = "1"
     id: str = Field(default_factory=lambda: str(uuid4()), min_length=1)
     surface: AgentContextSurface
     summary: str
     active_goal: str | None = None
+    confidence: float = Field(default=0.0, ge=0.0, le=1.0)
     active_intent: IntentLine | None = None
     relevant_artifacts: list[RelevantArtifact] = Field(default_factory=list)
     git_context: GitContext = Field(default_factory=GitContext)
@@ -247,8 +261,10 @@ class ContextBrief(BaseModel):
     recent_attempts: list[RecentAttempt] = Field(default_factory=list)
     blockers: list[BlockerSignal] = Field(default_factory=list)
     suggested_next_steps: list[ProactiveSuggestion] = Field(default_factory=list, max_length=3)
+    resurrection: AgentResurrectionContext = Field(default_factory=AgentResurrectionContext)
     withheld_context: list[WithheldContext] = Field(default_factory=list)
     withheld: list[WithheldContext] = Field(default_factory=list)
     agent_limitations: list[str] = Field(default_factory=list)
+    context_quality_notes: list[str] = Field(default_factory=list)
     policy_decision: PolicySummary
     generated_at: datetime = Field(default_factory=lambda: datetime.now(UTC))

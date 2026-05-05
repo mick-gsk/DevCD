@@ -9,6 +9,7 @@ from typing import Any, Literal
 
 from devcd.slices.ambient_context.models import (
     AgentContextSurface,
+    AgentResurrectionContext,
     BlockerSignal,
     ContextBrief,
     ContextFeedback,
@@ -437,6 +438,12 @@ class AmbientContextService:
             )
             else []
         )
+        resurrection = self._resurrection_context(
+            entries=surface_memory,
+            active_goal=active_goal,
+            blockers=blockers,
+            suggested_next_steps=suggested_next_steps,
+        )
         policy_reason = self._surface_policy_reason(export_decision.reason, surface_definition)
         policy_summary = PolicySummary(
             allowed=export_decision.allowed,
@@ -466,6 +473,7 @@ class AmbientContextService:
             recent_attempts=recent_attempts,
             blockers=blockers,
             suggested_next_steps=suggested_next_steps,
+            resurrection=resurrection,
             withheld_context=withheld,
             withheld=withheld,
             agent_limitations=self._agent_limitations(
@@ -474,8 +482,21 @@ class AmbientContextService:
                 withheld=withheld,
                 export_allowed=export_decision.allowed,
             ),
+            context_quality_notes=self._context_quality_notes(),
             policy_decision=policy_summary,
+            confidence=work_state.confidence,
         )
+
+    def _context_quality_notes(self) -> list[str]:
+        notes: list[str] = []
+        for feedback in self._read_feedback()[-5:]:
+            note_state = (
+                "note withheld by policy" if feedback.note_withheld else "note stored locally"
+            )
+            notes.append(
+                f"{feedback.brief_id}: {feedback.kind.value} feedback recorded; {note_state}."
+            )
+        return notes
 
     def _surface_definition(
         self,
@@ -757,6 +778,238 @@ class AmbientContextService:
             latest_commit_summary=commit_message[0] if commit_message is not None else None,
             repository=repo[0] if repo is not None else None,
         )
+
+    def _resurrection_context(
+        self,
+        *,
+        entries: list[MemoryEntry],
+        active_goal: str | None,
+        blockers: list[BlockerSignal],
+        suggested_next_steps: list[ProactiveSuggestion],
+    ) -> AgentResurrectionContext:
+        last_failure = self._latest_failure_context(entries, blockers)
+        failure_timestamp = last_failure.timestamp if last_failure else None
+        last_attempt = self._latest_attempt_context(entries)
+        last_fix = self._latest_fix_before_failure(entries, failure_timestamp)
+        resolving_attempt = self._latest_success_after_failure(entries, failure_timestamp)
+        explicit_do_not_repeat = self._explicit_do_not_repeat(entries, last_failure)
+        do_not_repeat = explicit_do_not_repeat
+        if not do_not_repeat and last_fix is not None and last_failure is not None:
+            do_not_repeat = [f"Do not repeat the last attempted fix unchanged: {last_fix.summary}"]
+        elif (
+            not do_not_repeat
+            and last_failure is not None
+            and last_failure.type != "test_failure"
+            and last_failure.type.endswith("_failure")
+        ):
+            do_not_repeat = [
+                f"Do not repeat the failed attempt unchanged: {last_failure.summary}"
+            ]
+
+        explicit_suggested_next_action = self._explicit_suggested_next_action(
+            entries,
+            last_failure,
+        )
+        suggested_next_action = None
+        if resolving_attempt is not None:
+            suggested_next_action = (
+                f"Continue from the successful attempt: {resolving_attempt.summary}"
+            )
+        elif explicit_suggested_next_action is not None:
+            suggested_next_action = explicit_suggested_next_action
+        elif suggested_next_steps:
+            suggested_next_action = suggested_next_steps[0].summary
+        elif last_failure is not None:
+            suggested_next_action = f"Investigate {last_failure.summary}"
+
+        why_attempt_failed = self._why_attempt_failed(
+            entries,
+            last_failure,
+            last_fix,
+            resolving_attempt,
+        )
+        unknowns = ["Original chat history is not available in the handoff packet."]
+        if last_fix is None:
+            unknowns.append("No prior attempted fix is visible in policy-allowed context.")
+        if not blockers and last_failure is None:
+            unknowns.append("No unresolved failure is visible in policy-allowed context.")
+
+        return AgentResurrectionContext(
+            current_goal=active_goal,
+            last_attempt=last_attempt,
+            last_failure=last_failure.summary if last_failure is not None else None,
+            last_attempted_fix=last_fix.summary if last_fix is not None else None,
+            why_attempt_failed=why_attempt_failed,
+            why_it_failed=why_attempt_failed,
+            do_not_repeat=do_not_repeat,
+            suggested_next_action=suggested_next_action,
+            unknowns=unknowns,
+        )
+
+    def _latest_failure_context(
+        self,
+        entries: list[MemoryEntry],
+        blockers: list[BlockerSignal],
+    ) -> RecentAttempt | None:
+        for entry in sorted(entries, key=lambda item: item.timestamp, reverse=True):
+            event_type = self._string_from_content(entry.content, "type")
+            if event_type is None or not event_type.endswith("failure"):
+                continue
+            reason = self._payload_value(entry.content, "reason")
+            attempt_summary = self._attempt_summary(entry.content)
+            if isinstance(reason, str) and reason:
+                summary = reason
+            elif attempt_summary is not None:
+                summary = attempt_summary
+            else:
+                summary = self._summary_from_content(entry.content)
+            return self._recent_attempt_from_entry(entry, event_type, summary)
+        if blockers:
+            return RecentAttempt(
+                timestamp=blockers[0].detected_at,
+                source="state",
+                type="blocker",
+                summary=blockers[0].summary,
+                outcome="failure",
+                policy_reason="visible blocker signal is allowed by policy",
+            )
+        return None
+
+    def _latest_attempt_context(self, entries: list[MemoryEntry]) -> RecentAttempt | None:
+        for entry in sorted(entries, key=lambda item: item.timestamp, reverse=True):
+            event_type = self._string_from_content(entry.content, "type")
+            if event_type is None or not self._is_attempt_event_type(event_type):
+                continue
+            summary = self._attempt_summary(entry.content)
+            if summary is None:
+                summary = self._summary_from_content(entry.content)
+            return self._recent_attempt_from_entry(entry, event_type, summary)
+        return None
+
+    def _latest_fix_before_failure(
+        self,
+        entries: list[MemoryEntry],
+        failure_timestamp: datetime | None,
+    ) -> RecentAttempt | None:
+        fix_events = {"fix_attempt", "code_change", "patch_apply", "commit"}
+        for entry in sorted(entries, key=lambda item: item.timestamp, reverse=True):
+            if failure_timestamp is not None and entry.timestamp >= failure_timestamp:
+                continue
+            event_type = self._string_from_content(entry.content, "type")
+            if event_type not in fix_events:
+                continue
+            summary = self._attempt_summary(entry.content)
+            if summary is not None:
+                return self._recent_attempt_from_entry(entry, event_type, summary)
+        return None
+
+    def _latest_success_after_failure(
+        self,
+        entries: list[MemoryEntry],
+        failure_timestamp: datetime | None,
+    ) -> RecentAttempt | None:
+        if failure_timestamp is None:
+            return None
+        for entry in sorted(entries, key=lambda item: item.timestamp, reverse=True):
+            if entry.timestamp <= failure_timestamp:
+                continue
+            event_type = self._string_from_content(entry.content, "type")
+            if event_type is None or self._outcome_for_action(event_type) != "success":
+                continue
+            summary = self._attempt_summary(entry.content)
+            if summary is not None:
+                return self._recent_attempt_from_entry(entry, event_type, summary)
+        return None
+
+    def _recent_attempt_from_entry(
+        self,
+        entry: MemoryEntry,
+        event_type: str,
+        summary: str,
+    ) -> RecentAttempt:
+        return RecentAttempt(
+            timestamp=entry.timestamp,
+            source=entry.source or "unknown",
+            type=event_type,
+            summary=summary,
+            outcome=self._outcome_for_action(event_type),
+            policy_reason=entry.policy_reason or "local context attempt is visible by policy",
+        )
+
+    def _is_attempt_event_type(self, event_type: str) -> bool:
+        if event_type in {"code_change", "commit", "patch_apply", "test_failure"}:
+            return True
+        return event_type.endswith(("_attempt", "_failure", "_success"))
+
+    def _attempt_summary(self, content: dict[str, Any]) -> str | None:
+        for key in ("summary", "change", "message", "reason", "command"):
+            value = self._payload_value(content, key)
+            if isinstance(value, str) and value.strip():
+                return value
+        summary = self._summary_from_content(content)
+        return summary if summary else None
+
+    def _explicit_do_not_repeat(
+        self,
+        entries: list[MemoryEntry],
+        last_failure: RecentAttempt | None,
+    ) -> list[str]:
+        if last_failure is None:
+            return []
+        for entry in sorted(entries, key=lambda item: item.timestamp, reverse=True):
+            if entry.timestamp != last_failure.timestamp:
+                continue
+            value = self._payload_value(entry.content, "do_not_repeat")
+            if isinstance(value, str) and value.strip():
+                return [value]
+            if isinstance(value, list):
+                return [item for item in value if isinstance(item, str) and item.strip()]
+        return []
+
+    def _explicit_suggested_next_action(
+        self,
+        entries: list[MemoryEntry],
+        last_failure: RecentAttempt | None,
+    ) -> str | None:
+        if last_failure is None:
+            return None
+        for entry in sorted(entries, key=lambda item: item.timestamp, reverse=True):
+            if entry.timestamp != last_failure.timestamp:
+                continue
+            value = self._payload_value(entry.content, "suggested_next_action")
+            if isinstance(value, str) and value.strip():
+                return value
+        return None
+
+    def _why_attempt_failed(
+        self,
+        entries: list[MemoryEntry],
+        last_failure: RecentAttempt | None,
+        last_fix: RecentAttempt | None,
+        resolving_attempt: RecentAttempt | None,
+    ) -> str | None:
+        if last_failure is None:
+            return None
+        for entry in sorted(entries, key=lambda item: item.timestamp, reverse=True):
+            if entry.timestamp != last_failure.timestamp:
+                continue
+            value = self._payload_value(entry.content, "why_attempt_failed")
+            if isinstance(value, str) and value.strip():
+                return value
+            value = self._payload_value(entry.content, "why_failed")
+            if isinstance(value, str) and value.strip():
+                return value
+        if resolving_attempt is not None and resolving_attempt.timestamp > last_failure.timestamp:
+            return (
+                "The latest visible failure was followed by a successful attempt, so it "
+                f"appears resolved by: {resolving_attempt.summary}"
+            )
+        if last_fix is not None and last_failure.timestamp > last_fix.timestamp:
+            return (
+                "The latest failure happened after the attempted fix, so the fix did not "
+                f"resolve the blocker: {last_failure.summary}"
+            )
+        return f"The latest visible blocker is still unresolved: {last_failure.summary}"
 
     def _brief_summary(self, work_state: WorkState) -> str:
         if work_state.active_intent is None:
@@ -1061,8 +1314,20 @@ def render_context_brief_markdown(brief: ContextBrief) -> str:
         lines.append("- None visible under current policy.")
     lines.append("")
 
+    lines.extend(["## Last attempt"])
+    if brief.resurrection.last_attempt is not None:
+        attempt = brief.resurrection.last_attempt
+        lines.append(
+            f"- {attempt.outcome}: {attempt.summary} ({attempt.source}/{attempt.type})"
+        )
+    else:
+        lines.append("- None visible under current policy.")
+    lines.append("")
+
     lines.extend(["## Last failure"])
-    if brief.blockers:
+    if brief.resurrection.last_failure:
+        lines.append(f"- {brief.resurrection.last_failure}")
+    elif brief.blockers:
         lines.append(f"- {brief.blockers[0].summary}")
     else:
         last_failure = next(
@@ -1075,11 +1340,39 @@ def render_context_brief_markdown(brief: ContextBrief) -> str:
         lines.append(last_failure_summary)
     lines.append("")
 
+    lines.extend(["## Last attempted fix"])
+    lines.append(f"- {brief.resurrection.last_attempted_fix or 'None visible.'}")
+    lines.append("")
+
+    lines.extend(["## why_attempt_failed"])
+    lines.append(
+        f"- {brief.resurrection.why_attempt_failed or 'Unknown from visible context.'}"
+    )
+    lines.append("")
+
+    lines.extend(["## do_not_repeat"])
+    if brief.resurrection.do_not_repeat:
+        for item in brief.resurrection.do_not_repeat:
+            lines.append(f"- {item}")
+    else:
+        lines.append("- No repeated failed fix pattern is visible.")
+    lines.append("")
+
     lines.extend(["## Suggested next action"])
-    if brief.suggested_next_steps:
+    if brief.resurrection.suggested_next_action:
+        lines.append(f"- {brief.resurrection.suggested_next_action}")
+    elif brief.suggested_next_steps:
         lines.append(f"- {brief.suggested_next_steps[0].summary}")
     else:
         lines.append("- Continue from the active goal using visible artifacts and attempts.")
+    lines.append("")
+
+    lines.extend(["## unknowns"])
+    if brief.resurrection.unknowns:
+        for unknown in brief.resurrection.unknowns:
+            lines.append(f"- {unknown}")
+    else:
+        lines.append("- No unknowns were inferred from visible context.")
     lines.append("")
 
     lines.extend(["## blockers"])
@@ -1096,6 +1389,14 @@ def render_context_brief_markdown(brief: ContextBrief) -> str:
             lines.append(f"- {suggestion.summary}: {suggestion.rationale}")
     else:
         lines.append("- Continue from the active goal using visible artifacts and attempts.")
+    lines.append("")
+
+    lines.extend(["## context_quality_notes"])
+    if brief.context_quality_notes:
+        for note in brief.context_quality_notes:
+            lines.append(f"- {note}")
+    else:
+        lines.append("- No context feedback recorded.")
     lines.append("")
 
     lines.extend(["## withheld_context"])
@@ -1119,3 +1420,87 @@ def render_context_brief_markdown(brief: ContextBrief) -> str:
     lines.append(f"- operation: {brief.policy_decision.operation}")
     lines.append(f"- reason: {brief.policy_decision.reason}")
     return "\n".join(lines) + "\n"
+
+
+def render_context_brief_json(brief: ContextBrief) -> str:
+    """Return the brief as a machine-readable JSON contract (no sensitive payloads)."""
+    last_attempt = None
+    if brief.resurrection.last_attempt is not None:
+        a = brief.resurrection.last_attempt
+        last_attempt = {
+            "summary": a.summary,
+            "outcome": a.outcome,
+            "source": a.source,
+            "type": a.type,
+            "timestamp": a.timestamp.isoformat(),
+        }
+    elif brief.recent_attempts:
+        a = brief.recent_attempts[0]
+        last_attempt = {
+            "summary": a.summary,
+            "outcome": a.outcome,
+            "source": a.source,
+            "type": a.type,
+            "timestamp": a.timestamp.isoformat(),
+        }
+
+    last_failure: str | None = brief.resurrection.last_failure
+    if last_failure is None:
+        failed = next(
+            (at for at in brief.recent_attempts if at.outcome == "failure"), None
+        )
+        if failed is not None:
+            last_failure = failed.summary
+        elif brief.blockers:
+            last_failure = brief.blockers[0].summary
+
+    contract: dict[str, Any] = {
+        "schema_version": brief.schema_version,
+        "brief_id": brief.id,
+        "surface": brief.surface.kind.value,
+        "goal": brief.active_goal,
+        "relevant_artifacts": [
+            {
+                "kind": art.kind,
+                "identifier": art.identifier,
+                "summary": art.summary,
+                "relevance": art.relevance,
+            }
+            for art in brief.relevant_artifacts
+        ],
+        "git_context": {
+            "branch": brief.git_context.branch,
+            "latest_commit": brief.git_context.latest_commit,
+            "latest_commit_summary": brief.git_context.latest_commit_summary,
+            "repository": brief.git_context.repository,
+        },
+        "last_attempt": last_attempt,
+        "last_failure": last_failure,
+        "why_attempt_failed": brief.resurrection.why_attempt_failed,
+        "do_not_repeat": brief.resurrection.do_not_repeat,
+        "blockers": [
+            {"summary": b.summary, "confidence": b.confidence}
+            for b in brief.blockers
+        ],
+        "suggested_next_action": brief.resurrection.suggested_next_action
+        or (brief.suggested_next_steps[0].summary if brief.suggested_next_steps else None),
+        "policy_summary": {
+            "allowed": brief.policy_decision.allowed,
+            "operation": brief.policy_decision.operation,
+            "reason": brief.policy_decision.reason,
+            "withheld_sources": brief.policy_decision.withheld_sources,
+            "withheld_data_classes": brief.policy_decision.withheld_data_classes,
+        },
+        "withheld_context_summary": [
+            {
+                "category": w.category or w.kind,
+                "policy_reason": w.policy_reason or w.reason,
+                "safe_summary": w.safe_summary or "No safe replacement available.",
+            }
+            for w in brief.withheld_context
+        ],
+        "context_quality_notes": brief.context_quality_notes,
+        "unknowns": brief.resurrection.unknowns,
+        "confidence": brief.confidence,
+    }
+    return json.dumps(contract, indent=2, ensure_ascii=False)

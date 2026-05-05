@@ -46,20 +46,42 @@
       "additionalProperties": false
     },
     "summary": { "type": "string" },
+    "active_goal": { "type": ["string", "null"] },
     "active_intent": { "type": ["object", "null"] },
     "relevant_artifacts": { "type": "array", "items": { "type": "object" } },
+    "git_context": { "type": "object" },
     "open_loops": { "type": "array", "items": { "type": "object" } },
     "recent_attempts": { "type": "array", "items": { "type": "object" } },
+    "blockers": { "type": "array", "items": { "type": "object" } },
     "suggested_next_steps": {
       "type": "array",
       "maxItems": 3,
       "items": { "$ref": "#/$defs/ProactiveSuggestion" }
     },
+    "resurrection": { "$ref": "#/$defs/AgentResurrectionContext" },
+    "withheld_context": { "type": "array", "items": { "type": "object" } },
     "withheld": { "type": "array", "items": { "type": "object" } },
+    "agent_limitations": { "type": "array", "items": { "type": "string" } },
+    "context_quality_notes": { "type": "array", "items": { "type": "string" } },
     "policy_decision": { "type": "object" },
     "generated_at": { "type": "string", "format": "date-time" }
   },
   "$defs": {
+    "AgentResurrectionContext": {
+      "type": "object",
+      "properties": {
+        "current_goal": { "type": ["string", "null"] },
+        "last_attempt": { "type": ["object", "null"] },
+        "last_failure": { "type": ["string", "null"] },
+        "last_attempted_fix": { "type": ["string", "null"] },
+        "why_attempt_failed": { "type": ["string", "null"] },
+        "why_it_failed": { "type": ["string", "null"] },
+        "do_not_repeat": { "type": "array", "items": { "type": "string" } },
+        "suggested_next_action": { "type": ["string", "null"] },
+        "unknowns": { "type": "array", "items": { "type": "string" } }
+      },
+      "additionalProperties": false
+    },
     "ProactiveSuggestion": {
       "type": "object",
       "required": ["id", "summary", "rationale", "confidence", "evidence", "status", "created_at"],

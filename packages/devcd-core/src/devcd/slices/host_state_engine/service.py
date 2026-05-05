@@ -220,6 +220,8 @@ class StateEngine:
             return "source"
         if "data class" in decision.reason:
             return "data_class"
+        if "full-text" in decision.reason or "payload" in decision.reason:
+            return "payload_content"
         return event.data_class
 
     def _clear_blocker_state(self) -> None:
