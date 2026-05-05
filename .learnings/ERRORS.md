@@ -1,5 +1,65 @@
 # Errors
 
+## [ERR-20260505-005] mkdocs_build
+
+**Logged**: 2026-05-05T00:00:00Z
+**Priority**: low
+**Status**: resolved
+**Area**: docs
+
+### Summary
+`python -m mkdocs build --strict` failed after adding the agentic-context implementation plan because Pymdownx crashed while highlighting a fenced Python code block.
+
+### Error
+`Error reading page 'superpowers/plans/2026-05-05-agentic-context-runner.md': 'NoneType' object has no attribute 'replace'`
+
+### Context
+- Command: `python -m mkdocs build --strict`
+- Related file: `docs/superpowers/plans/2026-05-05-agentic-context-runner.md`
+
+### Suggested Fix
+For long Python example snippets in plan documents, prefer raw HTML `<pre><code>` blocks when syntax highlighting is not required. This avoids the local Pymdownx/Pygments crash while preserving the example content.
+
+### Resolution
+- **Resolved**: 2026-05-05T00:00:00Z
+- **Notes**: Changed the plan's long Python example fences to raw HTML code blocks and reran documentation validation successfully.
+
+### Metadata
+- Reproducible: yes
+- Related Files: docs/superpowers/plans/2026-05-05-agentic-context-runner.md
+
+---
+
+## [ERR-20260505-004] make_check
+
+**Logged**: 2026-05-05T00:00:00Z
+**Priority**: low
+**Status**: resolved
+**Area**: tests
+
+### Summary
+`make check` failed after replacing manual empty-state guidance with zero-effort `devcd capture` guidance.
+
+### Error
+`tests/test_api.py::test_context_control_plane_api_empty_state_is_useful` and `tests/test_mcp_server.py::test_mcp_server_empty_continuity_packet_matches_passport_guidance` still expected `devcd event task goal_update --payload` in empty-state next steps. A follow-up `make check` also caught Ruff E501 from a long replacement assertion.
+
+### Context
+- Command: `make check`
+- Related files: `packages/devcd-core/src/devcd/slices/ambient_context/service.py`, `tests/test_api.py`, `tests/test_mcp_server.py`
+
+### Suggested Fix
+When changing shared user guidance, grep all tests and surfaces for old command strings, especially API and MCP contract tests outside the initial CLI test focus.
+
+### Resolution
+- **Resolved**: 2026-05-05T00:00:00Z
+- **Notes**: Updated API/MCP tests, made the shared empty-state guidance explicitly cover shell-less read-only agents, and wrapped the long assertion.
+
+### Metadata
+- Reproducible: yes
+- Related Files: packages/devcd-core/src/devcd/slices/ambient_context/service.py, tests/test_api.py, tests/test_mcp_server.py
+
+---
+
 ## [ERR-20260505-003] make_check
 
 **Logged**: 2026-05-05T00:00:00Z
