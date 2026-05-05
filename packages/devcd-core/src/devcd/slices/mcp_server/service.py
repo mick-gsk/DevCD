@@ -27,6 +27,8 @@ READ_ONLY_RESOURCE_URIS: tuple[str, ...] = (
     "devcd://context/policy-summary",
 )
 
+_NO_MUTATION_RESOURCE_NOTE = " No MCP tools, prompts, or mutations are exposed."
+
 _RESOURCE_METADATA: dict[str, dict[str, str]] = {
     "devcd://context/brief": {
         "name": "context_brief",
@@ -139,7 +141,7 @@ class ReadOnlyMCPServer:
                 {
                     "uri": uri,
                     "name": metadata["name"],
-                    "description": metadata["description"],
+                    "description": metadata["description"] + _NO_MUTATION_RESOURCE_NOTE,
                     "mimeType": "application/json",
                 }
             )
@@ -188,9 +190,10 @@ class ReadOnlyMCPServer:
             brief = self._ambient_context_service.create_context_brief(surface)
             return render_context_brief_json(brief)
         if uri == "devcd://context/continuity-packet":
-            brief = self._ambient_context_service.create_context_brief(self._mcp_surface())
-            packet = self._ambient_context_service.create_continuity_packet_from_brief(
-                brief, context_pack="developer"
+            packet = self._ambient_context_service.create_continuity_packet(
+                self._mcp_surface(),
+                context_pack="developer",
+                include_empty_guidance=True,
             )
             return render_continuity_packet_json(packet)
         if uri == "devcd://context/recent-timeline":

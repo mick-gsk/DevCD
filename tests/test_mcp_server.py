@@ -32,6 +32,19 @@ def test_mcp_server_lists_only_read_only_resources_and_no_tools(tmp_path) -> Non
     assert tools == {"jsonrpc": "2.0", "id": 3, "result": {"tools": []}}
 
 
+def test_mcp_resource_descriptions_state_no_mutation_boundary(tmp_path) -> None:
+    server, _state_engine = build_mcp_server(tmp_path)
+
+    resources = server.handle_message({"jsonrpc": "2.0", "id": 2, "method": "resources/list"})
+
+    assert resources is not None
+    descriptions = [
+        resource["description"] for resource in resources["result"]["resources"]
+    ]
+    assert descriptions
+    assert all("No MCP tools, prompts, or mutations" in description for description in descriptions)
+
+
 def test_mcp_server_reads_context_brief_without_external_client(tmp_path) -> None:
     server, state_engine = build_mcp_server(tmp_path)
     state_engine.accept_event(
@@ -334,6 +347,35 @@ def test_mcp_server_continuity_packet_contains_core_fields(tmp_path) -> None:
     assert body["policy_decision"]["allowed"] is True
 
 
+def test_mcp_server_continuity_packet_uses_episodic_context_after_working_ttl(
+    tmp_path,
+) -> None:
+    policy_engine = PolicyEngine.default()
+    memory_store = MemoryStore.with_ttl_seconds(1, 604800)
+    event_ledger = EventLedger(tmp_path / "events.jsonl")
+    state_engine = StateEngine(policy_engine, memory_store, event_ledger)
+    ambient_context_service = AmbientContextService(state_engine, memory_store, policy_engine)
+    server = ReadOnlyMCPServer(
+        ambient_context_service=ambient_context_service,
+        state_engine=state_engine,
+        event_ledger=event_ledger,
+        policy_engine=policy_engine,
+    )
+    state_engine.accept_event(
+        DevEvent(
+            source=EventSource.TASK,
+            type="goal_update",
+            timestamp=datetime(2026, 5, 4, 10, 0, tzinfo=UTC),
+            payload={"current_goal": "Recover continuity from episodic context"},
+        )
+    )
+
+    body = read_resource(server, "devcd://context/continuity-packet")
+
+    assert body["surface"] == "mcp"
+    assert body["intent"]["summary"] == "Recover continuity from episodic context"
+
+
 def test_mcp_server_continuity_packet_matches_required_schema_fields(tmp_path) -> None:
     server, state_engine = build_mcp_server(tmp_path)
     state_engine.accept_event(
@@ -381,6 +423,20 @@ def test_mcp_server_continuity_packet_withholds_sensitive_payloads(tmp_path) -> 
 
     assert "tok-supersecret" not in text
     assert "Secret token" not in text
+
+
+def test_mcp_server_empty_continuity_packet_matches_passport_guidance(tmp_path) -> None:
+    server, _state_engine = build_mcp_server(tmp_path)
+
+    body = read_resource(server, "devcd://context/continuity-packet")
+
+    assert body["context_pack"] == "developer"
+    assert body["intent"] is None
+    assert any(
+        "devcd event task goal_update --payload" in step
+        for step in body["suggested_next_steps"]
+    )
+    assert any("devcd context passport" in step for step in body["suggested_next_steps"])
 
 
 def test_mcp_server_continuity_packet_listed_in_resources(tmp_path) -> None:
