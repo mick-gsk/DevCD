@@ -1,0 +1,67 @@
+name: Context Pack proposal
+description: Propose a metadata-only workflow Context Pack.
+title: "[Context Pack]: "
+labels:
+  - kind/feature
+  - devcd/ambient-context
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Context Packs are metadata rendering contracts, not executable plugins. Proposals should preserve local-first privacy defaults and policy withholding.
+
+  - type: textarea
+    id: workflow
+    attributes:
+      label: Workflow
+      description: Which workflow should this pack help an agent resume?
+      placeholder: "Issue triage, code review, incident response, release readiness, research..."
+    validations:
+      required: true
+
+  - type: textarea
+    id: consumer
+    attributes:
+      label: Agent surface
+      description: Which agent or surface should consume this pack?
+      placeholder: "coding-agent, review-agent, research-agent, mcp, cli..."
+    validations:
+      required: true
+
+  - type: textarea
+    id: metadata
+    attributes:
+      label: Metadata that should be visible
+      description: List the metadata fields that are useful without raw content.
+      placeholder: |
+        - issue id and labels
+        - current hypothesis
+        - attempted fix summary
+        - failing check name
+    validations:
+      required: true
+
+  - type: textarea
+    id: sensitive
+    attributes:
+      label: Sensitive context to withhold
+      description: What raw content, credentials, logs, transcripts, or private notes must stay withheld by policy?
+      placeholder: "Raw notes, full browser content, private logs, tokens, customer data..."
+    validations:
+      required: true
+
+  - type: textarea
+    id: fixture
+    attributes:
+      label: Reproducible fixture idea
+      description: What small local example should prove the pack works?
+      placeholder: "A JSONL fixture under examples/<workflow>/ plus expected Continuity Packet output."
+    validations:
+      required: true
+
+  - type: textarea
+    id: policy
+    attributes:
+      label: Policy notes
+      description: What policy decisions or ADRs might this require?
+      placeholder: "No new policy decision if metadata-only; ADR required if adding a connector or export path."

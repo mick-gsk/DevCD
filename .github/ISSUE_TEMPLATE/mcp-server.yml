@@ -1,15 +1,16 @@
-name: devcd/mcp-bridge
-description: Work on future MCP integration and agent-facing context APIs.
-title: "devcd/mcp-bridge: "
-labels: ["devcd/mcp-bridge"]
+name: devcd/mcp-server
+description: Work on read-only MCP resources and agent-facing context APIs.
+title: "devcd/mcp-server: "
+labels: ["devcd/mcp-server"]
 body:
   - type: textarea
     id: integration
     attributes:
       label: Integration Goal
-      description: Which MCP resource, tool, or bridge behavior is needed?
+      description: Which MCP resource, prompt, or local context behavior is needed?
     validations:
       required: true
+
   - type: textarea
     id: boundaries
     attributes:

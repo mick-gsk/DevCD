@@ -27,13 +27,19 @@ jobs:
 
       - name: Run checks
         run: |
-          python -m ruff check packages tests
-          python -m ruff format --check packages tests
+          python -m ruff check packages tests scripts
+          python -m ruff format --check packages tests scripts
           python -m mypy packages/devcd-core/src
           python -m pytest tests -q
 
       - name: Build distribution
-        run: python -m pip install build && python -m build
+        run: python -m build
+
+      - name: Verify distribution metadata
+        run: python -m twine check dist/*
+
+      - name: Smoke test built wheel
+        run: python scripts/check_distribution.py
 
       - name: Extract changelog section
         id: changelog

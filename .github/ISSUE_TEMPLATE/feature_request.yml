@@ -16,11 +16,14 @@ body:
       description: Which slice would this feature touch?
       options:
         - host-state-engine
+        - ambient-context
+        - agentic-context
         - memory-layer
         - policy-layer
         - events
+        - git-source
         - cli
-        - mcp-bridge
+        - mcp-server
         - new slice / cross-cutting
     validations:
       required: true

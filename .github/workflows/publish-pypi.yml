@@ -1,0 +1,39 @@
+name: Publish PyPI
+
+"on":
+  workflow_dispatch:
+    inputs:
+      ref:
+        description: "Git ref to publish, usually a signed release tag such as v0.1.0"
+        required: true
+        type: string
+
+permissions:
+  contents: read
+  id-token: write
+
+jobs:
+  publish:
+    name: Build, verify, and publish to PyPI
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: "${{ inputs.ref }}"
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+          cache: pip
+
+      - name: Install dev dependencies
+        run: python -m pip install -e ".[dev]"
+
+      - name: Run full checks
+        run: make check
+
+      - name: Build and verify distribution
+        run: make distribution
+
+      - name: Publish package distributions to PyPI
+        uses: pypa/gh-action-pypi-publish@release/v1

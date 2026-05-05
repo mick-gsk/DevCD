@@ -14,6 +14,19 @@
       - any-glob-to-any-file:
           - "packages/devcd-core/src/devcd/slices/memory_layer/**"
 
+"devcd/ambient-context":
+  - changed-files:
+      - any-glob-to-any-file:
+          - "packages/devcd-core/src/devcd/slices/ambient_context/**"
+          - "docs/devcd/agent-consumption.md"
+          - "docs/devcd/context-packs.md"
+          - "examples/context-packs/**"
+
+"devcd/agentic-context":
+  - changed-files:
+      - any-glob-to-any-file:
+          - "packages/devcd-core/src/devcd/slices/agentic_context/**"
+
 "devcd/policy-layer":
   - changed-files:
       - any-glob-to-any-file:
@@ -24,17 +37,23 @@
   - changed-files:
       - any-glob-to-any-file:
           - "packages/devcd-core/src/devcd/slices/events/**"
+          - "examples/event-source-recipes/**"
           - "schemas/devcd-event.schema.json"
+
+"devcd/git-source":
+  - changed-files:
+      - any-glob-to-any-file:
+          - "packages/devcd-core/src/devcd/slices/git_source/**"
 
 "devcd/cli":
   - changed-files:
       - any-glob-to-any-file:
           - "packages/devcd-core/src/devcd/cli.py"
 
-"devcd/mcp-bridge":
+"devcd/mcp-server":
   - changed-files:
       - any-glob-to-any-file:
-          - "packages/devcd-core/src/devcd/slices/mcp_bridge/**"
+          - "packages/devcd-core/src/devcd/slices/mcp_server/**"
 
 "kind/docs":
   - changed-files:

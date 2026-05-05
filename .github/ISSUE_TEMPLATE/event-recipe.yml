@@ -1,0 +1,59 @@
+name: Event recipe proposal
+description: Propose a local recipe that converts workflow data into typed DevEvents.
+title: "[Recipe]: "
+labels:
+  - kind/feature
+  - devcd/events
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Event recipes normalize local workflow data into typed DevEvents. They must not scrape remote services, export private data, or bypass policy.
+
+  - type: textarea
+    id: source
+    attributes:
+      label: Local source shape
+      description: What local input should the recipe accept?
+      placeholder: "A JSON file, JSONL file, git metadata, local task export, or synthetic fixture."
+    validations:
+      required: true
+
+  - type: textarea
+    id: events
+    attributes:
+      label: Events to emit
+      description: Which DevEvent types and sources should be produced?
+      placeholder: |
+        - source: notes, type: research.note.metadata
+        - source: task, type: task.failed
+        - source: git, type: git.commit
+    validations:
+      required: true
+
+  - type: textarea
+    id: sensitive
+    attributes:
+      label: Sensitive fields
+      description: Which fields must be marked sensitive or full-text and withheld by default?
+      placeholder: "Raw notes, transcripts, copied logs, customer identifiers, secrets..."
+    validations:
+      required: true
+
+  - type: textarea
+    id: policy
+    attributes:
+      label: Policy expectation
+      description: What should the policy layer allow, deny, or explain?
+      placeholder: "Metadata observations allowed; raw full-text observations denied or withheld from packet rendering."
+    validations:
+      required: true
+
+  - type: textarea
+    id: tests
+    attributes:
+      label: Test fixture
+      description: What fixture and assertions should accompany this recipe?
+      placeholder: "Input fixture, generated JSONL event count, sensitive-event assertion, Continuity Packet withholding assertion."
+    validations:
+      required: true
