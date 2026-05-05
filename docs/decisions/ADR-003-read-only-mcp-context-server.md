@@ -37,10 +37,13 @@ services instead of owning domain behavior:
 The server will support read-only MCP resource reads for:
 
 - `devcd://context/brief`
+- `devcd://context/agent-handoff-packet`
 - `devcd://context/work-state`
 - `devcd://context/recent-events`
 - `devcd://context/policy-decisions`
 - `devcd://context/withheld-context`
+- `devcd://context/recent-timeline`
+- `devcd://context/policy-summary`
 
 Every resource response is JSON and includes only policy-visible data or safe
 withheld-context summaries. Sensitive or denied payloads must not be included.

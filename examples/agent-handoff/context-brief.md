@@ -21,17 +21,35 @@ Ship Agent-Handoff MVP for DevCD
 - unknown: file_focus: packages/devcd-core/src/devcd/slices/ambient_context/service.py (ide/file_focus)
 - unknown: goal_update (task/goal_update)
 
+## Last attempt
+- failure: make check failed: ContextBrief missing git_context (task/test_failure)
+
 ## Last failure
 - make check failed: ContextBrief missing git_context
 
+## Last attempted fix
+- fix: align state engine failure event
+
+## why_attempt_failed
+- The latest failure happened after the attempted fix, so the fix did not resolve the blocker: make check failed: ContextBrief missing git_context
+
+## do_not_repeat
+- Do not repeat the last attempted fix unchanged: fix: align state engine failure event
+
 ## Suggested next action
 - Investigate make check failed: ContextBrief missing git_context
+
+## unknowns
+- Original chat history is not available in the handoff packet.
 
 ## blockers
 - make check failed: ContextBrief missing git_context
 
 ## suggested_next_steps
 - Investigate make check failed: ContextBrief missing git_context: Repeated failure evidence suggests the current blocker is 'make check failed: ContextBrief missing git_context'.
+
+## context_quality_notes
+- No context feedback recorded.
 
 ## withheld_context
 - category: sensitivity

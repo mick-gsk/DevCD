@@ -47,6 +47,8 @@ A coding agent can read the generated brief and continue from:
 - `recent_attempts`: what was tried most recently.
 - `blockers`: why progress stopped.
 - `suggested_next_steps`: policy-safe next action candidates.
+- `context_quality_notes`: policy-safe feedback signals recorded for prior
+  handoff packets, without hidden note payloads.
 - `withheld_context`: which context was withheld, why, and what safe metadata
   remains visible.
 - `agent_limitations`: what the agent does not know or cannot see under policy.

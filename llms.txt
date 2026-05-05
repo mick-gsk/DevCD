@@ -6,10 +6,20 @@ DevCD is not a model, chat UI, task runner, remote exporter, telemetry service, 
 
 Agent context paths:
 - CLI brief: `devcd context brief --surface cli --detail standard`
-- Reproducible handoff demo: `devcd context handoff-demo --events examples/agent-handoff/sample-events.jsonl`
+- Reproducible handoff demo: `devcd context handoff-demo --events examples/before-after-agent-continuity/sample-events.jsonl`
+- Machine-readable handoff: `devcd context handoff-demo --events examples/agent-resurrection/sample-events.jsonl --json`
 - Local feedback: `devcd context feedback <brief_id> --kind missing --note "..."`, then `devcd context quality`
 - HTTP daemon: `devcd run`, then use loopback endpoints `GET /context/work-state` and `POST /context/brief`
-- MCP stdio: `devcd mcp serve`; exposes read-only resources only, no tools or prompts
+- MCP stdio: `devcd mcp serve`; read `devcd://context/agent-handoff-packet` for the same handoff JSON contract; exposes read-only resources only, no tools or prompts
+- Pytest failure recipe: `devcd recipe pytest-failure --input examples/event-source-recipes/pytest-failure/input.json`
+
+Agent resurrection and continuity:
+- `docs/superpowers/agent-resurrection.md` — problem, capability, demo, policy-safe withholding, boundary
+- `examples/agent-resurrection/handoff-packet.md` — expected handoff packet from resurrection fixture
+- `examples/agent-resurrection/handoff-packet.json` — expected machine-readable handoff packet
+- `schemas/devcd-agent-handoff-packet.schema.json` — JSON contract for agent handoff packets
+- `examples/before-after-agent-continuity/without-devcd.md` — baseline: what the next agent knows without DevCD
+- `examples/agent-switch/README.md` — surface-specific handoff for coding vs. review agents
 
 Agent handoff examples:
 - `examples/agent-handoff/README.md`
@@ -31,6 +41,10 @@ Verified commands:
 - `devcd context state`
 - `devcd context brief --surface cli --detail standard`
 - `devcd context handoff-demo --events examples/agent-handoff/sample-events.jsonl`
+- `devcd context handoff-demo --events examples/agent-resurrection/sample-events.jsonl`
+- `devcd context handoff-demo --events examples/before-after-agent-continuity/sample-events.jsonl`
+- `devcd context handoff-demo --events examples/agent-switch/sample-events.jsonl --surface coding-agent`
+- `devcd context handoff-demo --events examples/agent-switch/sample-events.jsonl --surface review-agent`
 - `devcd context feedback demo-handoff-brief --kind missing --note "Add the failing test name."`
 - `devcd context quality`
 - `devcd context memory --scope working`

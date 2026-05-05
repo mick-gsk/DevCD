@@ -2,8 +2,9 @@
 
 This guide is the shortest path from a fresh checkout to a visible result.
 
-The goal is simple: start DevCD, send one event, and confirm that the daemon now
-holds structured state you can query locally.
+The fastest product proof is agent continuity: DevCD can generate a local
+handoff packet with the current goal, latest failure, stale attempted fix to
+avoid, suggested next action, and policy-safe withheld-context summaries.
 
 ## Prerequisites
 
@@ -21,7 +22,29 @@ cd DevCD
 python -m pip install -e ".[dev]"
 ```
 
-## 2. Initialize Local Configuration
+## 2. See Agent Continuity In Under Five Minutes
+
+Run the checked-in before/after fixture without starting a daemon:
+
+```bash
+devcd context handoff-demo --events examples/before-after-agent-continuity/sample-events.jsonl
+```
+
+Then inspect the machine-readable packet:
+
+```bash
+devcd context handoff-demo --events examples/agent-resurrection/sample-events.jsonl --json
+```
+
+The JSON contract is documented at `schemas/devcd-agent-handoff-packet.schema.json`; the expected resurrection packet is checked in at `examples/agent-resurrection/handoff-packet.json`.
+
+To turn a local pytest failure report into DevCD events, use the recipe CLI:
+
+```bash
+devcd recipe pytest-failure --input examples/event-source-recipes/pytest-failure/input.json
+```
+
+## 3. Initialize Local Configuration
 
 ```bash
 devcd init
@@ -29,7 +52,7 @@ devcd init
 
 This creates a local `devcd.toml` with local-first defaults.
 
-## 3. Start the Daemon
+## 4. Start the Daemon
 
 ```bash
 devcd run
@@ -52,7 +75,21 @@ PowerShell:
 $env:DEVCD_TOKEN = Get-Content .devcd/token
 ```
 
-## 4. Submit a First Event
+Before or after starting the daemon, you can ask DevCD for a local readiness
+snapshot:
+
+```bash
+devcd status
+devcd doctor
+```
+
+`devcd status` reports the daemon endpoint, token source, local workspace,
+event/state summary, policy mode, memory path, handoff availability, MCP
+availability, and the next suggested command. `devcd doctor` runs the same
+local-first readiness checks with concrete next steps; use `devcd doctor --json`
+when another local tool needs machine-readable output.
+
+## 5. Submit a First Event
 
 Open a second terminal and send an IDE-style event:
 
@@ -66,7 +103,7 @@ PowerShell:
 devcd event ide file_focus --payload '{"path":"src/app.py","duration_seconds":30}'
 ```
 
-## 5. Inspect the Derived State
+## 6. Inspect the Derived State
 
 ```bash
 curl -H "Authorization: Bearer $TOKEN" http://127.0.0.1:8765/state
@@ -74,7 +111,7 @@ curl -H "Authorization: Bearer $TOKEN" http://127.0.0.1:8765/state
 
 You should see a typed state response that reflects the event you just sent.
 
-## 6. Inspect Scoped Memory
+## 7. Inspect Scoped Memory
 
 ```bash
 curl -H "Authorization: Bearer $TOKEN" http://127.0.0.1:8765/memory/working
@@ -83,7 +120,7 @@ curl -H "Authorization: Bearer $TOKEN" http://127.0.0.1:8765/memory/working
 This confirms that DevCD is not only receiving events, but also exposing scoped
 memory through its local API surface.
 
-## 7. Ask for an Agent Context Brief
+## 8. Ask for an Agent Context Brief
 
 ```bash
 devcd context brief --surface cli --detail standard
@@ -98,6 +135,7 @@ context.
 You are done when all of the following are true:
 
 - `devcd run` starts without crashing
+- `devcd context handoff-demo --events examples/before-after-agent-continuity/sample-events.jsonl` shows the latest failure, do-not-repeat guidance, and withheld context
 - the example event is accepted
 - `GET /state` returns structured state instead of an empty or failing response
 - `GET /memory/working` responds successfully
@@ -124,6 +162,7 @@ If the daemon does not start:
 - confirm Python 3.11+ is active
 - confirm `devcd` is available in your shell after installation
 - rerun `devcd init` to regenerate local config defaults
+- run `devcd doctor` for a local readiness report with next steps
 
 If the event succeeds but state looks empty:
 
@@ -131,3 +170,5 @@ If the event succeeds but state looks empty:
 - make sure direct HTTP requests include `Authorization: Bearer <token>`
 - resend the sample event and query `/state` again
 - inspect your shell output for validation or policy errors
+- run `devcd status` to confirm the active workspace, event count, and latest
+  event timestamp

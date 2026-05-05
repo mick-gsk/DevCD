@@ -4,13 +4,14 @@ Use DevCD as a local context source, not as an executor. It gives agents a polic
 
 ## Fastest local handoff
 
-Run the checked-in demo from the repository root:
+Run the checked-in continuity demo from the repository root:
 
 ```bash
-devcd context handoff-demo --events examples/agent-handoff/sample-events.jsonl
+devcd context handoff-demo --events examples/before-after-agent-continuity/sample-events.jsonl
+devcd context handoff-demo --events examples/agent-resurrection/sample-events.jsonl --json
 ```
 
-Read the expected shape in `examples/agent-handoff/context-brief.md`. The demo is documented in `examples/agent-handoff/README.md` and uses only local JSONL input.
+Read the Markdown expected shape in `examples/before-after-agent-continuity/with-devcd.md`. Read the JSON expected shape in `examples/agent-resurrection/handoff-packet.json`. The JSON contract is documented in `schemas/devcd-agent-handoff-packet.schema.json`.
 
 Use the `brief_id` shown in the Markdown when recording local feedback:
 
@@ -19,7 +20,13 @@ devcd context feedback demo-handoff-brief --kind missing --note "Add the failing
 devcd context quality
 ```
 
-Feedback notes are local full-text input and are withheld from quality output by policy.
+Feedback notes are local full-text input and are withheld from handoff output by policy. The handoff can still report a policy-safe quality note that feedback exists.
+
+To convert a local pytest failure report into DevCD JSONL events:
+
+```bash
+devcd recipe pytest-failure --input examples/event-source-recipes/pytest-failure/input.json
+```
 
 ## Running daemon path
 
@@ -49,11 +56,16 @@ devcd mcp serve
 
 It exposes only read-only resources:
 
+- `devcd://context/agent-handoff-packet`
 - `devcd://context/brief`
 - `devcd://context/work-state`
 - `devcd://context/recent-events`
 - `devcd://context/policy-decisions`
 - `devcd://context/withheld-context`
+- `devcd://context/recent-timeline`
+- `devcd://context/policy-summary`
+
+Agents that need continuity should prefer `devcd://context/agent-handoff-packet`. It exposes the same JSON contract as `devcd context handoff-demo --json`.
 
 It does not expose MCP tools, prompts, shell execution, browser automation, memory writes, or remote HTTP MCP.
 

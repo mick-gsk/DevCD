@@ -6,16 +6,17 @@
 [![pre-commit](https://img.shields.io/badge/pre--commit-enabled-brightgreen?logo=pre-commit)](https://github.com/pre-commit/pre-commit)
 [![Vertical Slice Architecture](https://img.shields.io/badge/architecture-vertical--slice-informational)](docs/devcd/architecture.md)
 
-**Stop re-explaining your workspace to every coding agent.**
+**Stop re-explaining your workspace to every coding agent. Give the next agent a verified local starting point when context is lost.**
 
-DevCD records local developer work state - files, Git state, tasks, notes - as typed events and serves policy-filtered context briefs over localhost. Agents can query DevCD instead of asking you to restate the same local context on every prompt.
+DevCD records local developer work state — files, Git state, tasks, notes — as typed events and serves policy-filtered context briefs over localhost. Agents can query DevCD instead of asking you to restate the same local context on every prompt. When an agent loses its chat window, DevCD produces a policy-filtered handoff packet so the next agent can continue without rediscovering goal, failure history, and stale attempts from scratch.
 
 The product core is local-first work state, typed context, policy-filtered context briefs, a localhost API, and no telemetry.
 
-[Getting Started](docs/getting-started.md) · [Use Cases](docs/use-cases.md) · [Vision](VISION.md) · [Architecture](docs/devcd/architecture.md) · [Contributing](CONTRIBUTING.md) · [AGENTS.md](AGENTS.md)
+[Getting Started](docs/getting-started.md) · [Use Cases](docs/use-cases.md) · [Agent Resurrection](docs/superpowers/agent-resurrection.md) · [Vision](VISION.md) · [Architecture](docs/devcd/architecture.md) · [Contributing](CONTRIBUTING.md) · [AGENTS.md](AGENTS.md)
 
 Start here if you want the shortest path to value:
 
+- [Agent Resurrection](docs/superpowers/agent-resurrection.md) to see the five-minute handoff packet: goal, latest failure, stale fix to avoid, suggested next action, and policy-safe withheld context
 - [Getting Started](docs/getting-started.md) to run DevCD, submit one event, and inspect state locally
 - [Use Cases](docs/use-cases.md) to see where DevCD helps today
 - [Architecture](docs/devcd/architecture.md) once you want the slice and data-flow details
@@ -30,6 +31,9 @@ Today, every AI tool starts with a blank slate. You paste context. You describe 
 - **Scoped memory** — working-memory (short-lived) and durable memory stay separate
 - **Explicit policy** — every observation or action passes through a policy decision you can inspect and audit
 - **Local-first** — your context never leaves your machine without explicit configuration
+- **Agent resurrection** — when a session ends and context is lost, DevCD produces a policy-filtered handoff packet from local events: current goal, latest failure, stale attempts to avoid, and suggested next action
+
+See [docs/superpowers/agent-resurrection.md](docs/superpowers/agent-resurrection.md) for a runnable demo.
 
 ## Highlights
 
@@ -44,6 +48,7 @@ Today, every AI tool starts with a blank slate. You paste context. You describe 
 - 5-minute TTL working-memory with configurable scopes
 - CLI for config initialization and event submission
 - Read-only local MCP stdio resources for policy-filtered context
+- `devcd://context/agent-handoff-packet` exposes the same handoff JSON contract through MCP
 
 ## Quick Start
 
@@ -55,6 +60,20 @@ DevCD is pre-alpha. Until a PyPI release is published, install it from a local c
 git clone https://github.com/mick-gsk/DevCD.git
 cd DevCD
 python -m pip install -e ".[dev]"
+```
+
+See the core superpower first, without starting a daemon:
+
+```bash
+devcd context handoff-demo --events examples/before-after-agent-continuity/sample-events.jsonl
+devcd context handoff-demo --events examples/agent-resurrection/sample-events.jsonl --json
+```
+
+The first command shows what a new agent can continue from after chat history is lost. The second emits the machine-readable handoff packet described by `schemas/devcd-agent-handoff-packet.schema.json` and checked in at `examples/agent-resurrection/handoff-packet.json`.
+
+Then run the local daemon path:
+
+```bash
 devcd init        # creates devcd.toml with local-first defaults
 devcd run         # starts daemon on 127.0.0.1:8765
 ```
@@ -191,7 +210,7 @@ See [SECURITY.md](SECURITY.md) for the vulnerability reporting policy.
 | Version | Focus |
 |---------|-------|
 | **v0.1** | Foundation — event API, state engine, memory, policy, CLI ✅ |
-| v0.2 | MCP Bridge hardening — agent-facing read-only context API |
+| v0.2 | MCP Bridge hardening — read-only MCP context API MVP exists; hardening next |
 | v0.3 | IDE Integration — VS Code extension, Git hook events |
 | v0.4 | Policy Editor — human-readable rules, per-class allow/deny |
 

@@ -11,6 +11,16 @@ The first recipe turns a local pytest failure report into DevCD events for agent
 
 The recipe lives in `devcd.slices.events.recipes` and is intentionally a library function. It does not require a VS Code extension, CI integration, GitHub app, or remote service.
 
+The same converter is exposed through the local CLI:
+
+```bash
+devcd recipe pytest-failure --input examples/event-source-recipes/pytest-failure/input.json
+```
+
+The command prints DevCD JSONL events to stdout. It marks raw stdout/stderr as a
+sensitive `task/test_output` event so normal policy handling can withhold raw
+output from handoff packets.
+
 ### Example Input
 
 See `examples/event-source-recipes/pytest-failure/input.json`:
