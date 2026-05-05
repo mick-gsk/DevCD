@@ -4,9 +4,10 @@ title: DevCD Docs
 
 # DevCD Documentation
 
-DevCD is a local-first developer context daemon for agentic workflows. It turns
-activity from your editor, Git, tasks, and notes into structured context that
-agents can query without asking you to restate your environment on every turn.
+DevCD is the current working name for a local-first continuity layer for people
+who use AI agents. It turns local activity from tools, tasks, notes, and work
+sessions into structured context that agents can query without asking you to
+restate your situation on every turn.
 
 If you are evaluating DevCD for the first time, start with the shortest path to
 value and only drop into architecture once the workflow makes sense.
@@ -14,7 +15,7 @@ value and only drop into architecture once the workflow makes sense.
 ## Start Here
 
 - [Getting Started](getting-started.md) for the fastest path from install to a
-  visible state update
+  visible Agent Passport
 - [Use Cases](use-cases.md) for concrete scenarios where DevCD helps today
 - [Architecture Overview](devcd/architecture.md) for the system shape and slice
   boundaries
@@ -55,6 +56,8 @@ That means you can already:
   [How to consume DevCD as an agent](devcd/agent-consumption.md)
 - I want the product direction:
   [Vision](https://github.com/mick-gsk/DevCD/blob/main/VISION.md)
+- I want the naming and positioning notes:
+  [Naming and Positioning](devcd/naming-and-positioning.md)
 
 ## Principles
 

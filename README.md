@@ -6,9 +6,11 @@
 [![pre-commit](https://img.shields.io/badge/pre--commit-enabled-brightgreen?logo=pre-commit)](https://github.com/pre-commit/pre-commit)
 [![Vertical Slice Architecture](https://img.shields.io/badge/architecture-vertical--slice-informational)](docs/devcd/architecture.md)
 
-**DevCD gives agents persistent, policy-safe continuity across sessions.**
+**DevCD lets a new agent continue from local, policy-filtered context without asking you to recap.**
 
-DevCD records local work state as typed events and serves policy-filtered context over localhost and read-only MCP. When an agent loses its session, DevCD produces a structured **Continuity Packet** — goal, failure history, stale attempts to avoid, and suggested next action — derived entirely from local events with no remote call or model inference.
+DevCD records local work state as typed events and serves policy-filtered context over localhost and read-only MCP. When an agent loses its session, DevCD produces a structured **Continuity Packet** or **Agent Passport** with the current goal, latest failure, do-not-repeat guidance, suggested next action, and withheld-context summary. The packet is derived entirely from local metadata with no remote call or model inference.
+
+The product goal is simple: **Stop re-explaining yourself to AI agents.** After installation and `devcd init`, agents with shell access can keep the ledger useful by running `devcd capture` themselves during normal work. Agents without shell access only read DevCD context and make no false auto-capture claim.
 
 The first proof is **developer workflow continuity**: coding agents can resume from where the previous session stopped. A synthetic research fixture now exercises the same local-first, policy-filtered packet path through **Context Packs** without adding connectors or remote export.
 
@@ -51,17 +53,23 @@ See [docs/superpowers/agent-resurrection.md](docs/superpowers/agent-resurrection
 - Local JSON Lines ledger for all events
 - 5-minute TTL working-memory with configurable scopes
 - CLI for config initialization and event submission
+- `devcd capture` — daemonless, policy-gated continuity metadata capture for agents
+- `devcd agentic action-packet` — policy-filtered next-action packet for the next local agent
+- `devcd agentic tasks` — metadata-only Scout Tasks when the Action Packet is not ready
 - Read-only local MCP stdio resources for policy-filtered context
 - `devcd integrations openclaw` and `devcd integrations hermes` — copyable local MCP
     config snippets with optional shape checks
 - `devcd://context/continuity-packet` — domain-neutral Continuity Packet via MCP
+- `devcd://context/action-packet` — agentic Action Packet via MCP
 - `devcd://context/agent-handoff-packet` — legacy developer handoff contract via MCP (kept for compatibility)
 
 ## Quick Start
 
-**Runtime: Python 3.11+**
+**Goal: make this workspace agent-ready in one terminal setup.** The first success point is not "the daemon starts" and it is not a demo. It is that the next Copilot, Claude, Codex, or OpenClaw session knows to consult local DevCD continuity before asking you to recap.
 
-DevCD is in early developer preview. Until a PyPI release is published, install it from a local checkout:
+**Prerequisites:** Python 3.11+, a local checkout, and a shell on Windows, macOS, or Linux.
+
+### Step 1: Install from checkout
 
 ```bash
 git clone https://github.com/mick-gsk/DevCD.git
@@ -69,80 +77,181 @@ cd DevCD
 python -m pip install -e ".[dev]"
 ```
 
-See the core superpower first, without starting a daemon:
+What happened: the `devcd` CLI becomes available from this checkout.
+
+Success looks like: `devcd --help` lists `quickstart`, `status`, `doctor`, `context`, `mcp`, and `integrations`.
+
+Next: initialize local config for your real workspace.
+
+If it fails: confirm Python 3.11+ is active, then rerun the editable install.
+
+### Step 2: Initialize and make the workspace agent-ready
 
 ```bash
-devcd context handoff-demo --events examples/before-after-agent-continuity/sample-events.jsonl
-devcd context handoff-demo --events examples/agent-resurrection/sample-events.jsonl --json
+devcd init
 ```
 
-The first command shows what a new agent can continue from after chat history is lost. The second emits the machine-readable handoff packet described by `schemas/devcd-agent-handoff-packet.schema.json` and checked in at `examples/agent-resurrection/handoff-packet.json`.
+What happened: DevCD creates `devcd.toml`. In an interactive terminal, it can also ask which agent runtimes should read DevCD continuity and then writes standard workspace instruction files such as `.github/copilot-instructions.md`, `CLAUDE.md`, `AGENTS.md`, plus a local OpenClaw MCP snippet under `.devcd/` when selected.
 
-Then run the local daemon path:
+Success looks like: the selected agent files contain a managed DevCD block telling agents to run `devcd agentic action-packet`, fall back to `devcd agentic tasks` or `devcd context passport`, use `devcd capture` for safe continuity metadata when shell access is available, or read the `devcd://context/action-packet` MCP resource before asking you to recap.
+
+Non-interactive equivalent:
 
 ```bash
-devcd init        # creates devcd.toml with local-first defaults
-devcd run         # starts daemon on 127.0.0.1:8765
+devcd init --agent-ready --agents copilot,claude,codex,openclaw
 ```
 
-CLI commands automatically read the local bearer token from `DEVCD_TOKEN` or `.devcd/token`
-for loopback API calls. For direct `curl` calls, read the token written by the daemon:
+Next: inspect the current local passport and readiness.
+
+If it fails: if config already exists, keep it and inspect with `devcd doctor` before choosing any reset. Existing agent instruction files are preserved; DevCD only adds or replaces a clearly marked managed block.
+
+### Step 3: Inspect the live passport
 
 ```bash
-TOKEN="$(cat .devcd/token)"
+devcd quickstart
 ```
 
-PowerShell:
+What happened: DevCD reads your configured local ledger and prints a policy-filtered Agent Passport. If no events are visible yet, the passport says that plainly; agent-ready instructions tell capable agents how to capture continuity metadata themselves during work.
+
+Success looks like: the output is useful for your current workspace. With an empty ledger, it should point at agent-led capture instead of pretending a demo solved the problem or asking you to do bookkeeping.
+
+Next: run `devcd quickstart --json` if another local tool needs the same activation report, or start the daemon when you want live event ingestion.
+
+If it fails: run `devcd doctor`; it validates local config, policy, ledger, docs, and MCP readiness.
+
+Machine-readable activation report:
+
+```bash
+devcd quickstart --json
+```
+
+### Step 4: Check readiness
+
+```bash
+devcd status
+devcd doctor
+```
+
+What happened: `status` summarizes local state; `doctor` gives remediation without mutating external tool configs.
+
+Success looks like: config, token, daemon, ledger, policy, docs, and MCP checks are understandable.
+
+Next: start the live daemon path.
+
+If it fails: follow the first non-pass `doctor` next step.
+
+### Step 5: Start the live daemon path
+
+```bash
+devcd run
+```
+
+What happened: the local API listens on `127.0.0.1:8765` when you explicitly choose to start it.
+
+Success looks like: `devcd status` reports the daemon as reachable and shows the token source.
+
+Next: let an agent capture continuity metadata during work, or send an optional normalized event from a second terminal for diagnostics.
+
+If it fails: `devcd quickstart` and `devcd context passport` can still inspect local continuity; run `devcd doctor` for live remediation.
+
+### Step 6: Optional manual live event
+
+The normal agent-ready path does not require you to write DevCD events by hand. Agents with shell access use `devcd capture` for metadata-only continuity while they work:
+
+```bash
+devcd capture --kind goal --summary "Try DevCD live continuity"
+devcd capture --kind failure --summary "Example check failed" --next-action "Inspect the failing command output"
+```
+
+These captures do not require the daemon. They write only structured metadata to the configured local ledger after observation and storage policy allow the event. They must not include raw file contents, raw logs, full chat text, or secrets.
+
+The older live event command remains useful for diagnostics and integrations that already emit normalized events:
+
+```bash
+devcd event task goal_update --payload '{"current_goal":"Try DevCD live continuity"}'
+```
+
+PowerShell uses the same JSON quoting for this command:
 
 ```powershell
-$env:DEVCD_TOKEN = Get-Content .devcd/token
+devcd event task goal_update --payload '{"current_goal":"Try DevCD live continuity"}'
 ```
 
-Submit your first event:
+What happened: a policy-checked observation is added to the local ledger.
 
-```bash
-devcd event ide file_focus --payload '{"path":"src/app.py","duration_seconds":30}'
-```
+Success looks like: `devcd status` reports at least one event and an active goal after a capture or normalized event exists.
 
-PowerShell:
+Next: print a live Agent Passport.
 
-```powershell
-devcd event ide file_focus --payload '{"path":"src/app.py","duration_seconds":30}'
-```
+If it fails: inspect the policy reason and token source from `devcd status`.
 
-Query the current state:
-
-```bash
-curl -H "Authorization: Bearer $TOKEN" http://127.0.0.1:8765/state
-```
-
-Ask DevCD for a policy-filtered context brief a coding agent can use:
-
-```bash
-devcd context brief --surface cli --detail standard
-```
-
-Generate the current live Agent Passport from your configured local ledger:
+### Step 7: Get context brief / passport
 
 ```bash
 devcd context passport
-devcd context passport --json --surface coding-agent --pack developer
+devcd context brief --surface cli --detail standard
 ```
 
-Generate a local MCP config snippet for an external runtime and verify DevCD's
-read-only MCP shape without editing that runtime's config:
+What happened: DevCD rebuilds live local state from the configured ledger.
+
+Success looks like: the Agent Passport tells the next agent what is known, unknown, suggested, and withheld.
+
+Next: inspect policy or connect an MCP consumer.
+
+If it fails: if it says no goal is visible, send a `goal_update` event or import a recipe first.
+
+### Step 8: Optional MCP/OpenClaw integration
 
 ```bash
 devcd integrations openclaw --smoke-test
 devcd integrations hermes --json --smoke-test
 ```
 
-Inspect ambient context:
+What happened: DevCD prints copyable MCP snippets and verifies the read-only MCP resource shape.
 
-```bash
-devcd context state
-devcd context memory --scope working
-```
+Success looks like: the smoke test passes without installing OpenClaw, mutating external config, or starting external daemons.
+
+Next: copy the snippet into the MCP-capable runtime you choose.
+
+If it fails: fix the local `devcd` command path or run `devcd doctor`.
+
+### QuickStart defaults vs Advanced
+
+QuickStart defaults:
+
+- Loopback only: `127.0.0.1`
+- Default port: `8765`
+- Local config: `devcd.toml`
+- Token source: `.devcd/token` or `DEVCD_TOKEN`
+- Local ledger and memory: under the configured `.devcd/` runtime paths
+- Policy default: observations allowed, actions denied
+- Remote export: disabled by default
+- MCP: read-only resources only, no tools or prompts
+
+Advanced/full control:
+
+- Custom host/port: `devcd run --host <host> --port <port>`
+- Custom token: `DEVCD_TOKEN=<token>` or `api_token` in `devcd.toml`
+- Custom memory/ledger path: configure runtime paths in `devcd.toml`
+- Alternate Context Pack: `devcd context passport --pack research`
+- MCP consumer integration: `devcd integrations openclaw --smoke-test`
+- OpenClaw/Hermes snippets: `devcd integrations openclaw --json` or `devcd integrations hermes --json`
+
+### Local-first defaults
+
+- No telemetry.
+- No remote export by default.
+- Observations are allowed by default; actions are denied by default.
+- Sensitive context is withheld by policy.
+- MCP resources are read-only.
+- Capture stores structured metadata only; no raw contents, logs, chat transcripts, secrets, or remote data.
+
+### Next paths
+
+- Continue live: `devcd run`, send one event, then `devcd context passport`
+- Connect an agent: `devcd integrations openclaw --smoke-test`
+- Inspect policy: `devcd context control`
+- Try the OpenClaw MCP path: `devcd integrations openclaw --smoke-test`
 
 See [examples/context-brief](examples/context-brief/README.md) for a reproducible text demo of the two-minute context-brief flow.
 

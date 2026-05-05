@@ -1,16 +1,16 @@
 # Vision
 
-DevCD is built on one conviction: **agents should know what you are working on without you having to tell them every time.**
+DevCD is the current working name for one conviction: **AI agents should know what you are trying to continue without you having to tell them every time.**
 
 ## The Problem
 
-Today, every agentic tool starts with a blank slate. You paste context. You explain your stack. You re-describe the task that was already described in three other places. Context is not portable, not structured, and not policy-governed.
+Today, every agentic tool starts with a blank slate. You paste context. You explain what happened. You re-describe the task that was already described in three other places. The next agent repeats failed attempts because it cannot see what already went wrong. Context is not portable, not structured, and not policy-governed.
 
 ## The Direction
 
-DevCD is a **local-first Agent Continuity Layer** that sits between a working environment and the agents that assist it.
+DevCD is a **local-first Agent Continuity Layer** that sits between a person's working environment and the agents that assist it.
 
-It is not a model, a chat interface, a task runner, a remote exporter, or a telemetry service. It is a daemon — a persistent, local, structured source of truth about what is happening right now — that survives session boundaries and expresses continuity through a typed, policy-filtered **Continuity Packet**.
+It is not a model, a chat interface, a task runner, a remote exporter, or a telemetry service. It is a local, structured source of truth about what is happening right now that survives session boundaries and expresses continuity through a typed, policy-filtered **Continuity Packet**.
 
 The first mature proof is **developer workflow continuity**: coding agents resume from goal, failure history, and stale attempts recorded locally. Context Packs define a path for other domains without adding remote dependencies; the current research pack is exercised through synthetic metadata-only events.
 
