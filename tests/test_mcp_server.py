@@ -430,8 +430,14 @@ def test_mcp_server_empty_continuity_packet_matches_passport_guidance(tmp_path) 
 
     assert body["context_pack"] == "developer"
     assert body["intent"] is None
+    assert any("devcd capture --kind goal" in step for step in body["suggested_next_steps"])
     assert any(
-        "devcd event task goal_update --payload" in step for step in body["suggested_next_steps"]
+        "Agents without shell access read DevCD only" in step
+        for step in body["suggested_next_steps"]
+    )
+    assert all(
+        "devcd event task goal_update --payload" not in step
+        for step in body["suggested_next_steps"]
     )
     assert any("devcd context passport" in step for step in body["suggested_next_steps"])
 
@@ -447,6 +453,40 @@ def test_mcp_server_continuity_packet_listed_in_resources(tmp_path) -> None:
     assert "devcd://context/continuity-packet" in uris
     names = [r["name"] for r in resources_response["result"]["resources"]]
     assert "continuity_packet" in names
+
+
+def test_mcp_server_action_packet_contains_ready_agent_context(tmp_path) -> None:
+    server, state_engine = build_mcp_server(tmp_path)
+    state_engine.accept_event(
+        DevEvent(
+            source=EventSource.TASK,
+            type="goal_update",
+            timestamp=datetime(2026, 5, 5, 10, 0, tzinfo=UTC),
+            payload={"current_goal": "Read agentic action packet through MCP"},
+        )
+    )
+
+    body = read_resource(server, "devcd://context/action-packet")
+
+    assert body["schema_version"] == "1.0"
+    assert body["current_goal"] == "Read agentic action packet through MCP"
+    assert "next_action" in body
+    assert "ready_for_agent" in body
+    assert "policy_summary" in body
+
+
+def test_mcp_server_action_packet_listed_in_resources(tmp_path) -> None:
+    server, _state_engine = build_mcp_server(tmp_path)
+
+    resources_response = server.handle_message(
+        {"jsonrpc": "2.0", "id": 23, "method": "resources/list"}
+    )
+
+    assert resources_response is not None
+    uris = [r["uri"] for r in resources_response["result"]["resources"]]
+    assert "devcd://context/action-packet" in uris
+    names = [r["name"] for r in resources_response["result"]["resources"]]
+    assert "action_packet" in names
 
 
 def test_mcp_server_continuity_packet_and_handoff_packet_both_present(tmp_path) -> None:

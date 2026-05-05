@@ -97,6 +97,13 @@ def test_app_wires_ambient_context_service() -> None:
     assert hasattr(app.state, "ambient_context_service")
 
 
+def test_app_wires_agentic_context_service() -> None:
+    settings = DevCDSettings(api_token="test-token", runtime_dir=mkdtemp(prefix="devcd-api-test-"))
+    app = create_app(settings)
+
+    assert hasattr(app.state, "agentic_context_service")
+
+
 def test_context_work_state_api_returns_derived_state() -> None:
     client = build_client()
     headers = {"Authorization": "Bearer test-token"}
@@ -222,8 +229,14 @@ def test_context_control_plane_api_empty_state_is_useful() -> None:
     assert body["active_goal"] is None
     assert body["visible_sources"] == []
     assert body["memory_counts_by_scope"] == {"working": 0, "episodic": 0, "semantic": 0}
+    assert any("devcd capture --kind goal" in command for command in body["next_commands"])
     assert any(
-        "devcd event task goal_update --payload" in command for command in body["next_commands"]
+        "Agents without shell access read DevCD only" in command
+        for command in body["next_commands"]
+    )
+    assert all(
+        "devcd event task goal_update --payload" not in command
+        for command in body["next_commands"]
     )
     assert body["continuity_packet_preview"]["active_goal"] is None
 
@@ -281,3 +294,80 @@ def test_context_memory_api_lists_corrects_and_deletes_items() -> None:
     assert correction.json()["summary"] == "goal_update: Corrected goal"
     assert deleted.status_code == 204
     assert client.get("/context/memory?scope=working", headers=headers).json() == []
+
+
+def test_agentic_context_tasks_route_requires_auth_and_returns_tasks() -> None:
+    client = build_client()
+    missing_auth = client.get("/agentic-context/tasks")
+
+    response = client.get(
+        "/agentic-context/tasks",
+        headers={"Authorization": "Bearer test-token"},
+    )
+
+    assert missing_auth.status_code == 401
+    assert response.status_code == 200
+    body = response.json()
+    assert body[0]["data_class"] == "metadata"
+    assert body[0]["expected_evidence"] == ["devcd_continuity"]
+
+
+def test_agentic_context_action_packet_route_returns_packet() -> None:
+    client = build_client()
+    headers = {"Authorization": "Bearer test-token"}
+    client.post(
+        "/event",
+        headers=headers,
+        json={
+            "source": "task",
+            "type": "goal_update",
+            "timestamp": "2026-05-05T12:00:00Z",
+            "payload": {"current_goal": "Expose the agentic action packet"},
+        },
+    )
+
+    response = client.get("/agentic-context/action-packet", headers=headers)
+
+    assert response.status_code == 200
+    body = response.json()
+    assert body["current_goal"] == "Expose the agentic action packet"
+    assert body["ready_for_agent"] in {True, False}
+
+
+def test_agentic_context_reports_route_accepts_metadata_report() -> None:
+    client = build_client()
+    headers = {"Authorization": "Bearer test-token"}
+
+    response = client.post(
+        "/agentic-context/reports",
+        headers=headers,
+        json={
+            "task_id": "task-1",
+            "summary": "Report intake works through the local API.",
+            "confidence": 0.8,
+            "next_action": "Wire the CLI to the same service.",
+            "evidence": [
+                {
+                    "source": "runner",
+                    "summary": "Runner returned metadata only.",
+                    "timestamp": "2026-05-05T12:01:00Z",
+                    "policy_reason": "metadata-only runner output is allowed",
+                }
+            ],
+        },
+    )
+
+    assert response.status_code == 200
+    assert response.json()["next_action"] == "Wire the CLI to the same service."
+
+
+def test_agentic_context_run_route_denies_by_default() -> None:
+    client = build_client()
+    response = client.post(
+        "/agentic-context/runs",
+        headers={"Authorization": "Bearer test-token"},
+        json={"runner_id": "local-scout", "task_kind": "identify_current_goal"},
+    )
+
+    assert response.status_code == 403
+    assert response.json()["operation"] == "agentic_runner_start"

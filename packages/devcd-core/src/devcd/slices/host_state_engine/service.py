@@ -152,6 +152,15 @@ class StateEngine:
             )
             self._state.interruptibility = "low"
             self._ensure_next_action("investigate failing tests")
+        elif event.type == "blocker":
+            self._state.blocked_by = self._optional_string(
+                payload.get("summary") or payload.get("reason"),
+                default="blocker needs investigation",
+            )
+            self._state.interruptibility = "low"
+            next_action = self._optional_string(payload.get("suggested_next_action"))
+            if next_action is not None:
+                self._ensure_next_action(next_action)
 
     def _coalesce_recent_action(self, event: DevEvent, decision: PolicyDecision) -> bool:
         coalesce_key = self._coalesce_key(event)

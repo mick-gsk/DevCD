@@ -3,6 +3,7 @@ from __future__ import annotations
 import json
 from typing import Any, TextIO
 
+from devcd.slices.agentic_context.service import AgenticContextService
 from devcd.slices.ambient_context.models import AgentContextSurface, SurfaceKind
 from devcd.slices.ambient_context.service import (
     AmbientContextService,
@@ -23,6 +24,7 @@ READ_ONLY_RESOURCE_URIS: tuple[str, ...] = (
     "devcd://context/withheld-context",
     "devcd://context/agent-handoff-packet",
     "devcd://context/continuity-packet",
+    "devcd://context/action-packet",
     "devcd://context/recent-timeline",
     "devcd://context/policy-summary",
 )
@@ -68,6 +70,14 @@ _RESOURCE_METADATA: dict[str, dict[str, str]] = {
             "No sensitive payloads."
         ),
     },
+    "devcd://context/action-packet": {
+        "name": "action_packet",
+        "description": (
+            "Agentic Action Packet for the next local agent run. "
+            "Includes current goal, next action, evidence, and policy summary. "
+            "No sensitive payloads."
+        ),
+    },
     "devcd://context/recent-timeline": {
         "name": "recent_timeline",
         "description": (
@@ -93,11 +103,16 @@ class ReadOnlyMCPServer:
         state_engine: StateEngine,
         event_ledger: EventLedger,
         policy_engine: PolicyEngine,
+        agentic_context_service: AgenticContextService | None = None,
     ) -> None:
         self._ambient_context_service = ambient_context_service
         self._state_engine = state_engine
         self._event_ledger = event_ledger
         self._policy_engine = policy_engine
+        self._agentic_context_service = agentic_context_service or AgenticContextService(
+            ambient_context_service=ambient_context_service,
+            policy_engine=policy_engine,
+        )
 
     def handle_message(self, message: JsonObject) -> JsonObject | None:
         request_id = message.get("id")
@@ -196,6 +211,12 @@ class ReadOnlyMCPServer:
                 include_empty_guidance=True,
             )
             return render_continuity_packet_json(packet)
+        if uri == "devcd://context/action-packet":
+            action_packet = self._agentic_context_service.create_action_packet(
+                surface="mcp",
+                context_pack="developer",
+            )
+            return self._json_text(action_packet.model_dump(mode="json"))
         if uri == "devcd://context/recent-timeline":
             return self._json_text({"recent_timeline": self._recent_timeline()})
         if uri == "devcd://context/policy-summary":

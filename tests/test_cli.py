@@ -40,6 +40,314 @@ def test_init_writes_default_config(tmp_path) -> None:
     assert "allow_remote_export = false" in content
 
 
+def test_init_can_prepare_agent_ready_workspace(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.setenv("HOME", str(tmp_path / "home"))
+    monkeypatch.setenv("USERPROFILE", str(tmp_path / "home"))
+    runner = CliRunner()
+
+    result = runner.invoke(
+        app,
+        [
+            "init",
+            "--agent-ready",
+            "--agents",
+            "copilot,claude,codex,openclaw",
+        ],
+    )
+
+    assert result.exit_code == 0
+    assert "Wrote devcd.toml" in result.output
+    assert "Agent-ready workspace" in result.output
+    assert "Copilot" in result.output
+    assert "Claude" in result.output
+    assert "Codex" in result.output
+    assert "OpenClaw" in result.output
+
+    copilot = tmp_path / ".github" / "copilot-instructions.md"
+    claude = tmp_path / "CLAUDE.md"
+    codex = tmp_path / "AGENTS.md"
+    openclaw = tmp_path / ".devcd" / "openclaw-mcp.json"
+    for path in (copilot, claude, codex):
+        content = path.read_text(encoding="utf-8")
+        assert "DEVCD AGENT CONTINUITY START" in content
+        assert "devcd agentic action-packet" in content
+        assert "devcd agentic tasks" in content
+        assert "devcd context passport" in content
+        assert "DevCD Continuity Capture Routine" in content
+        assert "devcd capture --kind goal" in content
+        assert "do not ask the user to perform DevCD bookkeeping" in content
+        assert "Use this only when shell/local command execution is available." in content
+        assert "If shell/local command execution is not available" in content
+        assert "Never capture file contents" in content
+        assert "devcd://context/continuity-packet" in content
+        assert "withheld context" in content
+        assert "handoff-demo" not in content
+        assert "sample-events" not in content
+
+    body = json.loads(openclaw.read_text(encoding="utf-8"))
+    assert body["mcp"]["servers"]["devcd"] == {
+        "command": "devcd",
+        "args": ["mcp", "serve"],
+    }
+    assert not (tmp_path / "home" / ".openclaw").exists()
+
+
+def test_init_preserves_existing_agent_file_with_managed_block(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.chdir(tmp_path)
+    existing = tmp_path / "AGENTS.md"
+    existing.write_text("# Existing Agent Notes\n\nKeep this project rule.\n", encoding="utf-8")
+    runner = CliRunner()
+
+    result = runner.invoke(app, ["init", "--agent-ready", "--agents", "codex"])
+
+    assert result.exit_code == 0
+    content = existing.read_text(encoding="utf-8")
+    assert "Keep this project rule." in content
+    assert content.count("DEVCD AGENT CONTINUITY START") == 1
+    assert content.count("DEVCD AGENT CONTINUITY END") == 1
+    assert "devcd context passport" in content
+    assert "devcd agentic action-packet" in content
+    assert "DevCD Continuity Capture Routine" in content
+
+
+def test_capture_goal_writes_allowed_event_to_configured_ledger(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.chdir(tmp_path)
+    runtime_dir = tmp_path / "runtime"
+    config_path = tmp_path / "devcd.toml"
+    config_path.write_text('[devcd]\nruntime_dir = "runtime"\n', encoding="utf-8")
+    runner = CliRunner()
+
+    result = runner.invoke(
+        app,
+        [
+            "capture",
+            "--kind",
+            "goal",
+            "--summary",
+            "Implement agent-ready init",
+            "--agent",
+            "copilot",
+            "--session",
+            "session-1",
+            "--config",
+            str(config_path),
+        ],
+    )
+
+    assert result.exit_code == 0
+    assert "Captured goal" in result.output
+    records = _ledger_records(runtime_dir / "events.jsonl")
+    assert len(records) == 1
+    event = records[0]["event"]
+    decision = records[0]["policy_decision"]
+    assert event["source"] == "task"
+    assert event["type"] == "goal_update"
+    assert event["data_class"] == "metadata"
+    assert event["payload"] == {
+        "agent": "copilot",
+        "basis": "agent_inference",
+        "capture_kind": "goal",
+        "confidence": "inferred",
+        "current_goal": "Implement agent-ready init",
+        "session": "session-1",
+    }
+    assert decision["kind"] == "allow"
+    assert decision["operation"] == "store"
+
+
+def test_capture_failure_with_next_action_feeds_live_passport(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.chdir(tmp_path)
+    config_path = tmp_path / "devcd.toml"
+    config_path.write_text(
+        '[devcd]\nruntime_dir = "runtime"\nworking_memory_ttl_seconds = 315360000\n',
+        encoding="utf-8",
+    )
+    runner = CliRunner()
+
+    capture_result = runner.invoke(
+        app,
+        [
+            "capture",
+            "--kind",
+            "failure",
+            "--summary",
+            "make check failed",
+            "--next-action",
+            "Inspect CLI tests",
+            "--config",
+            str(config_path),
+        ],
+    )
+    passport_result = runner.invoke(app, ["context", "passport", "--config", str(config_path)])
+
+    assert capture_result.exit_code == 0
+    assert passport_result.exit_code == 0
+    assert "make check failed" in passport_result.output
+    assert "Inspect CLI tests" in passport_result.output
+
+
+def test_capture_does_not_require_running_daemon(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.chdir(tmp_path)
+    config_path = tmp_path / "devcd.toml"
+    config_path.write_text('[devcd]\nruntime_dir = "runtime"\n', encoding="utf-8")
+
+    def fail_if_called(*_args, **_kwargs):
+        raise AssertionError("capture must not submit to the daemon")
+
+    monkeypatch.setattr(urllib.request, "urlopen", fail_if_called)
+    runner = CliRunner()
+
+    result = runner.invoke(
+        app,
+        [
+            "capture",
+            "--kind",
+            "decision",
+            "--summary",
+            "Keep MCP read-only for now",
+            "--config",
+            str(config_path),
+        ],
+    )
+
+    assert result.exit_code == 0
+    assert (tmp_path / "runtime" / "events.jsonl").exists()
+
+
+def test_capture_rejects_unknown_kind(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.chdir(tmp_path)
+    config_path = tmp_path / "devcd.toml"
+    config_path.write_text('[devcd]\nruntime_dir = "runtime"\n', encoding="utf-8")
+    runner = CliRunner()
+
+    result = runner.invoke(
+        app,
+        [
+            "capture",
+            "--kind",
+            "unknown",
+            "--summary",
+            "This should not persist",
+            "--config",
+            str(config_path),
+        ],
+    )
+
+    assert result.exit_code != 0
+    assert "invalid capture kind" in result.output
+    assert not (tmp_path / "runtime" / "events.jsonl").exists()
+
+
+def test_capture_rejects_full_text_and_sensitive_payload_keys(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.chdir(tmp_path)
+    config_path = tmp_path / "devcd.toml"
+    config_path.write_text('[devcd]\nruntime_dir = "runtime"\n', encoding="utf-8")
+    runner = CliRunner()
+    long_log = "Traceback (most recent call last):\n" + "E AssertionError\n" * 80
+
+    full_text = runner.invoke(
+        app,
+        [
+            "capture",
+            "--kind",
+            "failure",
+            "--summary",
+            long_log,
+            "--config",
+            str(config_path),
+        ],
+    )
+    sensitive_key = runner.invoke(
+        app,
+        [
+            "capture",
+            "--kind",
+            "artifact_ref",
+            "--summary",
+            "Referenced unsafe artifact metadata",
+            "--artifact",
+            "file_content=private.py",
+            "--config",
+            str(config_path),
+        ],
+    )
+    exact_sensitive_key = runner.invoke(
+        app,
+        [
+            "capture",
+            "--kind",
+            "goal",
+            "--summary",
+            "Capture current work",
+            "--fingerprint",
+            "token",
+            "--config",
+            str(config_path),
+        ],
+    )
+
+    assert full_text.exit_code != 0
+    assert "summary looks like full text or a log dump" in full_text.output
+    assert sensitive_key.exit_code != 0
+    assert "sensitive payload key is not allowed" in sensitive_key.output
+    assert exact_sensitive_key.exit_code != 0
+    assert "sensitive payload key is not allowed" in exact_sensitive_key.output
+    assert not (tmp_path / "runtime" / "events.jsonl").exists()
+
+
+def test_capture_policy_denial_prevents_persistence(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.chdir(tmp_path)
+    config_path = tmp_path / "devcd.toml"
+    config_path.write_text(
+        '[devcd]\nruntime_dir = "runtime"\nallow_observation = false\n',
+        encoding="utf-8",
+    )
+    runner = CliRunner()
+
+    result = runner.invoke(
+        app,
+        [
+            "capture",
+            "--kind",
+            "goal",
+            "--summary",
+            "This should be denied",
+            "--config",
+            str(config_path),
+        ],
+    )
+
+    assert result.exit_code != 0
+    assert "Capture denied: observation is disabled by policy" in result.output
+    assert not (tmp_path / "runtime" / "events.jsonl").exists()
+
+
+def test_init_rejects_unknown_agent_ready_target(tmp_path, monkeypatch) -> None:
+    monkeypatch.chdir(tmp_path)
+    runner = CliRunner()
+
+    result = runner.invoke(app, ["init", "--agent-ready", "--agents", "copilot,unknown"])
+
+    assert result.exit_code != 0
+    assert "Unsupported agent target" in result.output
+    assert not (tmp_path / "devcd.toml").exists()
+
+
 def test_cli_exposes_context_group() -> None:
     runner = CliRunner()
 
@@ -47,6 +355,7 @@ def test_cli_exposes_context_group() -> None:
 
     assert result.exit_code == 0
     assert "context" in result.output
+    assert "agentic" in result.output
     assert "mcp" in result.output
     assert "policy" in result.output
 
@@ -975,8 +1284,10 @@ def test_cli_live_passport_empty_state_includes_next_commands(
 
     assert result.exit_code == 0
     assert "No goal visible" in result.output
-    assert "devcd event task goal_update --payload" in result.output
-    assert "devcd recipe pytest-failure" in result.output
+    assert "Agents with shell access capture continuity metadata themselves" in result.output
+    assert "devcd capture --kind goal" in result.output
+    assert "Do not ask the user to perform DevCD bookkeeping" in result.output
+    assert "devcd event task goal_update --payload" not in result.output
     assert "devcd context passport" in result.output
 
 
@@ -1173,7 +1484,8 @@ def test_cli_context_control_empty_state_includes_next_commands(
 
     assert result.exit_code == 0
     assert "Active goal: none" in result.output
-    assert "devcd event task goal_update --payload" in result.output
+    assert "devcd capture --kind goal" in result.output
+    assert "devcd event task goal_update --payload" not in result.output
     assert "devcd context control" in result.output
 
 
@@ -1453,6 +1765,10 @@ def live_ledger_record(
     )
 
 
+def _ledger_records(path: Path) -> list[dict[str, object]]:
+    return [json.loads(line) for line in path.read_text(encoding="utf-8").splitlines()]
+
+
 def test_agent_docs_name_mcp_handoff_packet_resource() -> None:
     docs = Path("docs/devcd/agent-consumption.md").read_text(encoding="utf-8")
     llms = Path("llms.txt").read_text(encoding="utf-8")
@@ -1577,6 +1893,91 @@ def test_cli_exposes_context_memory_commands() -> None:
     assert delete.exit_code == 0
     assert "item-id" in delete.output
 
+
+def test_agentic_tasks_json_returns_scout_tasks(tmp_path: Path) -> None:
+    config_path = _write_test_config(tmp_path)
+    runner = CliRunner()
+
+    result = runner.invoke(app, ["agentic", "tasks", "--config", str(config_path), "--json"])
+
+    assert result.exit_code == 0
+    body = json.loads(result.output)
+    assert body[0]["kind"] == "identify_current_goal"
+    assert body[0]["data_class"] == "metadata"
+
+def test_agentic_action_packet_json_returns_ready_field(tmp_path: Path) -> None:
+    config_path = _write_test_config(tmp_path)
+    runner = CliRunner()
+
+    result = runner.invoke(
+        app,
+        ["agentic", "action-packet", "--config", str(config_path), "--json"],
+    )
+
+    assert result.exit_code == 0
+    body = json.loads(result.output)
+    assert "ready_for_agent" in body
+    assert body["schema_version"] == "1.0"
+
+def test_agentic_report_accepts_json_file(tmp_path: Path) -> None:
+    config_path = _write_test_config(tmp_path)
+    report_path = tmp_path / "report.json"
+    report_path.write_text(
+        json.dumps(
+            {
+                "task_id": "task-1",
+                "summary": "CLI report submission works.",
+                "confidence": 0.8,
+                "next_action": "Wire MCP read-only resource.",
+                "evidence": [
+                    {
+                        "source": "runner",
+                        "summary": "Runner returned metadata only.",
+                        "timestamp": "2026-05-05T12:04:00Z",
+                        "policy_reason": "metadata-only runner output is allowed",
+                    }
+                ],
+            }
+        ),
+        encoding="utf-8",
+    )
+    runner = CliRunner()
+
+    result = runner.invoke(
+        app,
+        ["agentic", "report", "--config", str(config_path), "--input", str(report_path)],
+    )
+
+    assert result.exit_code == 0
+    assert "accepted scout report" in result.output
+
+def test_agentic_run_missing_runner_is_denied(tmp_path: Path) -> None:
+    config_path = _write_test_config(tmp_path)
+    runner = CliRunner()
+
+    result = runner.invoke(
+        app,
+        [
+            "agentic",
+            "run",
+            "--config",
+            str(config_path),
+            "--runner",
+            "missing",
+            "--json",
+        ],
+    )
+
+    assert result.exit_code == 1
+    body = json.loads(result.output)
+    assert body["operation"] == "agentic_runner_start"
+    assert body["kind"] == "deny"
+
+def _write_test_config(tmp_path: Path) -> Path:
+    runtime_dir = str(tmp_path / "runtime").replace("\\", "/")
+    config_path = tmp_path / "devcd.toml"
+    config_path.write_text(f'[devcd]\nruntime_dir = "{runtime_dir}"\n', encoding="utf-8")
+    return config_path
 
 def test_policy_simulate_outputs_json_and_human_explanation(tmp_path) -> None:
     events_path = tmp_path / "sensitive-event.json"
@@ -1825,3 +2226,120 @@ def test_doctor_validates_handoff_demo() -> None:
     assert "sample_events_valid: pass" in result.output
     assert "handoff_demo: pass" in result.output
     assert "docs_commands: pass" in result.output
+
+
+def test_quickstart_is_live_first_and_reports_next_steps(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.chdir(tmp_path)
+    runner = CliRunner()
+
+    result = runner.invoke(
+        app,
+        [
+            "quickstart",
+            "--config",
+            str(tmp_path / "devcd.toml"),
+            "--endpoint",
+            "http://127.0.0.1:9/state",
+        ],
+    )
+
+    assert result.exit_code == 0
+    assert "DevCD quickstart" in result.output
+    assert "DevCD lets a new agent continue from local, policy-filtered context" in result.output
+    assert "Local-first defaults" in result.output
+    assert "loopback: 127.0.0.1" in result.output
+    assert "remote export: disabled by default" in result.output
+    assert "Step 1: Install from checkout" in result.output
+    assert "Step 2: Initialize local config" in result.output
+    assert "Demo Agent Passport" not in result.output
+    assert "Continue the resurrection demo after Agent A lost chat context" not in result.output
+    assert "# DevCD Agent Passport" in result.output
+    assert "No local ledger events are visible in this passport yet." in result.output
+    assert "Agents with shell access capture continuity metadata themselves" in result.output
+    assert "devcd capture --kind goal" in result.output
+    assert "Config: missing" in result.output
+    assert "Step 3: Check readiness" in result.output
+    assert "devcd doctor" in result.output
+    assert "Step 7: Optional MCP/OpenClaw integration" in result.output
+    assert "devcd integrations openclaw --smoke-test" in result.output
+
+
+def test_quickstart_json_reports_live_first_readiness(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.chdir(tmp_path)
+    runner = CliRunner()
+
+    result = runner.invoke(
+        app,
+        [
+            "quickstart",
+            "--config",
+            str(tmp_path / "devcd.toml"),
+            "--endpoint",
+            "http://127.0.0.1:9/state",
+            "--json",
+        ],
+    )
+
+    assert result.exit_code == 0
+    body = json.loads(result.output)
+    assert body["value_proposition"] == (
+        "DevCD lets a new agent continue from local, policy-filtered context without "
+        "asking you to recap."
+    )
+    assert body["live_first"]["daemon_required"] is False
+    assert body["live_first"]["packet"]["intent"] is None
+    assert "No local ledger events are visible in this passport yet." in body["live_first"][
+        "packet"
+    ]["unknowns"]
+    assert "demo_preview" not in body
+    assert body["local_state"]["config_exists"] is False
+    assert body["local_state"]["token_source"] == "missing"
+    assert body["local_state"]["daemon_reachable"] is False
+    assert body["local_state"]["live_context_empty"] is True
+    assert body["defaults"]["host"] == "127.0.0.1"
+    assert body["defaults"]["port"] == 8765
+    assert body["defaults"]["remote_export"] == "disabled by default"
+    assert body["defaults"]["mcp"] == "read-only resources only"
+    assert [step["id"] for step in body["steps"]] == [
+        "install",
+        "init",
+        "readiness",
+        "daemon",
+        "first_event",
+        "passport",
+        "mcp",
+    ]
+    assert body["next_paths"]["connect_agent"] == "devcd integrations openclaw --smoke-test"
+
+
+def test_quickstart_demo_preview_is_explicit(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    events_path = (Path.cwd() / "examples/agent-resurrection/sample-events.jsonl").resolve()
+    monkeypatch.chdir(tmp_path)
+    runner = CliRunner()
+
+    result = runner.invoke(
+        app,
+        [
+            "quickstart",
+            "--config",
+            str(tmp_path / "devcd.toml"),
+            "--endpoint",
+            "http://127.0.0.1:9/state",
+            "--demo-events",
+            str(events_path),
+            "--json",
+        ],
+    )
+
+    assert result.exit_code == 0
+    body = json.loads(result.output)
+    assert body["demo_preview"]["events_path"] == str(events_path)
+    assert body["demo_preview"]["packet"]["intent"]["summary"] == (
+        "Continue the resurrection demo after Agent A lost chat context"
+    )
