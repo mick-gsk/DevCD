@@ -219,12 +219,8 @@ def recipe_pytest_failure(
     ] = None,
 ) -> None:
     """Convert a local pytest failure report into DevCD JSONL events."""
-    report = PytestFailureRecipeInput.model_validate_json(
-        input_path.read_text(encoding="utf-8")
-    )
-    jsonl = "\n".join(
-        event.model_dump_json() for event in events_from_pytest_failure(report)
-    )
+    report = PytestFailureRecipeInput.model_validate_json(input_path.read_text(encoding="utf-8"))
+    jsonl = "\n".join(event.model_dump_json() for event in events_from_pytest_failure(report))
     jsonl = f"{jsonl}\n"
     if output is not None:
         output.write_text(jsonl, encoding="utf-8")
@@ -521,11 +517,9 @@ def _build_doctor_report(*, config: Path | None, endpoint: str) -> dict[str, Any
         _doctor_check(
             "state_engine_state",
             "pass" if state_status["has_state"] else "warn",
-            "State engine has local state"
-            if state_status["has_state"]
-            else "No local state found",
+            "State engine has local state" if state_status["has_state"] else "No local state found",
             state_status,
-            "devcd event ide file_focus --payload '{\"path\":\"src/app.py\"}'",
+            'devcd event ide file_focus --payload \'{"path":"src/app.py"}\'',
         ),
         _policy_sensitive_denial_check(settings),
         _sample_events_valid_check(),
@@ -784,7 +778,7 @@ def _next_status_command(
     if token_source == "missing" or not daemon_reachable:
         return "devcd run"
     if events_count == 0:
-        return "devcd event ide file_focus --payload '{\"path\":\"src/app.py\"}'"
+        return 'devcd event ide file_focus --payload \'{"path":"src/app.py"}\''
     return "devcd context brief --surface cli --detail standard"
 
 

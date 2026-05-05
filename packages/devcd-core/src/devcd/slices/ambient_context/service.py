@@ -802,9 +802,7 @@ class AmbientContextService:
             and last_failure.type != "test_failure"
             and last_failure.type.endswith("_failure")
         ):
-            do_not_repeat = [
-                f"Do not repeat the failed attempt unchanged: {last_failure.summary}"
-            ]
+            do_not_repeat = [f"Do not repeat the failed attempt unchanged: {last_failure.summary}"]
 
         explicit_suggested_next_action = self._explicit_suggested_next_action(
             entries,
@@ -1317,9 +1315,7 @@ def render_context_brief_markdown(brief: ContextBrief) -> str:
     lines.extend(["## Last attempt"])
     if brief.resurrection.last_attempt is not None:
         attempt = brief.resurrection.last_attempt
-        lines.append(
-            f"- {attempt.outcome}: {attempt.summary} ({attempt.source}/{attempt.type})"
-        )
+        lines.append(f"- {attempt.outcome}: {attempt.summary} ({attempt.source}/{attempt.type})")
     else:
         lines.append("- None visible under current policy.")
     lines.append("")
@@ -1345,9 +1341,7 @@ def render_context_brief_markdown(brief: ContextBrief) -> str:
     lines.append("")
 
     lines.extend(["## why_attempt_failed"])
-    lines.append(
-        f"- {brief.resurrection.why_attempt_failed or 'Unknown from visible context.'}"
-    )
+    lines.append(f"- {brief.resurrection.why_attempt_failed or 'Unknown from visible context.'}")
     lines.append("")
 
     lines.extend(["## do_not_repeat"])
@@ -1446,9 +1440,7 @@ def render_context_brief_json(brief: ContextBrief) -> str:
 
     last_failure: str | None = brief.resurrection.last_failure
     if last_failure is None:
-        failed = next(
-            (at for at in brief.recent_attempts if at.outcome == "failure"), None
-        )
+        failed = next((at for at in brief.recent_attempts if at.outcome == "failure"), None)
         if failed is not None:
             last_failure = failed.summary
         elif brief.blockers:
@@ -1478,10 +1470,7 @@ def render_context_brief_json(brief: ContextBrief) -> str:
         "last_failure": last_failure,
         "why_attempt_failed": brief.resurrection.why_attempt_failed,
         "do_not_repeat": brief.resurrection.do_not_repeat,
-        "blockers": [
-            {"summary": b.summary, "confidence": b.confidence}
-            for b in brief.blockers
-        ],
+        "blockers": [{"summary": b.summary, "confidence": b.confidence} for b in brief.blockers],
         "suggested_next_action": brief.resurrection.suggested_next_action
         or (brief.suggested_next_steps[0].summary if brief.suggested_next_steps else None),
         "policy_summary": {
