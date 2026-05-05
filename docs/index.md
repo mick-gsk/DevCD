@@ -54,10 +54,22 @@ That means you can already:
   [Policy](devcd/policy.md)
 - I am an agent consuming local context:
   [How to consume DevCD as an agent](devcd/agent-consumption.md)
+- I want to connect OpenClaw:
+  [OpenClaw Integration](devcd/openclaw-integration.md)
+- I want to extend DevCD safely:
+  [Context Packs](devcd/context-packs.md)
+- I want to publish or verify a release:
+  [Publishing](devcd/publishing.md)
 - I want the product direction:
   [Vision](https://github.com/mick-gsk/DevCD/blob/main/VISION.md)
 - I want the naming and positioning notes:
   [Naming and Positioning](devcd/naming-and-positioning.md)
+- I want to know whether DevCD is ready to try:
+  [Release Readiness](devcd/release-readiness.md)
+- I want to validate release artifacts:
+  [Publishing](devcd/publishing.md)
+- I want an isolated demo or CI sandbox:
+  [Container Sandbox](devcd/container.md)
 
 ## Principles
 

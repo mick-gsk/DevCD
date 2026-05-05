@@ -21,7 +21,8 @@ Requirements: Python 3.11+, pip.
 2. Keep changes focused on one feature slice unless the issue explicitly spans slices.
 3. Add or update tests next to the behavior being changed.
 4. Run `make check` before opening a pull request.
-5. Fill in the PR template and link the related issue.
+5. For release or packaging changes, run `make distribution` as well.
+6. Fill in the PR template and link the related issue.
 
 ## Commit Format
 
@@ -49,7 +50,7 @@ Issues labelled [`good first issue`](https://github.com/mick-gsk/DevCD/labels/go
 
 ## Opening an Issue
 
-Use the issue templates for [bug reports](.github/ISSUE_TEMPLATE/bug_report.yml) and [feature requests](.github/ISSUE_TEMPLATE/feature_request.yml). For design questions or general ideas, use [Discussions](https://github.com/mick-gsk/DevCD/discussions) instead.
+Use the issue templates for [bug reports](.github/ISSUE_TEMPLATE/bug_report.yml), [feature requests](.github/ISSUE_TEMPLATE/feature_request.yml), [Context Pack proposals](.github/ISSUE_TEMPLATE/context-pack.yml), and [Event Recipe proposals](.github/ISSUE_TEMPLATE/event-recipe.yml). For design questions or general ideas, use [Discussions](https://github.com/mick-gsk/DevCD/discussions) instead.
 
 ## Code Style
 
@@ -63,6 +64,7 @@ Use the issue templates for [bug reports](.github/ISSUE_TEMPLATE/bug_report.yml)
 ```bash
 pytest tests -q              # full suite
 pytest tests/test_api.py -q  # single file
+make distribution            # build, metadata check, wheel content check, CLI smoke test
 ```
 
 ## Maintainer

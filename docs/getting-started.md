@@ -12,7 +12,7 @@ Use this guide when you want DevCD to solve the real frustration: a new agent st
 
 ## Live-first path: make the real workspace useful
 
-This path starts with your actual local workspace. It starts no background service until you explicitly choose `devcd run`, makes no remote calls, and keeps agent setup inside explicit terminal choices. After `devcd init`, you should not need to do DevCD bookkeeping; agents with shell access capture continuity metadata themselves, and agents without shell access only read DevCD context.
+This path starts with your actual local workspace. It starts no background service until you explicitly choose `devcd run`, makes no remote calls, and keeps agent setup inside explicit terminal choices. After `devcd onboard`, you should not need to do DevCD bookkeeping; agents with shell access capture continuity metadata themselves, and agents without shell access only read DevCD context.
 
 ### Step 1: Install from checkout
 
@@ -20,23 +20,24 @@ This path starts with your actual local workspace. It starts no background servi
 git clone https://github.com/mick-gsk/DevCD.git
 cd DevCD
 python -m pip install -e ".[dev]"
+make smoke
 ```
 
 What happened: the `devcd` CLI becomes available from this checkout.
 
-Success looks like: `devcd --help` lists `quickstart`, `status`, `doctor`, `context`, `agentic`, `mcp`, and `integrations`.
+Success looks like: `devcd --help` lists `onboard`, `quickstart`, `status`, `doctor`, `context`, `agentic`, `mcp`, and `integrations`.
 
 Next: initialize local config for this workspace.
 
 If it fails: confirm Python 3.11+ is active, then rerun the editable install.
 
-### Step 2: Initialize and choose agent setup
+### Step 2: Onboard the workspace
 
 ```bash
-devcd init
+devcd onboard --agents copilot,claude,codex,openclaw
 ```
 
-What happened: DevCD creates `devcd.toml`. In an interactive terminal, choose whether to make the workspace agent-ready and select the agent runtimes you use.
+What happened: DevCD creates `devcd.toml` if it is missing, keeps it if it already exists, prepares selected agent runtime files, and prints the local Agent Passport path without starting the daemon.
 
 Success looks like: `devcd.toml` exists with loopback, local storage, and policy defaults. Selected agent files contain a managed DevCD continuity block with a small capture routine:
 
@@ -45,7 +46,7 @@ Success looks like: `devcd.toml` exists with loopback, local storage, and policy
 - Codex and compatible coding agents: `AGENTS.md`
 - OpenClaw: `.devcd/openclaw-mcp.json`
 
-For non-interactive setup, pass choices explicitly:
+If you only want the lower-level config primitive, use `init` directly:
 
 ```bash
 devcd init --agent-ready --agents copilot,claude,codex,openclaw
