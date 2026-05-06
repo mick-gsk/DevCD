@@ -30,6 +30,7 @@ policy-filtered handoff instead of a recap request.
 | You want event-source or recipe-oriented examples | `event-source-recipes/` | Shows the metadata-first event patterns DevCD expects. |
 | You want to inspect research continuity instead of coding continuity | `research-continuity/` | Demonstrates warm-start behavior for research-oriented workflows. |
 | You want to see how a read-only MCP consumer can start warm | `openclaw-mcp-context/` | Connects the Action Packet and session-contract story to an MCP-capable runtime. |
+| You want a repeatable real-world evaluation session with scoring | `reality-testing/` | Provides a practical scorecard template to measure correctness and quality, not only pass/fail. |
 
 ## Read The Fixtures Correctly
 

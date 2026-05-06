@@ -2040,7 +2040,7 @@ class AmbientContextService:
     ) -> Literal["unknown", "success", "failure", "interrupted"]:
         if self._is_failure_event_type(action_type):
             return "failure"
-        if action_type.endswith("success"):
+        if action_type.endswith("success") or action_type.endswith("_passed"):
             return "success"
         return "unknown"
 
