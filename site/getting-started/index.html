@@ -2,104 +2,110 @@
 <!doctype html>
 <html lang="en" class="no-js">
   <head>
-
+    
       <meta charset="utf-8">
       <meta name="viewport" content="width=device-width,initial-scale=1">
-
-        <meta name="description" content="Local-first Developer Context Daemon">
-
-
-
+      
+        <meta name="description" content="Local-first context layer that warm-starts every AI agent session with a policy-filtered Action Packet — no recap requests, no context loss.">
+      
+      
+      
         <link rel="canonical" href="https://mick-gsk.github.io/DevCD/getting-started/">
-
-
+      
+      
         <link rel="prev" href="..">
-
-
+      
+      
         <link rel="next" href="../use-cases/">
-
-
-
-
-
-      <link rel="icon" href="../assets/images/favicon.png">
+      
+      
+        
+      
+      
+      <link rel="icon" href="../assets/devcd-mark.svg">
       <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.7.1">
-
-
-
+    
+    
+      
         <title>Getting Started - DevCD</title>
-
-
+      
+    
+    
 
       <link rel="stylesheet" href="../assets/stylesheets/main.484c7ddc.min.css">
-
-
+      
+        
         <link rel="stylesheet" href="../assets/stylesheets/palette.ab4e12ef.min.css">
+      
+      
 
 
+    
+<link rel="stylesheet" href="../assets/brand.css">
 
-
-
-
-
-
-
-
-
-
+    
+      
+    
+    
+      
+        
+        
         <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
         <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Roboto:300,300i,400,400i,700,700i%7CRoboto+Mono:400,400i,700,700i&display=fallback">
         <style>:root{--md-text-font:"Roboto";--md-code-font:"Roboto Mono"}</style>
-
-
-
+      
+    
+    
+      <link rel="stylesheet" href="../assets/devcd-brand-tokens.css">
+    
+      <link rel="stylesheet" href="../assets/brand.css">
+    
     <script>__md_scope=new URL("..",location),__md_hash=e=>[...e].reduce(((e,_)=>(e<<5)-e+_.charCodeAt(0)),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
+    
+      
 
-
-
-
-
+    
+    
   </head>
-
-
-
-
-
-
-
-
-
-    <body dir="ltr" data-md-color-scheme="default" data-md-color-primary="indigo" data-md-color-accent="indigo">
-
-
+  
+  
+    
+    
+      
+    
+    
+    
+    
+    <body dir="ltr" data-md-color-scheme="default" data-md-color-primary="custom" data-md-color-accent="custom">
+  
+    
     <input class="md-toggle" data-md-toggle="drawer" type="checkbox" id="__drawer" autocomplete="off">
     <input class="md-toggle" data-md-toggle="search" type="checkbox" id="__search" autocomplete="off">
     <label class="md-overlay" for="__drawer"></label>
     <div data-md-component="skip">
-
-
+      
+        
         <a href="#getting-started" class="md-skip">
           Skip to content
         </a>
-
+      
     </div>
     <div data-md-component="announce">
-
+      
     </div>
-
-
-
+    
+    
+      
 
 <header class="md-header" data-md-component="header">
   <nav class="md-header__inner md-grid" aria-label="Header">
     <a href=".." title="DevCD" class="md-header__button md-logo" aria-label="DevCD" data-md-component="logo">
-
-
-  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3m0 3.54C9.64 9.35 6.5 8 3 8v11c3.5 0 6.64 1.35 9 3.54 2.36-2.19 5.5-3.54 9-3.54V8c-3.5 0-6.64 1.35-9 3.54"/></svg>
+      
+  <img src="../assets/devcd-mark.svg" alt="logo">
 
     </a>
     <label class="md-header__button md-icon" for="__drawer">
-
+      
       <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M3 6h18v2H3zm0 5h18v2H3zm0 5h18v2H3z"/></svg>
     </label>
     <div class="md-header__title" data-md-component="header-title">
@@ -111,49 +117,49 @@
         </div>
         <div class="md-header__topic" data-md-component="header-topic">
           <span class="md-ellipsis">
-
+            
               Getting Started
-
+            
           </span>
         </div>
       </div>
     </div>
-
-
+    
+      
         <form class="md-header__option" data-md-component="palette">
-
-
-
-
-    <input class="md-option" data-md-color-media="(prefers-color-scheme: light)" data-md-color-scheme="default" data-md-color-primary="indigo" data-md-color-accent="indigo"  aria-label="Switch to dark mode"  type="radio" name="__palette" id="__palette_0">
-
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="(prefers-color-scheme: light)" data-md-color-scheme="default" data-md-color-primary="custom" data-md-color-accent="custom"  aria-label="Switch to dark mode"  type="radio" name="__palette" id="__palette_0">
+    
       <label class="md-header__button md-icon" title="Switch to dark mode" for="__palette_1" hidden>
         <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a4 4 0 0 0-4 4 4 4 0 0 0 4 4 4 4 0 0 0 4-4 4 4 0 0 0-4-4m0 10a6 6 0 0 1-6-6 6 6 0 0 1 6-6 6 6 0 0 1 6 6 6 6 0 0 1-6 6m8-9.31V4h-4.69L12 .69 8.69 4H4v4.69L.69 12 4 15.31V20h4.69L12 23.31 15.31 20H20v-4.69L23.31 12z"/></svg>
       </label>
-
-
-
-
-
-    <input class="md-option" data-md-color-media="(prefers-color-scheme: dark)" data-md-color-scheme="slate" data-md-color-primary="indigo" data-md-color-accent="indigo"  aria-label="Switch to light mode"  type="radio" name="__palette" id="__palette_1">
-
+    
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="(prefers-color-scheme: dark)" data-md-color-scheme="slate" data-md-color-primary="custom" data-md-color-accent="custom"  aria-label="Switch to light mode"  type="radio" name="__palette" id="__palette_1">
+    
       <label class="md-header__button md-icon" title="Switch to light mode" for="__palette_0" hidden>
         <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 18c-.89 0-1.74-.2-2.5-.55C11.56 16.5 13 14.42 13 12s-1.44-4.5-3.5-5.45C10.26 6.2 11.11 6 12 6a6 6 0 0 1 6 6 6 6 0 0 1-6 6m8-9.31V4h-4.69L12 .69 8.69 4H4v4.69L.69 12 4 15.31V20h4.69L12 23.31 15.31 20H20v-4.69L23.31 12z"/></svg>
       </label>
-
-
+    
+  
 </form>
-
-
-
+      
+    
+    
       <script>var palette=__md_get("__palette");if(palette&&palette.color){if("(prefers-color-scheme)"===palette.color.media){var media=matchMedia("(prefers-color-scheme: light)"),input=document.querySelector(media.matches?"[data-md-color-media='(prefers-color-scheme: light)']":"[data-md-color-media='(prefers-color-scheme: dark)']");palette.color.media=input.getAttribute("data-md-color-media"),palette.color.scheme=input.getAttribute("data-md-color-scheme"),palette.color.primary=input.getAttribute("data-md-color-primary"),palette.color.accent=input.getAttribute("data-md-color-accent")}for(var[key,value]of Object.entries(palette.color))document.body.setAttribute("data-md-color-"+key,value)}</script>
-
-
-
-
-
+    
+    
+    
+      
+      
         <label class="md-header__button md-icon" for="__search">
-
+          
           <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
         </label>
         <div class="md-search" data-md-component="search" role="dialog">
@@ -162,19 +168,19 @@
     <form class="md-search__form" name="search">
       <input type="text" class="md-search__input" name="query" aria-label="Search" placeholder="Search" autocapitalize="off" autocorrect="off" autocomplete="off" spellcheck="false" data-md-component="search-query" required>
       <label class="md-search__icon md-icon" for="__search">
-
+        
         <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
-
+        
         <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11z"/></svg>
       </label>
       <nav class="md-search__options" aria-label="Search">
-
+        
         <button type="reset" class="md-search__icon md-icon" title="Clear" aria-label="Clear" tabindex="-1">
-
+          
           <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M19 6.41 17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
         </button>
       </nav>
-
+      
     </form>
     <div class="md-search__output">
       <div class="md-search__scrollwrap" tabindex="0" data-md-scrollfix>
@@ -188,13 +194,13 @@
     </div>
   </div>
 </div>
-
-
-
+      
+    
+    
       <div class="md-header__source">
         <a href="https://github.com/mick-gsk/DevCD" title="Go to repository" class="md-source" data-md-component="source">
   <div class="md-source__icon md-icon">
-
+    
     <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M439.6 236.1 244 40.5c-5.4-5.5-12.8-8.5-20.4-8.5s-15 3-20.4 8.4L162.5 81l51.5 51.5c27.1-9.1 52.7 16.8 43.4 43.7l49.7 49.7c34.2-11.8 61.2 31 35.5 56.7-26.5 26.5-70.2-2.9-56-37.3L240.3 199v121.9c25.3 12.5 22.3 41.8 9.1 55-6.4 6.4-15.2 10.1-24.3 10.1s-17.8-3.6-24.3-10.1c-17.6-17.6-11.1-46.9 11.2-56v-123c-20.8-8.5-24.6-30.7-18.6-45L142.6 101 8.5 235.1C3 240.6 0 247.9 0 255.5s3 15 8.5 20.4l195.6 195.7c5.4 5.4 12.7 8.4 20.4 8.4s15-3 20.4-8.4l194.7-194.7c5.4-5.4 8.4-12.8 8.4-20.4s-3-15-8.4-20.4"/></svg>
   </div>
   <div class="md-source__repository">
@@ -202,155 +208,156 @@
   </div>
 </a>
       </div>
-
+    
   </nav>
-
+  
 </header>
-
+    
     <div class="md-container" data-md-component="container">
+      
+	
 
-
-
-
-
+      
+        
+          
+            
 <nav class="md-tabs" aria-label="Tabs" data-md-component="tabs">
   <div class="md-grid">
     <ul class="md-tabs__list">
-
-
-
-
-
-
+      
+        
+  
+  
+  
+  
     <li class="md-tabs__item">
       <a href=".." class="md-tabs__link">
-
-
-
-
-
+        
+  
+  
+    
+  
   Home
 
       </a>
     </li>
+  
 
-
-
-
-
-
-
-
-
-
+      
+        
+  
+  
+  
+    
+  
+  
     <li class="md-tabs__item md-tabs__item--active">
       <a href="./" class="md-tabs__link">
-
-
-
-
-
+        
+  
+  
+    
+  
   Getting Started
 
       </a>
     </li>
+  
 
-
-
-
-
-
-
-
+      
+        
+  
+  
+  
+  
     <li class="md-tabs__item">
       <a href="../use-cases/" class="md-tabs__link">
-
-
-
-
-
+        
+  
+  
+    
+  
   Use Cases
 
       </a>
     </li>
+  
 
-
-
-
-
-
-
-
-
-
+      
+        
+  
+  
+  
+  
+    
+    
       <li class="md-tabs__item">
         <a href="../devcd/architecture/" class="md-tabs__link">
-
-
-
+          
+  
+  
   Architecture
 
         </a>
       </li>
+    
+  
 
-
-
-
-
-
-
-
-
-
-
+      
+        
+  
+  
+  
+  
+    
+    
       <li class="md-tabs__item">
         <a href="../decisions/ADR-001-vertical-slice-architecture/" class="md-tabs__link">
-
-
-
+          
+  
+  
   Decisions
 
         </a>
       </li>
+    
+  
 
-
-
-
+      
     </ul>
   </div>
 </nav>
-
-
-
+          
+        
+      
       <main class="md-main" data-md-component="main">
         <div class="md-main__inner md-grid">
-
-
-
+          
+            
+              
               <div class="md-sidebar md-sidebar--primary" data-md-component="sidebar" data-md-type="navigation" >
                 <div class="md-sidebar__scrollwrap">
                   <div class="md-sidebar__inner">
+                    
 
 
-
-
+  
 
 
 <nav class="md-nav md-nav--primary md-nav--lifted" aria-label="Navigation" data-md-level="0">
   <label class="md-nav__title" for="__drawer">
     <a href=".." title="DevCD" class="md-nav__button md-logo" aria-label="DevCD" data-md-component="logo">
-
-
-  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3m0 3.54C9.64 9.35 6.5 8 3 8v11c3.5 0 6.64 1.35 9 3.54 2.36-2.19 5.5-3.54 9-3.54V8c-3.5 0-6.64 1.35-9 3.54"/></svg>
+      
+  <img src="../assets/devcd-mark.svg" alt="logo">
 
     </a>
     DevCD
   </label>
-
+  
     <div class="md-nav__source">
       <a href="https://github.com/mick-gsk/DevCD" title="Go to repository" class="md-source" data-md-component="source">
   <div class="md-source__icon md-icon">
-
+    
     <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M439.6 236.1 244 40.5c-5.4-5.5-12.8-8.5-20.4-8.5s-15 3-20.4 8.4L162.5 81l51.5 51.5c27.1-9.1 52.7 16.8 43.4 43.7l49.7 49.7c34.2-11.8 61.2 31 35.5 56.7-26.5 26.5-70.2-2.9-56-37.3L240.3 199v121.9c25.3 12.5 22.3 41.8 9.1 55-6.4 6.4-15.2 10.1-24.3 10.1s-17.8-3.6-24.3-10.1c-17.6-17.6-11.1-46.9 11.2-56v-123c-20.8-8.5-24.6-30.7-18.6-45L142.6 101 8.5 235.1C3 240.6 0 247.9 0 255.5s3 15 8.5 20.4l195.6 195.7c5.4 5.4 12.7 8.4 20.4 8.4s15-3 20.4-8.4l194.7-194.7c5.4-5.4 8.4-12.8 8.4-20.4s-3-15-8.4-20.4"/></svg>
   </div>
   <div class="md-source__repository">
@@ -358,725 +365,1181 @@
   </div>
 </a>
     </div>
-
+  
   <ul class="md-nav__list" data-md-scrollfix>
-
-
-
-
-
-
-
+    
+      
+      
+  
+  
+  
+  
     <li class="md-nav__item">
       <a href=".." class="md-nav__link">
-
-
-
+        
+  
+  
   <span class="md-ellipsis">
-
-
+    
+  
     Home
+  
 
-
-
+    
   </span>
-
-
+  
+  
 
       </a>
     </li>
+  
 
-
-
-
-
-
-
-
-
-
-
+    
+      
+      
+  
+  
+    
+  
+  
+  
     <li class="md-nav__item md-nav__item--active">
-
+      
       <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
-
-
-
-
-
+      
+      
+        
+      
+      
         <label class="md-nav__link md-nav__link--active" for="__toc">
-
-
-
+          
+  
+  
   <span class="md-ellipsis">
-
-
+    
+  
     Getting Started
+  
 
-
-
+    
   </span>
-
-
+  
+  
 
           <span class="md-nav__icon md-icon"></span>
         </label>
-
+      
       <a href="./" class="md-nav__link md-nav__link--active">
-
-
-
+        
+  
+  
   <span class="md-ellipsis">
-
-
+    
+  
     Getting Started
+  
 
-
-
+    
   </span>
-
-
+  
+  
 
       </a>
-
-
+      
+        
 
 <nav class="md-nav md-nav--secondary" aria-label="Table of contents">
-
-
-
-
-
-
+  
+  
+  
+    
+  
+  
     <label class="md-nav__title" for="__toc">
       <span class="md-nav__icon md-icon"></span>
       Table of contents
     </label>
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
-
+      
         <li class="md-nav__item">
   <a href="#prerequisites" class="md-nav__link">
     <span class="md-ellipsis">
-
+      
         Prerequisites
-
+      
     </span>
   </a>
-
+  
 </li>
-
+      
         <li class="md-nav__item">
-  <a href="#1-install-devcd" class="md-nav__link">
+  <a href="#warm-start-path-make-the-real-workspace-useful" class="md-nav__link">
     <span class="md-ellipsis">
-
-        1. Install DevCD
-
+      
+        Warm-start path: make the real workspace useful
+      
     </span>
   </a>
-
-</li>
-
-        <li class="md-nav__item">
-  <a href="#2-initialize-local-configuration" class="md-nav__link">
+  
+    <nav class="md-nav" aria-label="Warm-start path: make the real workspace useful">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#step-1-install" class="md-nav__link">
     <span class="md-ellipsis">
-
-        2. Initialize Local Configuration
-
+      
+        Step 1: Install
+      
     </span>
   </a>
-
+  
 </li>
-
-        <li class="md-nav__item">
-  <a href="#3-start-the-daemon" class="md-nav__link">
-    <span class="md-ellipsis">
-
-        3. Start the Daemon
-
-    </span>
-  </a>
-
+        
+      </ul>
+    </nav>
+  
 </li>
-
-        <li class="md-nav__item">
-  <a href="#4-submit-a-first-event" class="md-nav__link">
-    <span class="md-ellipsis">
-
-        4. Submit a First Event
-
-    </span>
-  </a>
-
-</li>
-
-        <li class="md-nav__item">
-  <a href="#5-inspect-the-derived-state" class="md-nav__link">
-    <span class="md-ellipsis">
-
-        5. Inspect the Derived State
-
-    </span>
-  </a>
-
-</li>
-
-        <li class="md-nav__item">
-  <a href="#6-inspect-scoped-memory" class="md-nav__link">
-    <span class="md-ellipsis">
-
-        6. Inspect Scoped Memory
-
-    </span>
-  </a>
-
-</li>
-
-        <li class="md-nav__item">
-  <a href="#success-criteria" class="md-nav__link">
-    <span class="md-ellipsis">
-
-        Success Criteria
-
-    </span>
-  </a>
-
-</li>
-
-        <li class="md-nav__item">
-  <a href="#why-this-matters" class="md-nav__link">
-    <span class="md-ellipsis">
-
-        Why This Matters
-
-    </span>
-  </a>
-
-</li>
-
-        <li class="md-nav__item">
-  <a href="#common-next-steps" class="md-nav__link">
-    <span class="md-ellipsis">
-
-        Common Next Steps
-
-    </span>
-  </a>
-
-</li>
-
-        <li class="md-nav__item">
-  <a href="#troubleshooting" class="md-nav__link">
-    <span class="md-ellipsis">
-
-        Troubleshooting
-
-    </span>
-  </a>
-
-</li>
-
+      
     </ul>
-
+  
 </nav>
-
+      
     </li>
+  
 
-
-
-
-
-
-
-
-
+    
+      
+      
+  
+  
+  
+  
     <li class="md-nav__item">
       <a href="../use-cases/" class="md-nav__link">
-
-
-
+        
+  
+  
   <span class="md-ellipsis">
-
-
+    
+  
     Use Cases
+  
 
-
-
+    
   </span>
-
-
+  
+  
 
       </a>
     </li>
+  
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+      
+        
+      
+    
+    
     <li class="md-nav__item md-nav__item--nested">
-
-
-
+      
+        
+        
         <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_4" >
-
-
+        
+          
           <label class="md-nav__link" for="__nav_4" id="__nav_4_label" tabindex="0">
-
-
-
+            
+  
+  
   <span class="md-ellipsis">
-
-
+    
+  
     Architecture
+  
 
-
-
+    
   </span>
-
-
+  
+  
 
             <span class="md-nav__icon md-icon"></span>
           </label>
-
+        
         <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_4_label" aria-expanded="false">
           <label class="md-nav__title" for="__nav_4">
             <span class="md-nav__icon md-icon"></span>
-
-
+            
+  
     Architecture
-
+  
 
           </label>
           <ul class="md-nav__list" data-md-scrollfix>
-
-
-
-
-
-
-
+            
+              
+                
+  
+  
+  
+  
     <li class="md-nav__item">
       <a href="../devcd/architecture/" class="md-nav__link">
-
-
-
+        
+  
+  
   <span class="md-ellipsis">
-
-
+    
+  
     Overview
+  
 
-
-
+    
   </span>
-
-
+  
+  
 
       </a>
     </li>
+  
 
-
-
-
-
-
-
-
-
-
+              
+            
+              
+                
+  
+  
+  
+  
     <li class="md-nav__item">
       <a href="../devcd/memory/" class="md-nav__link">
-
-
-
+        
+  
+  
   <span class="md-ellipsis">
-
-
+    
+  
     Memory Model
+  
 
-
-
+    
   </span>
-
-
+  
+  
 
       </a>
     </li>
+  
 
-
-
-
-
-
-
-
-
-
+              
+            
+              
+                
+  
+  
+  
+  
     <li class="md-nav__item">
       <a href="../devcd/policy/" class="md-nav__link">
-
-
-
+        
+  
+  
   <span class="md-ellipsis">
-
-
+    
+  
     Policy Layer
+  
 
-
-
+    
   </span>
-
-
+  
+  
 
       </a>
     </li>
+  
 
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../devcd/agent-consumption/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Agent Consumption
+  
 
+    
+  </span>
+  
+  
 
+      </a>
+    </li>
+  
 
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../devcd/agent-landscape/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Agent Landscape
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../devcd/openclaw-integration/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    OpenClaw Integration
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../devcd/openclaw-product-benchmark/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    OpenClaw Product Benchmark
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../devcd/reality-testing/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Real-World Testing Playbook
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../devcd/context-packs/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Context Packs
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../devcd/brand-system/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Brand System
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../devcd/naming-and-positioning/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Naming and Positioning
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../devcd/release-readiness/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Release Readiness
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../devcd/publishing/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Publishing
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../devcd/container/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Container Sandbox
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../devcd/event-source-recipes/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Event Source Recipes
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../devcd/agent-vision/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Agent Vision
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
           </ul>
         </nav>
-
+      
     </li>
+  
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+      
+        
+      
+    
+    
     <li class="md-nav__item md-nav__item--nested">
-
-
-
+      
+        
+        
         <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_5" >
-
-
+        
+          
           <label class="md-nav__link" for="__nav_5" id="__nav_5_label" tabindex="0">
-
-
-
+            
+  
+  
   <span class="md-ellipsis">
-
-
+    
+  
     Decisions
+  
 
-
-
+    
   </span>
-
-
+  
+  
 
             <span class="md-nav__icon md-icon"></span>
           </label>
-
+        
         <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_5_label" aria-expanded="false">
           <label class="md-nav__title" for="__nav_5">
             <span class="md-nav__icon md-icon"></span>
-
-
+            
+  
     Decisions
-
+  
 
           </label>
           <ul class="md-nav__list" data-md-scrollfix>
-
-
-
-
-
-
-
+            
+              
+                
+  
+  
+  
+  
     <li class="md-nav__item">
       <a href="../decisions/ADR-001-vertical-slice-architecture/" class="md-nav__link">
-
-
-
+        
+  
+  
   <span class="md-ellipsis">
-
-
+    
+  
     ADR-001 Vertical Slice Architecture
+  
 
-
-
+    
   </span>
-
-
+  
+  
 
       </a>
     </li>
+  
 
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../decisions/ADR-012-public-alpha-agent-passport-surface/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    ADR-012 Public Alpha Agent Passport Surface
+  
 
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--proposed"></span>
+  
 
+  
 
+      </a>
+    </li>
+  
+
+              
+            
           </ul>
         </nav>
-
+      
     </li>
+  
 
-
-
+    
   </ul>
 </nav>
                   </div>
                 </div>
               </div>
-
-
-
+            
+            
+              
               <div class="md-sidebar md-sidebar--secondary" data-md-component="sidebar" data-md-type="toc" >
                 <div class="md-sidebar__scrollwrap">
                   <div class="md-sidebar__inner">
-
+                    
 
 <nav class="md-nav md-nav--secondary" aria-label="Table of contents">
-
-
-
-
-
-
+  
+  
+  
+    
+  
+  
     <label class="md-nav__title" for="__toc">
       <span class="md-nav__icon md-icon"></span>
       Table of contents
     </label>
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
-
+      
         <li class="md-nav__item">
   <a href="#prerequisites" class="md-nav__link">
     <span class="md-ellipsis">
-
+      
         Prerequisites
-
+      
     </span>
   </a>
-
+  
 </li>
-
+      
         <li class="md-nav__item">
-  <a href="#1-install-devcd" class="md-nav__link">
+  <a href="#warm-start-path-make-the-real-workspace-useful" class="md-nav__link">
     <span class="md-ellipsis">
-
-        1. Install DevCD
-
+      
+        Warm-start path: make the real workspace useful
+      
     </span>
   </a>
-
-</li>
-
-        <li class="md-nav__item">
-  <a href="#2-initialize-local-configuration" class="md-nav__link">
+  
+    <nav class="md-nav" aria-label="Warm-start path: make the real workspace useful">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#step-1-install" class="md-nav__link">
     <span class="md-ellipsis">
-
-        2. Initialize Local Configuration
-
+      
+        Step 1: Install
+      
     </span>
   </a>
-
+  
 </li>
-
-        <li class="md-nav__item">
-  <a href="#3-start-the-daemon" class="md-nav__link">
-    <span class="md-ellipsis">
-
-        3. Start the Daemon
-
-    </span>
-  </a>
-
+        
+      </ul>
+    </nav>
+  
 </li>
-
-        <li class="md-nav__item">
-  <a href="#4-submit-a-first-event" class="md-nav__link">
-    <span class="md-ellipsis">
-
-        4. Submit a First Event
-
-    </span>
-  </a>
-
-</li>
-
-        <li class="md-nav__item">
-  <a href="#5-inspect-the-derived-state" class="md-nav__link">
-    <span class="md-ellipsis">
-
-        5. Inspect the Derived State
-
-    </span>
-  </a>
-
-</li>
-
-        <li class="md-nav__item">
-  <a href="#6-inspect-scoped-memory" class="md-nav__link">
-    <span class="md-ellipsis">
-
-        6. Inspect Scoped Memory
-
-    </span>
-  </a>
-
-</li>
-
-        <li class="md-nav__item">
-  <a href="#success-criteria" class="md-nav__link">
-    <span class="md-ellipsis">
-
-        Success Criteria
-
-    </span>
-  </a>
-
-</li>
-
-        <li class="md-nav__item">
-  <a href="#why-this-matters" class="md-nav__link">
-    <span class="md-ellipsis">
-
-        Why This Matters
-
-    </span>
-  </a>
-
-</li>
-
-        <li class="md-nav__item">
-  <a href="#common-next-steps" class="md-nav__link">
-    <span class="md-ellipsis">
-
-        Common Next Steps
-
-    </span>
-  </a>
-
-</li>
-
-        <li class="md-nav__item">
-  <a href="#troubleshooting" class="md-nav__link">
-    <span class="md-ellipsis">
-
-        Troubleshooting
-
-    </span>
-  </a>
-
-</li>
-
+      
     </ul>
-
+  
 </nav>
                   </div>
                 </div>
               </div>
-
-
-
+            
+          
+          
             <div class="md-content" data-md-component="content">
-
+              
               <article class="md-content__inner md-typeset">
+                
+	
+		
 
 
-
-
-
+  
     <a href="https://github.com/mick-gsk/DevCD/edit/main/docs/getting-started.md" title="Edit this page" class="md-content__button md-icon" rel="edit">
-
+      
       <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M10 20H6V4h7v5h5v3.1l2-2V8l-6-6H6c-1.1 0-2 .9-2 2v16c0 1.1.9 2 2 2h4zm10.2-7c.1 0 .3.1.4.2l1.3 1.3c.2.2.2.6 0 .8l-1 1-2.1-2.1 1-1c.1-.1.2-.2.4-.2m0 3.9L14.1 23H12v-2.1l6.1-6.1z"/></svg>
     </a>
-
-
+  
+  
 
 
 <h1 id="getting-started">Getting Started<a class="headerlink" href="#getting-started" title="Permanent link">&para;</a></h1>
-<p>This guide is the shortest path from a fresh install to a visible result.</p>
-<p>The goal is simple: start DevCD, send one event, and confirm that the daemon now
-holds structured state you can query locally.</p>
+<p>DevCD lets a new agent continue from local, policy-filtered context without asking you to recap. The first success point is a warm-started agent workspace, not a running daemon and not a demo fixture. The goal is: Stop re-explaining yourself to AI agents.</p>
+<p>Use this guide when you want DevCD to solve the real frustration: a new agent starts cold and asks you to re-explain the work. The path below gets from a fresh checkout to a local Action Packet in 2 to 5 minutes, then leaves live daemon ingestion and MCP integration as explicit follow-up paths. The primary entry point is <code>devcd setup</code>, which guides the full install-time setup chain.</p>
+<div class="devcd-happy-path">
+    <div class="devcd-happy-path__step devcd-callout--checkpoint">
+        <strong>1. Start once</strong>
+        <p>Run one command to install DevCD and start the setup wizard.</p>
+        <code>python -m pip install --disable-pip-version-check --quiet devcd &amp;&amp; devcd setup</code>
+    </div>
+    <div class="devcd-happy-path__step devcd-callout--trust">
+        <strong>2. Configure interactively</strong>
+        <p>Select project paths and agent targets in the terminal wizard.</p>
+        <code>devcd setup</code>
+    </div>
+    <div class="devcd-happy-path__step devcd-callout--safe-share">
+        <strong>3. Continue from Action Packet</strong>
+        <p>Agents can start directly from the seeded handoff context.</p>
+        <code>devcd agentic action-packet</code>
+    </div>
+</div>
+
+<p>If you want the shortest zero-state proof before touching a real workspace, run:</p>
+<p><code>bash
+devcd agentic action-packet-demo --events examples/agentic-action-packet/sample-events.jsonl</code></p>
+<p>That demo shows the exact warm-start shape DevCD is trying to produce in your
+own workspace. Then come back here for the real path.</p>
 <h2 id="prerequisites">Prerequisites<a class="headerlink" href="#prerequisites" title="Permanent link">&para;</a></h2>
 <ul>
 <li>Python 3.11+</li>
 <li>A local shell on Windows, macOS, or Linux</li>
 </ul>
-<h2 id="1-install-devcd">1. Install DevCD<a class="headerlink" href="#1-install-devcd" title="Permanent link">&para;</a></h2>
+<h2 id="warm-start-path-make-the-real-workspace-useful">Warm-start path: make the real workspace useful<a class="headerlink" href="#warm-start-path-make-the-real-workspace-useful" title="Permanent link">&para;</a></h2>
+<p>This path starts with your actual local workspace. It starts no background service until you explicitly choose <code>devcd run</code>, makes no remote calls, and keeps agent setup inside explicit terminal choices. After <code>devcd setup</code>, the next agent should know to read <code>devcd agentic action-packet</code> before asking you to recap; agents with shell access can capture continuity metadata themselves, and agents without shell access only read DevCD context.</p>
+<p>Success checkpoint after Step 1:</p>
+<ul>
+<li><code>devcd.toml</code> exists for each selected project.</li>
+<li>Selected agent runtime files contain the DevCD managed continuity block.</li>
+<li>A fresh agent in each configured workspace should start from <code>devcd agentic action-packet</code>.</li>
+<li>No daemon was started and no external agent config was mutated.</li>
+</ul>
+<h3 id="step-1-install">Step 1: Install<a class="headerlink" href="#step-1-install" title="Permanent link">&para;</a></h3>
 <p><code>bash
-pip install devcd</code></p>
-<h2 id="2-initialize-local-configuration">2. Initialize Local Configuration<a class="headerlink" href="#2-initialize-local-configuration" title="Permanent link">&para;</a></h2>
+python -m pip install --disable-pip-version-check --quiet devcd &amp;&amp; devcd setup</code></p>
+<p>What happened: the <code>devcd</code> CLI is now available and <code>devcd setup</code> runs the
+interactive setup wizard in one command. It configures the selected projects,
+writes the agent-ready files you chose, and seeds an initial goal plus next
+action so the first Action Packet is immediately useful. The <code>--quiet</code> install
+keeps first-run terminal output cleaner.</p>
+<p>Optional fast proof before onboarding:</p>
 <p><code>bash
-devcd init</code></p>
-<p>This creates a local <code>devcd.toml</code> with local-first defaults.</p>
-<h2 id="3-start-the-daemon">3. Start the Daemon<a class="headerlink" href="#3-start-the-daemon" title="Permanent link">&para;</a></h2>
+devcd smoke</code></p>
+<p><strong>Alternatively</strong> with pipx or uvx:</p>
+<p>```bash
+pipx install devcd</p>
+<h1 id="or-uvx-devcd-smoke">or: uvx devcd smoke<a class="headerlink" href="#or-uvx-devcd-smoke" title="Permanent link">&para;</a></h1>
+<p>```</p>
+<p><strong>From source (contributors):</strong></p>
+<p><code>bash
+git clone https://github.com/mick-gsk/DevCD.git
+cd DevCD
+python -m pip install -e ".[dev]"</code></p>
+<p>If you prefer an isolated local tool install and already use one of these
+tooling paths, you can install from the same checkout with <code>pipx install .</code> or
+<code>uv tool install .</code> instead.</p>
+<p>Success looks like: <code>devcd setup</code> prints a setup summary with configured and
+failed project counts, and each configured workspace is ready for
+<code>devcd agentic action-packet</code>.</p>
+<p>Next: open the Action Packet in any configured project.</p>
+<p>If it fails: confirm Python 3.11+ is active, then rerun the install. Use
+<code>devcd smoke</code> for a narrow install check and <code>devcd doctor</code> for local
+remediation details.</p>
+<h3 id="step-2-single-workspace-guided-alternative-onboard">Step 2: Single-workspace guided alternative (<code>onboard</code>)<a class="headerlink" href="#step-2-single-workspace-guided-alternative-onboard" title="Permanent link">&para;</a></h3>
+<p><code>bash
+devcd onboard</code></p>
+<p>What happened: <code>devcd onboard</code> runs the full guided local setup for the current
+workspace only. It creates or
+keeps <code>devcd.toml</code>, prepares selected local agent runtime files, and reports
+what still needs attention without starting the daemon.</p>
+<p>Success looks like: <code>devcd.toml</code> exists with loopback, local storage, and policy defaults. Selected agent files contain a managed DevCD continuity block with a small capture routine:</p>
+<ul>
+<li>Copilot: <code>.github/copilot-instructions.md</code></li>
+<li>Claude: <code>CLAUDE.md</code></li>
+<li>Codex and compatible coding agents: <code>AGENTS.md</code></li>
+<li>OpenClaw: <code>.devcd/openclaw-mcp.json</code></li>
+</ul>
+<p>If you want a narrower target list, pass <code>--agents</code> with a comma-separated subset.
+Use <code>--archetype builder</code>, <code>reviewer</code>, <code>researcher</code>, or <code>orchestrator</code> when you
+want to override the recommendation explicitly.</p>
+<p>Use <code>--preview</code> only when you need a read-only plan. Use <code>--yes</code> only when you
+want to force proposal-based apply behavior in non-interactive runs.</p>
+<p>For read-only inspection without changing the workspace, use:</p>
+<p><code>bash
+devcd context workspace-analysis
+devcd context profile</code></p>
+<p>If you only want the lower-level config primitive, use <code>init</code> directly. Most
+users should stay on <code>devcd onboard</code>:</p>
+<p><code>bash
+devcd init --agent-ready --agents copilot,claude,codex,openclaw</code></p>
+<p>Next: read the Action Packet the next agent should see first.</p>
+<p>If it fails: if config already exists, do not overwrite it blindly; run <code>devcd doctor</code> and decide whether to keep, modify, or intentionally reset. Existing instruction files are preserved; DevCD only adds or replaces its marked managed block.</p>
+<h3 id="step-3-read-the-warm-start-action-packet">Step 3: Read the warm-start Action Packet<a class="headerlink" href="#step-3-read-the-warm-start-action-packet" title="Permanent link">&para;</a></h3>
+<p><code>bash
+devcd agentic action-packet</code></p>
+<p>What happened: DevCD renders the handoff surface a fresh coding agent should read first. If local continuity exists, it shows the current goal, latest failure or blocker, stale attempt warnings, suggested next action, and withheld-context policy notes.</p>
+<p>Success looks like: the output starts from the work instead of the tool. With an empty ledger, it should say the packet is not ready yet and point to safe metadata capture rather than pretending a demo solved the problem.</p>
+<p>Next: if the packet is empty, seed one safe piece of continuity metadata.</p>
+<p>If it fails: run <code>devcd doctor</code>; it validates local config, policy, ledger, docs, and MCP readiness.</p>
+<h3 id="step-4-seed-safe-continuity-when-the-ledger-is-empty">Step 4: Seed safe continuity when the ledger is empty<a class="headerlink" href="#step-4-seed-safe-continuity-when-the-ledger-is-empty" title="Permanent link">&para;</a></h3>
+<p><code>bash
+devcd handoff --goal "Try DevCD live continuity" --next-action "Ask the next agent to read the Action Packet"
+devcd capture --kind goal --summary "Try DevCD live continuity"</code></p>
+<p>What happened: <code>devcd handoff</code> stores a compact next-agent handoff, and <code>devcd capture</code> remains available when you only want one granular continuity event. Both paths store local metadata only after observation and storage policy allow it. Do not paste raw logs, source text, full chat transcripts, credentials, or private notes into capture fields.</p>
+<p>Success looks like: rerunning <code>devcd agentic action-packet</code> or <code>devcd context passport</code> shows the goal as visible continuity for the next agent.</p>
+<p>Next: when a session ends with a useful failure, capture the whole handoff in one command.</p>
+<p><code>bash
+devcd handoff --goal "Try DevCD live continuity" --failure "Example check failed" --next-action "Inspect the failing command output"</code></p>
+<h3 id="step-5-open-the-interactive-follow-up-report">Step 5: Open the interactive follow-up report<a class="headerlink" href="#step-5-open-the-interactive-follow-up-report" title="Permanent link">&para;</a></h3>
+<p><code>bash
+devcd quickstart</code></p>
+<p>What happened: DevCD reads the configured local ledger and prints the interactive activation report for the onboard flow. The report now includes an Agent Layer console with profile status, chosen archetype, target agents, detected tools, and the next safe command. If no events are visible yet, the report says what is missing; agent-ready instructions tell capable agents how to capture continuity metadata themselves during work.</p>
+<p>The handoff-oriented surface remains the Action Packet, and the passport is the
+broader continuity view around it:</p>
+<p><code>bash
+devcd agentic action-packet
+devcd agentic tasks</code></p>
+<p>Success looks like: the output is honest about the current workspace. With an empty ledger, it should not pretend a demo solved the problem or ask you to do bookkeeping; it should point at agent-led capture and make it obvious how to return to the Action Packet.</p>
+<p>Next: run <code>devcd quickstart --json</code> if another local tool needs the same activation report, including the <code>agent_layer</code> contract checked by <code>devcd smoke</code>.</p>
+<p>If it fails: run <code>devcd doctor</code>; it validates local config, policy, ledger, docs, and MCP readiness.</p>
+<p>Machine-readable report:</p>
+<p><code>bash
+devcd quickstart --json</code></p>
+<p>Optional preview commands are still available when you want to inspect the shape before recording real context. Start with the Action Packet demo; the others are deeper comparisons and compatibility checks:</p>
+<p><code>bash
+devcd agentic action-packet-demo --events examples/agentic-action-packet/sample-events.jsonl
+devcd quickstart --demo-events examples/agent-resurrection/sample-events.jsonl
+devcd context handoff-demo --events examples/before-after-agent-continuity/sample-events.jsonl
+devcd context handoff-demo --events examples/agent-resurrection/sample-events.jsonl --json</code></p>
+<h2 id="live-daemon-path">Live daemon path<a class="headerlink" href="#live-daemon-path" title="Permanent link">&para;</a></h2>
+<p>Use this path when you want DevCD to accept live local events from CLI calls, hooks, or future editor integrations.</p>
+<h3 id="step-6-check-readiness">Step 6: Check readiness<a class="headerlink" href="#step-6-check-readiness" title="Permanent link">&para;</a></h3>
+<p><code>bash
+devcd status
+devcd doctor
+devcd doctor --fix</code></p>
+<p>What happened: <code>status</code> summarizes local state; <code>doctor</code> gives remediation without mutating external tool configs. <code>doctor --fix</code> applies only safe local repairs (for example missing <code>devcd.toml</code> and missing <code>.devcd/agent-layer-profile.json</code>) and records policy receipts for each repair.</p>
+<p>Success looks like: config, token, daemon, ledger, policy, docs, and MCP checks are understandable.</p>
+<p>Next: start the daemon when you are ready for live context.</p>
+<p>If it fails: follow the first non-pass <code>doctor</code> next step. If the issue is only missing local scaffolding, run <code>devcd doctor --fix</code> and review the repair receipts.</p>
+<p><code>devcd status</code> reports the daemon endpoint, token source, local workspace, event/state summary, policy mode, memory path, handoff availability, MCP availability, and the next suggested command. <code>devcd doctor --json</code> emits the same readiness checks for local automation, and <code>devcd doctor --fix --json</code> includes applied or denied local repair receipts.</p>
+<h3 id="step-7-start-the-live-daemon-path">Step 7: Start the live daemon path<a class="headerlink" href="#step-7-start-the-live-daemon-path" title="Permanent link">&para;</a></h3>
 <p><code>bash
 devcd run</code></p>
-<p>By default, DevCD listens on <code>127.0.0.1:8765</code>.</p>
-<h2 id="4-submit-a-first-event">4. Submit a First Event<a class="headerlink" href="#4-submit-a-first-event" title="Permanent link">&para;</a></h2>
-<p>Open a second terminal and send an IDE-style event:</p>
+<p>What happened: the local API listens on <code>127.0.0.1:8765</code> when you explicitly choose to start it.</p>
+<p>Success looks like: <code>devcd status</code> reports the daemon as reachable and shows the token source.</p>
+<p>Next: let an agent capture continuity metadata during work, or send an optional normalized event from another terminal for diagnostics.</p>
+<p>If it fails: <code>devcd quickstart</code> and <code>devcd context passport</code> can still inspect local continuity; run <code>devcd doctor</code> for live remediation.</p>
+<p>The daemon requires a local bearer token. If <code>api_token</code> is not configured, DevCD writes one to <code>.devcd/token</code> on startup. CLI commands automatically read <code>DEVCD_TOKEN</code> or <code>.devcd/token</code> for loopback API calls; direct <code>curl</code> calls need the token header explicitly.</p>
+<p>Bash:</p>
 <p><code>bash
-devcd event ide file_focus --payload '{"path":"src/app.py","duration_seconds":30}'</code></p>
-<h2 id="5-inspect-the-derived-state">5. Inspect the Derived State<a class="headerlink" href="#5-inspect-the-derived-state" title="Permanent link">&para;</a></h2>
+TOKEN="$(cat .devcd/token)"</code></p>
+<p>PowerShell:</p>
+<p><code>powershell
+$env:DEVCD_TOKEN = Get-Content .devcd/token</code></p>
+<h3 id="step-8-optional-manual-live-event">Step 8: Optional manual live event<a class="headerlink" href="#step-8-optional-manual-live-event" title="Permanent link">&para;</a></h3>
+<p>The normal agent-ready path does not require you to write DevCD events by hand. Agents with shell access use daemonless capture while they work:</p>
 <p><code>bash
-curl http://127.0.0.1:8765/state</code></p>
-<p>You should see a typed state response that reflects the event you just sent.</p>
-<h2 id="6-inspect-scoped-memory">6. Inspect Scoped Memory<a class="headerlink" href="#6-inspect-scoped-memory" title="Permanent link">&para;</a></h2>
+devcd handoff --goal "Try DevCD live continuity" --failure "Example check failed" --next-action "Inspect the failing command output"
+devcd capture --kind goal --summary "Try DevCD live continuity"
+devcd capture --kind failure --summary "Example check failed" --next-action "Inspect the failing command output"
+devcd capture --kind artifact_ref --summary "CLI entrypoint" --artifact packages/devcd-core/src/devcd/cli.py</code></p>
+<p>Each handoff or capture is local, metadata-only, and policy-gated through observation and storage decisions before it reaches the configured ledger. Capture must not include raw file contents, raw logs, full chat text, secrets, or remote data.</p>
+<p>The older live event command remains useful for diagnostics and integrations that already emit normalized events:</p>
 <p><code>bash
-curl http://127.0.0.1:8765/memory/working</code></p>
-<p>This confirms that DevCD is not only receiving events, but also exposing scoped
-memory through its local API surface.</p>
-<h2 id="success-criteria">Success Criteria<a class="headerlink" href="#success-criteria" title="Permanent link">&para;</a></h2>
-<p>You are done when all of the following are true:</p>
+devcd event task goal_update --payload '{"current_goal":"Try DevCD live continuity"}'</code></p>
+<p>PowerShell:</p>
+<p><code>powershell
+devcd event task goal_update --payload '{"current_goal":"Try DevCD live continuity"}'</code></p>
+<p>What happened: a policy-checked observation is added to the local ledger.</p>
+<p>Success looks like: <code>devcd status</code> reports at least one event and an active goal after a capture or normalized event exists.</p>
+<p>Next: ask DevCD for a live Agent Passport.</p>
+<p>If it fails: inspect the policy reason and token source from <code>devcd status</code>.</p>
+<hr />
+<h2 id="set-your-north-star">Set Your North Star<a class="headerlink" href="#set-your-north-star" title="Permanent link">&para;</a></h2>
+<p>Give every future agent session a persistent orientation — initialize a North Star once:</p>
+<p><code>bash
+devcd vision init --guided</code></p>
+<p>Agents receive it automatically in every Action Packet and Continuity Packet.
+See <a href="../devcd/agent-vision/">Agent Vision</a> for the full reference.</p>
+<p>To add richer continuity, send a failure with a suggested next action:</p>
+<p><code>bash
+devcd event task test_failure --payload '{"reason":"Example check failed","suggested_next_action":"Inspect the failing command output"}'</code></p>
+<h3 id="step-9-get-context-brief-passport">Step 9: Get context brief / passport<a class="headerlink" href="#step-9-get-context-brief-passport" title="Permanent link">&para;</a></h3>
+<p><code>bash
+devcd context passport
+devcd context brief --surface cli --detail standard</code></p>
+<p>What happened: DevCD rebuilds live local state from the configured ledger and renders policy-filtered context.</p>
+<p>Success looks like: the Agent Passport tells the next agent what is known, unknown, suggested, and withheld.</p>
+<p>Next: inspect policy or connect an MCP consumer.</p>
+<p>If it fails: if it says no goal is visible, send a <code>goal_update</code> event or import a recipe first.</p>
+<p>JSON contract:</p>
+<p><code>bash
+devcd context passport --json --surface coding-agent --pack developer</code></p>
+<h2 id="mcp-openclaw-integration-path">MCP / OpenClaw integration path<a class="headerlink" href="#mcp-openclaw-integration-path" title="Permanent link">&para;</a></h2>
+<p>This path is optional. DevCD is not an OpenClaw plugin, ClawHub package, chat interface, model provider, channel gateway, or remote service. It is a local context and policy source that MCP-capable runtimes can read.</p>
+<h3 id="step-10-generate-and-smoke-test-a-read-only-mcp-snippet">Step 10: Generate and smoke-test a read-only MCP snippet<a class="headerlink" href="#step-10-generate-and-smoke-test-a-read-only-mcp-snippet" title="Permanent link">&para;</a></h3>
+<p><code>bash
+devcd integrations openclaw --smoke-test</code></p>
+<p>What happened: DevCD prints a copyable MCP snippet and verifies its read-only MCP resource shape.</p>
+<p>Success looks like: the smoke test passes without installing OpenClaw, mutating OpenClaw config, or starting external daemons.</p>
+<p>Next: copy the snippet into the MCP-capable runtime you choose.</p>
+<p>If it fails: fix the local <code>devcd</code> command path or run <code>devcd doctor</code>.</p>
+<p>Hermes-Agent snippet:</p>
+<p><code>bash
+devcd integrations hermes --json --smoke-test</code></p>
+<h2 id="quickstart-defaults-vs-advanced">QuickStart defaults vs Advanced<a class="headerlink" href="#quickstart-defaults-vs-advanced" title="Permanent link">&para;</a></h2>
+<p>QuickStart defaults are intentionally local and conservative:</p>
 <ul>
-<li><code>devcd run</code> starts without crashing</li>
-<li>the example event is accepted</li>
-<li><code>GET /state</code> returns structured state instead of an empty or failing response</li>
-<li><code>GET /memory/working</code> responds successfully</li>
+<li>Loopback only: <code>127.0.0.1</code></li>
+<li>Default port: <code>8765</code></li>
+<li>Local config: <code>devcd.toml</code></li>
+<li>Token source: <code>.devcd/token</code> or <code>DEVCD_TOKEN</code></li>
+<li>Local ledger and memory: under configured <code>.devcd/</code> runtime paths</li>
+<li>Policy default: observations allowed, actions denied</li>
+<li>Remote export: disabled by default</li>
+<li>MCP: read-only resources only, no tools or prompts</li>
 </ul>
-<h2 id="why-this-matters">Why This Matters<a class="headerlink" href="#why-this-matters" title="Permanent link">&para;</a></h2>
-<p>The point of this flow is not just to prove that a local daemon can run. It is
-to verify the core DevCD promise: context can be observed once, stored locally,
-and queried later without repeating it manually.</p>
-<h2 id="common-next-steps">Common Next Steps<a class="headerlink" href="#common-next-steps" title="Permanent link">&para;</a></h2>
+<p>Advanced/full control stays explicit:</p>
 <ul>
-<li>Read <a href="../use-cases/">Use Cases</a> to map DevCD to real workflows</li>
-<li>Read <a href="../devcd/architecture/">Architecture Overview</a> to understand the slice
-  boundaries</li>
-<li>Read <a href="../devcd/policy/">Policy Layer</a> if you care about explainable local
-  trust boundaries</li>
+<li>Custom host/port: <code>devcd run --host &lt;host&gt; --port &lt;port&gt;</code></li>
+<li>Custom token: <code>DEVCD_TOKEN=&lt;token&gt;</code> or <code>api_token</code> in <code>devcd.toml</code></li>
+<li>Custom memory/ledger path: configure runtime paths in <code>devcd.toml</code></li>
+<li>Alternate Context Pack: <code>devcd context passport --pack research</code></li>
+<li>MCP consumer integration: <code>devcd integrations openclaw --smoke-test</code></li>
+<li>OpenClaw/Hermes snippets: <code>devcd integrations openclaw --json</code> or <code>devcd integrations hermes --json</code></li>
+</ul>
+<h2 id="local-first-defaults">Local-first defaults<a class="headerlink" href="#local-first-defaults" title="Permanent link">&para;</a></h2>
+<ul>
+<li>No telemetry.</li>
+<li>No remote export by default.</li>
+<li>Observations are allowed by default; actions are denied by default.</li>
+<li>Sensitive context is withheld by policy.</li>
+<li>MCP resources are read-only.</li>
+<li>Capture stores structured metadata only; no raw contents, logs, chat transcripts, secrets, or remote data.</li>
+</ul>
+<h2 id="success-criteria">Success Criteria<a class="headerlink" href="#success-criteria" title="Permanent link">&para;</a></h2>
+<p>You are done with the first-run flow when all of the following are true:</p>
+<ul>
+<li><code>devcd init</code> has created <code>devcd.toml</code> and, when selected, agent-native instruction files for your runtimes.</li>
+<li>The next agent sees DevCD instructions from the workspace and knows to consult local continuity before asking you to recap.</li>
+<li><code>devcd quickstart</code> prints an Agent Passport from the configured local ledger.</li>
+<li>If the ledger is empty, the visible packet says what is missing and gives real next commands instead of showing a fixture as success.</li>
+<li>After one real capture or event, the visible packet includes goal, latest failure when present, do-not-repeat guidance when present, suggested next action, and withheld-context summary when policy denies raw context.</li>
+<li><code>devcd status</code> and <code>devcd doctor</code> explain the current local state.</li>
+<li>For the live path, <code>devcd event ...</code> is accepted and <code>devcd context passport</code> reflects your local ledger.</li>
+<li>For the integration path, <code>devcd integrations openclaw --smoke-test</code> verifies the read-only MCP shape without mutating external config.</li>
+</ul>
+<h2 id="common-next-paths">Common next paths<a class="headerlink" href="#common-next-paths" title="Permanent link">&para;</a></h2>
+<ul>
+<li>Continue live: <code>devcd run</code>, send one event, then <code>devcd context passport</code></li>
+<li>Connect an agent: <code>devcd integrations openclaw --smoke-test</code></li>
+<li>Inspect policy: <code>devcd context control</code></li>
+<li>Inspect local context: <code>devcd context state</code> and <code>devcd context memory --scope working</code></li>
+<li>Convert a pytest failure report into events: <code>devcd recipe pytest-failure --input examples/event-source-recipes/pytest-failure/input.json</code></li>
 </ul>
 <h2 id="troubleshooting">Troubleshooting<a class="headerlink" href="#troubleshooting" title="Permanent link">&para;</a></h2>
+<p>If the optional preview path fails:</p>
+<ul>
+<li>run <code>devcd doctor</code></li>
+<li>confirm <code>examples/agent-resurrection/sample-events.jsonl</code> exists</li>
+<li>confirm <code>devcd quickstart --demo-events examples/agent-resurrection/sample-events.jsonl --json</code> returns JSON</li>
+</ul>
 <p>If the daemon does not start:</p>
 <ul>
 <li>confirm Python 3.11+ is active</li>
 <li>confirm <code>devcd</code> is available in your shell after installation</li>
-<li>rerun <code>devcd init</code> to regenerate local config defaults</li>
+<li>run <code>devcd status</code> to see config, token, and endpoint state</li>
+<li>run <code>devcd doctor</code> for concrete next steps</li>
 </ul>
-<p>If the event succeeds but state looks empty:</p>
+<p>If the live passport is empty:</p>
 <ul>
-<li>make sure the daemon is still running on <code>127.0.0.1:8765</code></li>
-<li>resend the sample event and query <code>/state</code> again</li>
-<li>inspect your shell output for validation or policy errors</li>
+<li>confirm <code>devcd init --agent-ready</code> wrote the managed DevCD block for your agent</li>
+<li>if your agent has shell access, let it use <code>devcd capture --kind goal --summary "..."</code></li>
+<li>if you are testing the daemon path, make sure direct HTTP requests include <code>Authorization: Bearer &lt;token&gt;</code></li>
+<li>inspect shell output for validation or policy errors</li>
+<li>run <code>devcd status</code> to confirm active workspace, event count, and latest event timestamp</li>
 </ul>
 
 
@@ -1090,54 +1553,55 @@ and queried later without repeating it manually.</p>
 
 
 
+	
 
               </article>
             </div>
-
-
+          
+          
 <script>var target=document.getElementById(location.hash.slice(1));target&&target.name&&(target.checked=target.name.startsWith("__tabbed_"))</script>
         </div>
-
+        
           <button type="button" class="md-top md-icon" data-md-component="top" hidden>
-
+  
   <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M13 20h-2V8l-5.5 5.5-1.42-1.42L12 4.16l7.92 7.92-1.42 1.42L13 8z"/></svg>
   Back to top
 </button>
-
+        
       </main>
-
+      
         <footer class="md-footer">
-
+  
   <div class="md-footer-meta md-typeset">
     <div class="md-footer-meta__inner md-grid">
       <div class="md-copyright">
-
-
+  
+  
     Made with
     <a href="https://squidfunk.github.io/mkdocs-material/" target="_blank" rel="noopener">
       Material for MkDocs
     </a>
-
+  
 </div>
-
+      
     </div>
   </div>
 </footer>
-
+      
     </div>
     <div class="md-dialog" data-md-component="dialog">
       <div class="md-dialog__inner md-typeset"></div>
     </div>
-
-
-
-
-
+    
+    
+    
+      
+      
       <script id="__config" type="application/json">{"annotate": null, "base": "..", "features": ["navigation.tabs", "navigation.sections", "navigation.top", "content.code.copy", "content.action.edit"], "search": "../assets/javascripts/workers/search.2c215733.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": null}</script>
-
-
+    
+    
       <script src="../assets/javascripts/bundle.79ae519e.min.js"></script>
-
-
+      
+    
   </body>
 </html>

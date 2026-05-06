@@ -1,0 +1,1540 @@
+
+<!doctype html>
+<html lang="en" class="no-js">
+  <head>
+    
+      <meta charset="utf-8">
+      <meta name="viewport" content="width=device-width,initial-scale=1">
+      
+        <meta name="description" content="Local-first context layer that warm-starts every AI agent session with a policy-filtered Action Packet — no recap requests, no context loss.">
+      
+      
+      
+        <link rel="canonical" href="https://mick-gsk.github.io/DevCD/devcd/openclaw-usecase-draft/">
+      
+      
+      
+      
+        
+      
+      
+      <link rel="icon" href="../../assets/devcd-mark.svg">
+      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.7.1">
+    
+    
+      
+        <title>DevCD + OpenClaw: Turn-0 continuity across coding sessions - DevCD</title>
+      
+    
+    
+
+      <link rel="stylesheet" href="../../assets/stylesheets/main.484c7ddc.min.css">
+      
+        
+        <link rel="stylesheet" href="../../assets/stylesheets/palette.ab4e12ef.min.css">
+      
+      
+
+
+    
+<link rel="stylesheet" href="../../assets/brand.css">
+
+    
+      
+    
+    
+      
+        
+        
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+        <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Roboto:300,300i,400,400i,700,700i%7CRoboto+Mono:400,400i,700,700i&display=fallback">
+        <style>:root{--md-text-font:"Roboto";--md-code-font:"Roboto Mono"}</style>
+      
+    
+    
+      <link rel="stylesheet" href="../../assets/devcd-brand-tokens.css">
+    
+      <link rel="stylesheet" href="../../assets/brand.css">
+    
+    <script>__md_scope=new URL("../..",location),__md_hash=e=>[...e].reduce(((e,_)=>(e<<5)-e+_.charCodeAt(0)),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
+    
+      
+
+    
+    
+  </head>
+  
+  
+    
+    
+      
+    
+    
+    
+    
+    <body dir="ltr" data-md-color-scheme="default" data-md-color-primary="custom" data-md-color-accent="custom">
+  
+    
+    <input class="md-toggle" data-md-toggle="drawer" type="checkbox" id="__drawer" autocomplete="off">
+    <input class="md-toggle" data-md-toggle="search" type="checkbox" id="__search" autocomplete="off">
+    <label class="md-overlay" for="__drawer"></label>
+    <div data-md-component="skip">
+      
+        
+        <a href="#devcd-openclaw-turn-0-continuity-across-coding-sessions" class="md-skip">
+          Skip to content
+        </a>
+      
+    </div>
+    <div data-md-component="announce">
+      
+    </div>
+    
+    
+      
+
+<header class="md-header" data-md-component="header">
+  <nav class="md-header__inner md-grid" aria-label="Header">
+    <a href="../.." title="DevCD" class="md-header__button md-logo" aria-label="DevCD" data-md-component="logo">
+      
+  <img src="../../assets/devcd-mark.svg" alt="logo">
+
+    </a>
+    <label class="md-header__button md-icon" for="__drawer">
+      
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M3 6h18v2H3zm0 5h18v2H3zm0 5h18v2H3z"/></svg>
+    </label>
+    <div class="md-header__title" data-md-component="header-title">
+      <div class="md-header__ellipsis">
+        <div class="md-header__topic">
+          <span class="md-ellipsis">
+            DevCD
+          </span>
+        </div>
+        <div class="md-header__topic" data-md-component="header-topic">
+          <span class="md-ellipsis">
+            
+              DevCD + OpenClaw: Turn-0 continuity across coding sessions
+            
+          </span>
+        </div>
+      </div>
+    </div>
+    
+      
+        <form class="md-header__option" data-md-component="palette">
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="(prefers-color-scheme: light)" data-md-color-scheme="default" data-md-color-primary="custom" data-md-color-accent="custom"  aria-label="Switch to dark mode"  type="radio" name="__palette" id="__palette_0">
+    
+      <label class="md-header__button md-icon" title="Switch to dark mode" for="__palette_1" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a4 4 0 0 0-4 4 4 4 0 0 0 4 4 4 4 0 0 0 4-4 4 4 0 0 0-4-4m0 10a6 6 0 0 1-6-6 6 6 0 0 1 6-6 6 6 0 0 1 6 6 6 6 0 0 1-6 6m8-9.31V4h-4.69L12 .69 8.69 4H4v4.69L.69 12 4 15.31V20h4.69L12 23.31 15.31 20H20v-4.69L23.31 12z"/></svg>
+      </label>
+    
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="(prefers-color-scheme: dark)" data-md-color-scheme="slate" data-md-color-primary="custom" data-md-color-accent="custom"  aria-label="Switch to light mode"  type="radio" name="__palette" id="__palette_1">
+    
+      <label class="md-header__button md-icon" title="Switch to light mode" for="__palette_0" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 18c-.89 0-1.74-.2-2.5-.55C11.56 16.5 13 14.42 13 12s-1.44-4.5-3.5-5.45C10.26 6.2 11.11 6 12 6a6 6 0 0 1 6 6 6 6 0 0 1-6 6m8-9.31V4h-4.69L12 .69 8.69 4H4v4.69L.69 12 4 15.31V20h4.69L12 23.31 15.31 20H20v-4.69L23.31 12z"/></svg>
+      </label>
+    
+  
+</form>
+      
+    
+    
+      <script>var palette=__md_get("__palette");if(palette&&palette.color){if("(prefers-color-scheme)"===palette.color.media){var media=matchMedia("(prefers-color-scheme: light)"),input=document.querySelector(media.matches?"[data-md-color-media='(prefers-color-scheme: light)']":"[data-md-color-media='(prefers-color-scheme: dark)']");palette.color.media=input.getAttribute("data-md-color-media"),palette.color.scheme=input.getAttribute("data-md-color-scheme"),palette.color.primary=input.getAttribute("data-md-color-primary"),palette.color.accent=input.getAttribute("data-md-color-accent")}for(var[key,value]of Object.entries(palette.color))document.body.setAttribute("data-md-color-"+key,value)}</script>
+    
+    
+    
+      
+      
+        <label class="md-header__button md-icon" for="__search">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        </label>
+        <div class="md-search" data-md-component="search" role="dialog">
+  <label class="md-search__overlay" for="__search"></label>
+  <div class="md-search__inner" role="search">
+    <form class="md-search__form" name="search">
+      <input type="text" class="md-search__input" name="query" aria-label="Search" placeholder="Search" autocapitalize="off" autocorrect="off" autocomplete="off" spellcheck="false" data-md-component="search-query" required>
+      <label class="md-search__icon md-icon" for="__search">
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11z"/></svg>
+      </label>
+      <nav class="md-search__options" aria-label="Search">
+        
+        <button type="reset" class="md-search__icon md-icon" title="Clear" aria-label="Clear" tabindex="-1">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M19 6.41 17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
+        </button>
+      </nav>
+      
+    </form>
+    <div class="md-search__output">
+      <div class="md-search__scrollwrap" tabindex="0" data-md-scrollfix>
+        <div class="md-search-result" data-md-component="search-result">
+          <div class="md-search-result__meta">
+            Initializing search
+          </div>
+          <ol class="md-search-result__list" role="presentation"></ol>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+      
+    
+    
+      <div class="md-header__source">
+        <a href="https://github.com/mick-gsk/DevCD" title="Go to repository" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M439.6 236.1 244 40.5c-5.4-5.5-12.8-8.5-20.4-8.5s-15 3-20.4 8.4L162.5 81l51.5 51.5c27.1-9.1 52.7 16.8 43.4 43.7l49.7 49.7c34.2-11.8 61.2 31 35.5 56.7-26.5 26.5-70.2-2.9-56-37.3L240.3 199v121.9c25.3 12.5 22.3 41.8 9.1 55-6.4 6.4-15.2 10.1-24.3 10.1s-17.8-3.6-24.3-10.1c-17.6-17.6-11.1-46.9 11.2-56v-123c-20.8-8.5-24.6-30.7-18.6-45L142.6 101 8.5 235.1C3 240.6 0 247.9 0 255.5s3 15 8.5 20.4l195.6 195.7c5.4 5.4 12.7 8.4 20.4 8.4s15-3 20.4-8.4l194.7-194.7c5.4-5.4 8.4-12.8 8.4-20.4s-3-15-8.4-20.4"/></svg>
+  </div>
+  <div class="md-source__repository">
+    mick-gsk/DevCD
+  </div>
+</a>
+      </div>
+    
+  </nav>
+  
+</header>
+    
+    <div class="md-container" data-md-component="container">
+      
+	
+
+      
+        
+          
+            
+<nav class="md-tabs" aria-label="Tabs" data-md-component="tabs">
+  <div class="md-grid">
+    <ul class="md-tabs__list">
+      
+        
+  
+  
+  
+  
+    <li class="md-tabs__item">
+      <a href="../.." class="md-tabs__link">
+        
+  
+  
+    
+  
+  Home
+
+      </a>
+    </li>
+  
+
+      
+        
+  
+  
+  
+  
+    <li class="md-tabs__item">
+      <a href="../../getting-started/" class="md-tabs__link">
+        
+  
+  
+    
+  
+  Getting Started
+
+      </a>
+    </li>
+  
+
+      
+        
+  
+  
+  
+  
+    <li class="md-tabs__item">
+      <a href="../../use-cases/" class="md-tabs__link">
+        
+  
+  
+    
+  
+  Use Cases
+
+      </a>
+    </li>
+  
+
+      
+        
+  
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../architecture/" class="md-tabs__link">
+          
+  
+  
+  Architecture
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../../decisions/ADR-001-vertical-slice-architecture/" class="md-tabs__link">
+          
+  
+  
+  Decisions
+
+        </a>
+      </li>
+    
+  
+
+      
+    </ul>
+  </div>
+</nav>
+          
+        
+      
+      <main class="md-main" data-md-component="main">
+        <div class="md-main__inner md-grid">
+          
+            
+              
+              <div class="md-sidebar md-sidebar--primary" data-md-component="sidebar" data-md-type="navigation" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+
+  
+
+
+<nav class="md-nav md-nav--primary md-nav--lifted" aria-label="Navigation" data-md-level="0">
+  <label class="md-nav__title" for="__drawer">
+    <a href="../.." title="DevCD" class="md-nav__button md-logo" aria-label="DevCD" data-md-component="logo">
+      
+  <img src="../../assets/devcd-mark.svg" alt="logo">
+
+    </a>
+    DevCD
+  </label>
+  
+    <div class="md-nav__source">
+      <a href="https://github.com/mick-gsk/DevCD" title="Go to repository" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M439.6 236.1 244 40.5c-5.4-5.5-12.8-8.5-20.4-8.5s-15 3-20.4 8.4L162.5 81l51.5 51.5c27.1-9.1 52.7 16.8 43.4 43.7l49.7 49.7c34.2-11.8 61.2 31 35.5 56.7-26.5 26.5-70.2-2.9-56-37.3L240.3 199v121.9c25.3 12.5 22.3 41.8 9.1 55-6.4 6.4-15.2 10.1-24.3 10.1s-17.8-3.6-24.3-10.1c-17.6-17.6-11.1-46.9 11.2-56v-123c-20.8-8.5-24.6-30.7-18.6-45L142.6 101 8.5 235.1C3 240.6 0 247.9 0 255.5s3 15 8.5 20.4l195.6 195.7c5.4 5.4 12.7 8.4 20.4 8.4s15-3 20.4-8.4l194.7-194.7c5.4-5.4 8.4-12.8 8.4-20.4s-3-15-8.4-20.4"/></svg>
+  </div>
+  <div class="md-source__repository">
+    mick-gsk/DevCD
+  </div>
+</a>
+    </div>
+  
+  <ul class="md-nav__list" data-md-scrollfix>
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../.." class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Home
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../getting-started/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Getting Started
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../use-cases/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Use Cases
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_4" >
+        
+          
+          <label class="md-nav__link" for="__nav_4" id="__nav_4_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Architecture
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_4_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_4">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Architecture
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../architecture/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Overview
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../memory/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Memory Model
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../policy/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Policy Layer
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../agent-consumption/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Agent Consumption
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../agent-landscape/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Agent Landscape
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../openclaw-integration/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    OpenClaw Integration
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../openclaw-product-benchmark/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    OpenClaw Product Benchmark
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../reality-testing/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Real-World Testing Playbook
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../context-packs/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Context Packs
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../brand-system/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Brand System
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../naming-and-positioning/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Naming and Positioning
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../release-readiness/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Release Readiness
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../publishing/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Publishing
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../container/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Container Sandbox
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../event-source-recipes/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Event Source Recipes
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../agent-vision/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Agent Vision
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_5" >
+        
+          
+          <label class="md-nav__link" for="__nav_5" id="__nav_5_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Decisions
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_5_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_5">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Decisions
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../decisions/ADR-001-vertical-slice-architecture/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    ADR-001 Vertical Slice Architecture
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../decisions/ADR-012-public-alpha-agent-passport-surface/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    ADR-012 Public Alpha Agent Passport Surface
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--proposed"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+  </ul>
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+            
+              
+              <div class="md-sidebar md-sidebar--secondary" data-md-component="sidebar" data-md-type="toc" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#pain-point" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Pain Point
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#what-it-does" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        What It Does
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="What It Does">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#mcp-resources-exposed" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        MCP resources exposed
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#setup" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Setup
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Setup">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#1-install-devcd" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        1. Install DevCD
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#2-initialise-and-start-the-daemon" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        2. Initialise and start the daemon
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#3-verify-the-mcp-server-starts" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        3. Verify the MCP server starts
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+          
+          
+            <div class="md-content" data-md-component="content">
+              
+              <article class="md-content__inner md-typeset">
+                
+	
+		
+
+
+  
+    <a href="https://github.com/mick-gsk/DevCD/edit/main/docs/devcd/openclaw-usecase-draft.md" title="Edit this page" class="md-content__button md-icon" rel="edit">
+      
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M10 20H6V4h7v5h5v3.1l2-2V8l-6-6H6c-1.1 0-2 .9-2 2v16c0 1.1.9 2 2 2h4zm10.2-7c.1 0 .3.1.4.2l1.3 1.3c.2.2.2.6 0 .8l-1 1-2.1-2.1 1-1c.1-.1.2-.2.4-.2m0 3.9L14.1 23H12v-2.1l6.1-6.1z"/></svg>
+    </a>
+  
+  
+
+
+<h1 id="devcd-openclaw-turn-0-continuity-across-coding-sessions">DevCD + OpenClaw: Turn-0 continuity across coding sessions<a class="headerlink" href="#devcd-openclaw-turn-0-continuity-across-coding-sessions" title="Permanent link">&para;</a></h1>
+<blockquote>
+<p><strong>Draft status</strong>: DevCD MCP server is locally verified.
+The end-to-end OpenClaw gateway flow (OpenClaw loading DevCD resources) is a
+draft — the OpenClaw side has not been run. This document may be submitted to
+<code>awesome-openclaw-usecases</code> after end-to-end verification.</p>
+</blockquote>
+<hr />
+<h2 id="pain-point">Pain Point<a class="headerlink" href="#pain-point" title="Permanent link">&para;</a></h2>
+<p>Every new agent session starts cold. Within the first few turns the developer
+has to re-explain:</p>
+<ul>
+<li>What they are trying to build or fix</li>
+<li>Which file, branch, or task is the active focus</li>
+<li>What was already tried and why it failed</li>
+<li>What the previous agent tried that should not be repeated</li>
+</ul>
+<p>This re-explanation is low-value, error-prone, and breaks flow. It is
+especially painful when an agent session ends unexpectedly (context limit,
+crash, accidental window close) or when the same task is handed off between
+different agent surfaces (coding agent → review agent → debugging agent).</p>
+<hr />
+<h2 id="what-it-does">What It Does<a class="headerlink" href="#what-it-does" title="Permanent link">&para;</a></h2>
+<p><a href="https://github.com/mick-gsk/DevCD">DevCD</a> is a local-first Developer Context
+Daemon. It observes IDE events, Git activity, and task results, applies an
+explicit policy layer, and exposes the result through a read-only MCP server.</p>
+<p>When DevCD is registered as an MCP server in OpenClaw, a new agent session
+can read the <code>action-packet</code> resource at turn 0 and learn:</p>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Example value</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>current_goal</code></td>
+<td><code>"Resume the failing release gate after Agent A lost context"</code></td>
+</tr>
+<tr>
+<td><code>next_action</code></td>
+<td><code>"Inspect the policy assertion before editing again"</code></td>
+</tr>
+<tr>
+<td><code>blockers</code></td>
+<td><code>"make check failed on policy assertions"</code></td>
+</tr>
+<tr>
+<td><code>do_not_repeat</code></td>
+<td><code>["Do not rerun the renderer-only patch unchanged"]</code></td>
+</tr>
+<tr>
+<td><code>withheld_context</code></td>
+<td>Safe metadata for denied events (no raw content)</td>
+</tr>
+</tbody>
+</table>
+<p>No re-narration by the developer is required. Sensitive data (file contents,
+notes flagged <code>sensitivity=sensitive</code>, browser history) is withheld by policy
+and replaced with safe summaries so the agent knows <em>that</em> context exists
+without receiving the raw payload.</p>
+<h3 id="mcp-resources-exposed">MCP resources exposed<a class="headerlink" href="#mcp-resources-exposed" title="Permanent link">&para;</a></h3>
+<table>
+<thead>
+<tr>
+<th>Resource URI</th>
+<th>What the agent learns</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>devcd://context/action-packet</code></td>
+<td>Goal, next action, blockers, do-not-repeat list, withheld-context policy notes</td>
+</tr>
+<tr>
+<td><code>devcd://context/continuity-packet</code></td>
+<td>Domain-neutral Continuity Packet, developer pack by default</td>
+</tr>
+<tr>
+<td><code>devcd://context/brief</code></td>
+<td>Policy-filtered context brief for the current session</td>
+</tr>
+<tr>
+<td><code>devcd://context/recent-timeline</code></td>
+<td>Chronological narrative of recent events</td>
+</tr>
+<tr>
+<td><code>devcd://context/policy-summary</code></td>
+<td>Which data is allowed or withheld, and why</td>
+</tr>
+<tr>
+<td><code>devcd://context/work-state</code></td>
+<td>Derived work state from observed events</td>
+</tr>
+<tr>
+<td><code>devcd://context/withheld-context</code></td>
+<td>Safe metadata for all withheld events</td>
+</tr>
+</tbody>
+</table>
+<p>All resources are <strong>read-only</strong>. No MCP tools are registered. The server
+exposes no write surface.</p>
+<hr />
+<h2 id="setup">Setup<a class="headerlink" href="#setup" title="Permanent link">&para;</a></h2>
+<h3 id="1-install-devcd">1. Install DevCD<a class="headerlink" href="#1-install-devcd" title="Permanent link">&para;</a></h3>
+<p><code>bash
+python -m pip install -e ".[dev]"</code></p>
+<h3 id="2-initialise-and-start-the-daemon">2. Initialise and start the daemon<a class="headerlink" href="#2-initialise-and-start-the-daemon" title="Permanent link">&para;</a></h3>
+<p><code>bash
+devcd init       # creates devcd.toml with local defaults in the current directory
+devcd run        # starts the daemon on 127.0.0.1:8765</code></p>
+<h3 id="3-verify-the-mcp-server-starts">3. Verify the MCP server starts<a class="headerlink" href="#3-verify-the-mcp-server-starts" title="Permanent link">&para;</a></h3>
+<p>Before touching OpenClaw config, confirm the server is responding:</p>
+<p>```powershell</p>
+<h1 id="verified-locally-run-from-the-repo-root-powershell">Verified locally — run from the repo root (PowerShell)<a class="headerlink" href="#verified-locally-run-from-the-repo-root-powershell" title="Permanent link">&para;</a></h1>
+<p>$init = '{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2024-11-05","capabilities":{},"clientInfo":{"name":"probe","version":"1.0"}}}'
+$list = '{"jsonrpc":"2.0","id":2,"method":"resources/list","params":{}}'
+"$init`n$list" | devcd mcp serve
+```</p>
+<p>Expected: a <code>resources/list</code> response listing the current read-only DevCD MCP resources.
+Full verified output: <a href="https://github.com/mick-gsk/DevCD/blob/main/examples/openclaw-mcp-context/README.md"><code>examples/openclaw-mcp-context/README.md</code></a>.</p>
+<h3 id="4-inspect-the-action-packet-without-openclaw">4. Inspect the Action Packet without OpenClaw<a class="headerlink" href="#4-inspect-the-action-packet-without-openclaw" title="Permanent link">&para;</a></h3>
+<p>```bash</p>
+<h1 id="verified-locally-prints-the-same-start-contract-openclaw-agents-should-read">Verified locally — prints the same start contract OpenClaw agents should read<a class="headerlink" href="#verified-locally-prints-the-same-start-contract-openclaw-agents-should-read" title="Permanent link">&para;</a></h1>
+<p>devcd agentic action-packet --json
+```</p>
+<p>The OpenClaw-facing resource is <code>devcd://context/action-packet</code>.</p>
+<hr />
+<h2 id="openclaw-mcp-configuration">OpenClaw MCP Configuration<a class="headerlink" href="#openclaw-mcp-configuration" title="Permanent link">&para;</a></h2>
+<blockquote>
+<p><strong>Draft</strong> — the <code>mcp.servers</code> config format below follows the
+<a href="https://docs.openclaw.ai/gateway/configuration-reference#mcp">OpenClaw configuration reference</a>
+(stdio <code>command</code>/<code>args</code> form). The DevCD command and arguments are verified.
+The end-to-end OpenClaw→DevCD flow has not been run.</p>
+</blockquote>
+<p>Add the <code>mcp.servers.devcd</code> entry to <code>~/.openclaw/openclaw.json</code>
+(JSON5, comments allowed):</p>
+<p><code>json5
+// ~/.openclaw/openclaw.json — add only the mcp.servers.devcd block
+{
+  mcp: {
+    servers: {
+      devcd: {
+        // Requires `devcd` on PATH from a local checkout install.
+        // `devcd run` must be running in the background before starting OpenClaw.
+        command: "devcd",
+        args: ["mcp", "serve"],
+      },
+    },
+  },
+}</code></p>
+<p><code>devcd mcp serve</code> communicates only over its own stdin/stdout (one process per
+gateway session). It opens no network ports and makes no outbound calls.</p>
+<hr />
+<h2 id="agent-prompt-context-instruction">Agent Prompt / Context Instruction<a class="headerlink" href="#agent-prompt-context-instruction" title="Permanent link">&para;</a></h2>
+<p>Once the MCP server is registered, add a startup instruction to the agent so
+it reads DevCD context before asking the developer anything:</p>
+<p><code>At the start of every session:
+1. Read devcd://context/action-packet
+2. If `blockers` are present, acknowledge them and avoid repeating the listed
+  `do_not_repeat` items.
+3. State the active goal from `current_goal` and the next action from `next_action`.
+4. Read devcd://context/policy-summary to understand what context is withheld
+   and why before asking the developer to provide it manually.</code></p>
+<p>The draft Skill lives at <code>skills/devcd-continuity/SKILL.md</code>. It is intentionally
+small: it teaches the first move without installing DevCD, mutating OpenClaw
+configuration, or claiming registry availability.</p>
+<hr />
+<h2 id="expected-outcome">Expected Outcome<a class="headerlink" href="#expected-outcome" title="Permanent link">&para;</a></h2>
+<p>A session that previously required 3–5 re-explanation turns is reduced to a
+single confirmation:</p>
+<p><code>Agent:    Goal: "Resume the failing release gate after Agent A lost context".
+          Next: "Inspect the policy assertion before editing again".
+          Blocker: "make check failed on policy assertions".
+          I will not rerun the renderer-only patch unchanged.
+          Ready to proceed — confirm or redirect?
+Developer: Proceed.</code></p>
+<p>The developer never re-narrates history. The agent works from structured,
+policy-filtered state that DevCD maintains automatically in the background.</p>
+<hr />
+<h2 id="security-notes">Security Notes<a class="headerlink" href="#security-notes" title="Permanent link">&para;</a></h2>
+<ul>
+<li><strong>Read-only</strong>: The MCP server registers no tools. No mutations are possible
+  through the MCP interface.</li>
+<li><strong>Local-only</strong>: <code>devcd mcp serve</code> communicates exclusively over stdio. No
+  outbound network calls are made. Data stays on the local machine.</li>
+<li><strong>Policy layer</strong>: Every event is passed through an explicit policy decision
+  before it can appear in an MCP resource. Sensitive events (file contents,
+  notes flagged <code>sensitivity=sensitive</code>, secrets, browser URLs) are withheld and
+  replaced with safe summaries. See
+  <a href="../policy/"><code>devcd policy simulate</code></a> for the policy CLI.</li>
+<li><strong>No secret exposure</strong>: The <code>payload_content</code> withheld category prevents raw
+  payload content from reaching the MCP layer. A detected prompt-injection note
+  event is represented only as:
+  <code>"notes prompt_injection signal was withheld; only source/type metadata is visible"</code>.</li>
+<li><strong>Scope</strong>: <code>devcd init</code> creates a project-scoped <code>devcd.toml</code>. Memory and
+  events are stored locally in <code>~/.devcd/</code> by default. Nothing leaves the
+  machine without explicit opt-in configuration.</li>
+</ul>
+<hr />
+<h2 id="limitations">Limitations<a class="headerlink" href="#limitations" title="Permanent link">&para;</a></h2>
+<ol>
+<li><strong>End-to-end OpenClaw flow unverified</strong>: The MCP config format is taken from
+   the OpenClaw documentation. The scenario of OpenClaw actually loading and
+   injecting DevCD resources into an agent session has not been run. The DevCD
+   MCP server side is fully verified.</li>
+<li><strong>Daemon must be running</strong>: <code>devcd run</code> must be started before the OpenClaw
+   gateway loads the MCP server. There is currently no auto-start mechanism.</li>
+<li><strong>Event sources are passive</strong>: DevCD observes events that are explicitly
+   pushed to it (IDE plugin, Git hooks, CLI calls). It does not hook into the
+   IDE automatically without additional event-source setup.</li>
+<li><strong>Context window cost</strong>: Reading every resource at session start adds
+  tokens. In practice only <code>action-packet</code> and <code>policy-summary</code> are
+   needed for continuity; the others are available on demand.</li>
+<li><strong>Not on ClawHub</strong>: DevCD has not been submitted to or published on ClawHub.
+  Installation is manual from a local checkout until a package is published.</li>
+</ol>
+<hr />
+<h2 id="verification-status">Verification Status<a class="headerlink" href="#verification-status" title="Permanent link">&para;</a></h2>
+<table>
+<thead>
+<tr>
+<th>Step</th>
+<th>Status</th>
+<th>Evidence</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>devcd mcp serve</code> starts and lists resources</td>
+<td>Verified locally</td>
+<td><a href="https://github.com/mick-gsk/DevCD/blob/main/examples/openclaw-mcp-context/README.md"><code>examples/openclaw-mcp-context/README.md</code></a></td>
+</tr>
+<tr>
+<td><code>devcd agentic action-packet --json</code> produces valid packet</td>
+<td>Verified locally</td>
+<td><code>tests/test_cli.py</code></td>
+</tr>
+<tr>
+<td>MCP resources are read-only (no tools registered)</td>
+<td>Verified locally</td>
+<td><code>resources/list</code> response in README</td>
+</tr>
+<tr>
+<td>Policy withholds sensitive events correctly</td>
+<td>Verified via tests</td>
+<td><code>make check</code> → <code>tests/test_policy_layer.py</code>, <code>tests/test_ambient_context.py</code></td>
+</tr>
+<tr>
+<td>OpenClaw gateway loads DevCD resources end-to-end</td>
+<td><strong>Not verified</strong></td>
+<td>Requires full OpenClaw gateway install</td>
+</tr>
+<tr>
+<td>ClawHub publication</td>
+<td><strong>Not done</strong></td>
+<td>Out of scope for this draft</td>
+</tr>
+</tbody>
+</table>
+
+
+
+
+
+
+
+
+
+
+
+
+	
+
+              </article>
+            </div>
+          
+          
+<script>var target=document.getElementById(location.hash.slice(1));target&&target.name&&(target.checked=target.name.startsWith("__tabbed_"))</script>
+        </div>
+        
+          <button type="button" class="md-top md-icon" data-md-component="top" hidden>
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M13 20h-2V8l-5.5 5.5-1.42-1.42L12 4.16l7.92 7.92-1.42 1.42L13 8z"/></svg>
+  Back to top
+</button>
+        
+      </main>
+      
+        <footer class="md-footer">
+  
+  <div class="md-footer-meta md-typeset">
+    <div class="md-footer-meta__inner md-grid">
+      <div class="md-copyright">
+  
+  
+    Made with
+    <a href="https://squidfunk.github.io/mkdocs-material/" target="_blank" rel="noopener">
+      Material for MkDocs
+    </a>
+  
+</div>
+      
+    </div>
+  </div>
+</footer>
+      
+    </div>
+    <div class="md-dialog" data-md-component="dialog">
+      <div class="md-dialog__inner md-typeset"></div>
+    </div>
+    
+    
+    
+      
+      
+      <script id="__config" type="application/json">{"annotate": null, "base": "../..", "features": ["navigation.tabs", "navigation.sections", "navigation.top", "content.code.copy", "content.action.edit"], "search": "../../assets/javascripts/workers/search.2c215733.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": null}</script>
+    
+    
+      <script src="../../assets/javascripts/bundle.79ae519e.min.js"></script>
+      
+    
+  </body>
+</html>

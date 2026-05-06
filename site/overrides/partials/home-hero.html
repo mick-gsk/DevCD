@@ -1,0 +1,63 @@
+<section class="devcd-hero">
+  <div class="devcd-hero__center">
+    <img class="devcd-hero__mark" src="{{ 'assets/devcd-mark.svg' | url }}" alt="DevCD mark" width="72" height="72">
+    <div class="devcd-hero__eyebrow">
+      <span class="devcd-eyebrow__pulse"></span>
+      Local-first context layer for AI developers
+    </div>
+    <h1 class="devcd-hero__headline">
+      Stop re-explaining.<br>
+      <span class="devcd-hero__headline-em">Start from context.</span>
+    </h1>
+    <p class="devcd-hero__lede">
+      Every new Claude, Copilot, or Codex session starts warm — with your
+      current goal, last blocker, and do-not-repeat guidance — not a blank
+      prompt and a recap request.
+    </p>
+    <div class="devcd-hero__actions">
+      <a class="devcd-cta devcd-cta--primary" href="{{ 'getting-started/' | url }}">Get Started →</a>
+      <a class="devcd-cta devcd-cta--secondary"
+         href="https://github.com/mick-gsk/DevCD"
+         target="_blank" rel="noopener noreferrer">View on GitHub</a>
+    </div>
+    <div class="devcd-hero__install">
+      <span class="devcd-hero__install-prompt">$</span>
+      <code class="devcd-hero__install-cmd">pip install devcd</code>
+      <button
+        class="devcd-hero__install-copy"
+        onclick="navigator.clipboard.writeText('pip install devcd');this.textContent='✓';setTimeout(()=>{this.textContent='⎘'},1600)"
+        title="Copy to clipboard"
+        aria-label="Copy install command"
+      >⎘</button>
+    </div>
+    <div class="devcd-hero__badges">
+      <span class="devcd-badge">Open Source</span>
+      <span class="devcd-badge">Local-First</span>
+      <span class="devcd-badge">No Telemetry</span>
+      <span class="devcd-badge">Python 3.11+</span>
+    </div>
+  </div>
+
+  <div class="devcd-hero__terminal-wrap">
+    <div class="devcd-terminal">
+      <div class="devcd-terminal__bar">
+        <span class="devcd-terminal__dot devcd-terminal__dot--red"></span>
+        <span class="devcd-terminal__dot devcd-terminal__dot--yellow"></span>
+        <span class="devcd-terminal__dot devcd-terminal__dot--green"></span>
+        <span class="devcd-terminal__title">devcd agentic action-packet</span>
+      </div>
+      <pre class="devcd-terminal__body"><span class="devcd-t-prompt">$</span> <span class="devcd-t-cmd">devcd agentic action-packet</span>
+
+<span class="devcd-t-amber">▸ DevCD Action Packet</span>  <span class="devcd-t-muted">v0.2 · local · 2026-05-06</span>
+<span class="devcd-t-muted">─────────────────────────────────────────────</span>
+<span class="devcd-t-label">Goal          </span><span class="devcd-t-value">Add memory TTL slice and tests</span>
+<span class="devcd-t-label">Last blocker  </span><span class="devcd-t-ok">test_ttl_expiry resolved ✓</span>
+<span class="devcd-t-label">Next action   </span><span class="devcd-t-signal">run make check → devcd quickstart</span>
+<span class="devcd-t-label">Do-not-repeat </span><span class="devcd-t-value">SliceService pattern — already applied</span>
+<span class="devcd-t-label">Withheld      </span><span class="devcd-t-muted">12 raw log lines (policy: deny-raw)</span>
+<span class="devcd-t-muted">─────────────────────────────────────────────</span>
+<span class="devcd-t-ok">✓</span> <span class="devcd-t-muted">Paste into your next agent session.</span>
+  <span class="devcd-t-muted">The agent knows where you are. No recap needed.</span></pre>
+    </div>
+  </div>
+</section>

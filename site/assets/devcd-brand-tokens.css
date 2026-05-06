@@ -1,0 +1,25 @@
+:root {
+  --devcd-ink: #080a0f;
+  --devcd-console: #0d1117;
+  --devcd-slate: #344054;
+  --devcd-muted: #8ea0b8;
+  --devcd-paper: #d9e2ec;
+  --devcd-surface: #101318;
+  --devcd-line: #263142;
+  --devcd-signal: #18b7a6;
+  --devcd-signal-soft: #ecfdf9;
+  --devcd-trust: #18b7a6;
+  --devcd-trust-soft: #ecfdf9;
+  --devcd-command: #f7c948;
+  --devcd-command-highlight: #fff2a8;
+  --devcd-command-shadow: #c66a1c;
+  --devcd-checkpoint: #f2b84b;
+  --devcd-checkpoint-soft: #fff8e7;
+  --devcd-safe-share: #c8f3ec;
+  --devcd-safe-share-soft: #f3fffc;
+  --devcd-risk: #d95f59;
+  --devcd-risk-soft: #fff1f0;
+  --devcd-radius-mark: 18px;
+  --devcd-radius-panel: 30px;
+  --devcd-font-ui: "Cascadia Mono", Consolas, Menlo, monospace;
+}

@@ -1,0 +1,1621 @@
+
+<!doctype html>
+<html lang="en" class="no-js">
+  <head>
+    
+      <meta charset="utf-8">
+      <meta name="viewport" content="width=device-width,initial-scale=1">
+      
+        <meta name="description" content="Local-first context layer that warm-starts every AI agent session with a policy-filtered Action Packet — no recap requests, no context loss.">
+      
+      
+      
+        <link rel="canonical" href="https://mick-gsk.github.io/DevCD/devcd/release-readiness/">
+      
+      
+        <link rel="prev" href="../naming-and-positioning/">
+      
+      
+        <link rel="next" href="../publishing/">
+      
+      
+        
+      
+      
+      <link rel="icon" href="../../assets/devcd-mark.svg">
+      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.7.1">
+    
+    
+      
+        <title>Release Readiness - DevCD</title>
+      
+    
+    
+
+      <link rel="stylesheet" href="../../assets/stylesheets/main.484c7ddc.min.css">
+      
+        
+        <link rel="stylesheet" href="../../assets/stylesheets/palette.ab4e12ef.min.css">
+      
+      
+
+
+    
+<link rel="stylesheet" href="../../assets/brand.css">
+
+    
+      
+    
+    
+      
+        
+        
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+        <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Roboto:300,300i,400,400i,700,700i%7CRoboto+Mono:400,400i,700,700i&display=fallback">
+        <style>:root{--md-text-font:"Roboto";--md-code-font:"Roboto Mono"}</style>
+      
+    
+    
+      <link rel="stylesheet" href="../../assets/devcd-brand-tokens.css">
+    
+      <link rel="stylesheet" href="../../assets/brand.css">
+    
+    <script>__md_scope=new URL("../..",location),__md_hash=e=>[...e].reduce(((e,_)=>(e<<5)-e+_.charCodeAt(0)),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
+    
+      
+
+    
+    
+  </head>
+  
+  
+    
+    
+      
+    
+    
+    
+    
+    <body dir="ltr" data-md-color-scheme="default" data-md-color-primary="custom" data-md-color-accent="custom">
+  
+    
+    <input class="md-toggle" data-md-toggle="drawer" type="checkbox" id="__drawer" autocomplete="off">
+    <input class="md-toggle" data-md-toggle="search" type="checkbox" id="__search" autocomplete="off">
+    <label class="md-overlay" for="__drawer"></label>
+    <div data-md-component="skip">
+      
+        
+        <a href="#release-readiness" class="md-skip">
+          Skip to content
+        </a>
+      
+    </div>
+    <div data-md-component="announce">
+      
+    </div>
+    
+    
+      
+
+<header class="md-header" data-md-component="header">
+  <nav class="md-header__inner md-grid" aria-label="Header">
+    <a href="../.." title="DevCD" class="md-header__button md-logo" aria-label="DevCD" data-md-component="logo">
+      
+  <img src="../../assets/devcd-mark.svg" alt="logo">
+
+    </a>
+    <label class="md-header__button md-icon" for="__drawer">
+      
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M3 6h18v2H3zm0 5h18v2H3zm0 5h18v2H3z"/></svg>
+    </label>
+    <div class="md-header__title" data-md-component="header-title">
+      <div class="md-header__ellipsis">
+        <div class="md-header__topic">
+          <span class="md-ellipsis">
+            DevCD
+          </span>
+        </div>
+        <div class="md-header__topic" data-md-component="header-topic">
+          <span class="md-ellipsis">
+            
+              Release Readiness
+            
+          </span>
+        </div>
+      </div>
+    </div>
+    
+      
+        <form class="md-header__option" data-md-component="palette">
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="(prefers-color-scheme: light)" data-md-color-scheme="default" data-md-color-primary="custom" data-md-color-accent="custom"  aria-label="Switch to dark mode"  type="radio" name="__palette" id="__palette_0">
+    
+      <label class="md-header__button md-icon" title="Switch to dark mode" for="__palette_1" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a4 4 0 0 0-4 4 4 4 0 0 0 4 4 4 4 0 0 0 4-4 4 4 0 0 0-4-4m0 10a6 6 0 0 1-6-6 6 6 0 0 1 6-6 6 6 0 0 1 6 6 6 6 0 0 1-6 6m8-9.31V4h-4.69L12 .69 8.69 4H4v4.69L.69 12 4 15.31V20h4.69L12 23.31 15.31 20H20v-4.69L23.31 12z"/></svg>
+      </label>
+    
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="(prefers-color-scheme: dark)" data-md-color-scheme="slate" data-md-color-primary="custom" data-md-color-accent="custom"  aria-label="Switch to light mode"  type="radio" name="__palette" id="__palette_1">
+    
+      <label class="md-header__button md-icon" title="Switch to light mode" for="__palette_0" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 18c-.89 0-1.74-.2-2.5-.55C11.56 16.5 13 14.42 13 12s-1.44-4.5-3.5-5.45C10.26 6.2 11.11 6 12 6a6 6 0 0 1 6 6 6 6 0 0 1-6 6m8-9.31V4h-4.69L12 .69 8.69 4H4v4.69L.69 12 4 15.31V20h4.69L12 23.31 15.31 20H20v-4.69L23.31 12z"/></svg>
+      </label>
+    
+  
+</form>
+      
+    
+    
+      <script>var palette=__md_get("__palette");if(palette&&palette.color){if("(prefers-color-scheme)"===palette.color.media){var media=matchMedia("(prefers-color-scheme: light)"),input=document.querySelector(media.matches?"[data-md-color-media='(prefers-color-scheme: light)']":"[data-md-color-media='(prefers-color-scheme: dark)']");palette.color.media=input.getAttribute("data-md-color-media"),palette.color.scheme=input.getAttribute("data-md-color-scheme"),palette.color.primary=input.getAttribute("data-md-color-primary"),palette.color.accent=input.getAttribute("data-md-color-accent")}for(var[key,value]of Object.entries(palette.color))document.body.setAttribute("data-md-color-"+key,value)}</script>
+    
+    
+    
+      
+      
+        <label class="md-header__button md-icon" for="__search">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        </label>
+        <div class="md-search" data-md-component="search" role="dialog">
+  <label class="md-search__overlay" for="__search"></label>
+  <div class="md-search__inner" role="search">
+    <form class="md-search__form" name="search">
+      <input type="text" class="md-search__input" name="query" aria-label="Search" placeholder="Search" autocapitalize="off" autocorrect="off" autocomplete="off" spellcheck="false" data-md-component="search-query" required>
+      <label class="md-search__icon md-icon" for="__search">
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11z"/></svg>
+      </label>
+      <nav class="md-search__options" aria-label="Search">
+        
+        <button type="reset" class="md-search__icon md-icon" title="Clear" aria-label="Clear" tabindex="-1">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M19 6.41 17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
+        </button>
+      </nav>
+      
+    </form>
+    <div class="md-search__output">
+      <div class="md-search__scrollwrap" tabindex="0" data-md-scrollfix>
+        <div class="md-search-result" data-md-component="search-result">
+          <div class="md-search-result__meta">
+            Initializing search
+          </div>
+          <ol class="md-search-result__list" role="presentation"></ol>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+      
+    
+    
+      <div class="md-header__source">
+        <a href="https://github.com/mick-gsk/DevCD" title="Go to repository" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M439.6 236.1 244 40.5c-5.4-5.5-12.8-8.5-20.4-8.5s-15 3-20.4 8.4L162.5 81l51.5 51.5c27.1-9.1 52.7 16.8 43.4 43.7l49.7 49.7c34.2-11.8 61.2 31 35.5 56.7-26.5 26.5-70.2-2.9-56-37.3L240.3 199v121.9c25.3 12.5 22.3 41.8 9.1 55-6.4 6.4-15.2 10.1-24.3 10.1s-17.8-3.6-24.3-10.1c-17.6-17.6-11.1-46.9 11.2-56v-123c-20.8-8.5-24.6-30.7-18.6-45L142.6 101 8.5 235.1C3 240.6 0 247.9 0 255.5s3 15 8.5 20.4l195.6 195.7c5.4 5.4 12.7 8.4 20.4 8.4s15-3 20.4-8.4l194.7-194.7c5.4-5.4 8.4-12.8 8.4-20.4s-3-15-8.4-20.4"/></svg>
+  </div>
+  <div class="md-source__repository">
+    mick-gsk/DevCD
+  </div>
+</a>
+      </div>
+    
+  </nav>
+  
+</header>
+    
+    <div class="md-container" data-md-component="container">
+      
+	
+
+      
+        
+          
+            
+<nav class="md-tabs" aria-label="Tabs" data-md-component="tabs">
+  <div class="md-grid">
+    <ul class="md-tabs__list">
+      
+        
+  
+  
+  
+  
+    <li class="md-tabs__item">
+      <a href="../.." class="md-tabs__link">
+        
+  
+  
+    
+  
+  Home
+
+      </a>
+    </li>
+  
+
+      
+        
+  
+  
+  
+  
+    <li class="md-tabs__item">
+      <a href="../../getting-started/" class="md-tabs__link">
+        
+  
+  
+    
+  
+  Getting Started
+
+      </a>
+    </li>
+  
+
+      
+        
+  
+  
+  
+  
+    <li class="md-tabs__item">
+      <a href="../../use-cases/" class="md-tabs__link">
+        
+  
+  
+    
+  
+  Use Cases
+
+      </a>
+    </li>
+  
+
+      
+        
+  
+  
+  
+    
+  
+  
+    
+    
+      <li class="md-tabs__item md-tabs__item--active">
+        <a href="../architecture/" class="md-tabs__link">
+          
+  
+  
+  Architecture
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../../decisions/ADR-001-vertical-slice-architecture/" class="md-tabs__link">
+          
+  
+  
+  Decisions
+
+        </a>
+      </li>
+    
+  
+
+      
+    </ul>
+  </div>
+</nav>
+          
+        
+      
+      <main class="md-main" data-md-component="main">
+        <div class="md-main__inner md-grid">
+          
+            
+              
+              <div class="md-sidebar md-sidebar--primary" data-md-component="sidebar" data-md-type="navigation" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+
+  
+
+
+<nav class="md-nav md-nav--primary md-nav--lifted" aria-label="Navigation" data-md-level="0">
+  <label class="md-nav__title" for="__drawer">
+    <a href="../.." title="DevCD" class="md-nav__button md-logo" aria-label="DevCD" data-md-component="logo">
+      
+  <img src="../../assets/devcd-mark.svg" alt="logo">
+
+    </a>
+    DevCD
+  </label>
+  
+    <div class="md-nav__source">
+      <a href="https://github.com/mick-gsk/DevCD" title="Go to repository" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M439.6 236.1 244 40.5c-5.4-5.5-12.8-8.5-20.4-8.5s-15 3-20.4 8.4L162.5 81l51.5 51.5c27.1-9.1 52.7 16.8 43.4 43.7l49.7 49.7c34.2-11.8 61.2 31 35.5 56.7-26.5 26.5-70.2-2.9-56-37.3L240.3 199v121.9c25.3 12.5 22.3 41.8 9.1 55-6.4 6.4-15.2 10.1-24.3 10.1s-17.8-3.6-24.3-10.1c-17.6-17.6-11.1-46.9 11.2-56v-123c-20.8-8.5-24.6-30.7-18.6-45L142.6 101 8.5 235.1C3 240.6 0 247.9 0 255.5s3 15 8.5 20.4l195.6 195.7c5.4 5.4 12.7 8.4 20.4 8.4s15-3 20.4-8.4l194.7-194.7c5.4-5.4 8.4-12.8 8.4-20.4s-3-15-8.4-20.4"/></svg>
+  </div>
+  <div class="md-source__repository">
+    mick-gsk/DevCD
+  </div>
+</a>
+    </div>
+  
+  <ul class="md-nav__list" data-md-scrollfix>
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../.." class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Home
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../getting-started/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Getting Started
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../use-cases/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Use Cases
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+    
+  
+  
+  
+    
+    
+    
+    
+      
+        
+        
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--active md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_4" checked>
+        
+          
+          <label class="md-nav__link" for="__nav_4" id="__nav_4_label" tabindex="">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Architecture
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_4_label" aria-expanded="true">
+          <label class="md-nav__title" for="__nav_4">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Architecture
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../architecture/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Overview
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../memory/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Memory Model
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../policy/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Policy Layer
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../agent-consumption/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Agent Consumption
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../agent-landscape/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Agent Landscape
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../openclaw-integration/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    OpenClaw Integration
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../openclaw-product-benchmark/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    OpenClaw Product Benchmark
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../reality-testing/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Real-World Testing Playbook
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../context-packs/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Context Packs
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../brand-system/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Brand System
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../naming-and-positioning/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Naming and Positioning
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+    
+  
+  
+  
+    <li class="md-nav__item md-nav__item--active">
+      
+      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
+      
+      
+        
+      
+      
+        <label class="md-nav__link md-nav__link--active" for="__toc">
+          
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Release Readiness
+  
+
+    
+  </span>
+  
+  
+
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
+      <a href="./" class="md-nav__link md-nav__link--active">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Release Readiness
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+      
+        
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#what-works-today" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        What Works Today
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#what-still-blocks-normal-consumption" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        What Still Blocks Normal Consumption
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#current-status" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Current Status
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#alpha-bar" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Alpha Bar
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#distribution-strategy" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Distribution Strategy
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#trust-signals-to-keep-current" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Trust Signals To Keep Current
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#known-pre-alpha-limitations" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Known Pre-Alpha Limitations
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#release-checklist" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Release Checklist
+      
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+      
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../publishing/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Publishing
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../container/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Container Sandbox
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../event-source-recipes/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Event Source Recipes
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../agent-vision/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Agent Vision
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_5" >
+        
+          
+          <label class="md-nav__link" for="__nav_5" id="__nav_5_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Decisions
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_5_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_5">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Decisions
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../decisions/ADR-001-vertical-slice-architecture/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    ADR-001 Vertical Slice Architecture
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../decisions/ADR-012-public-alpha-agent-passport-surface/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    ADR-012 Public Alpha Agent Passport Surface
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--proposed"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+  </ul>
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+            
+              
+              <div class="md-sidebar md-sidebar--secondary" data-md-component="sidebar" data-md-type="toc" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#what-works-today" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        What Works Today
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#what-still-blocks-normal-consumption" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        What Still Blocks Normal Consumption
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#current-status" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Current Status
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#alpha-bar" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Alpha Bar
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#distribution-strategy" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Distribution Strategy
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#trust-signals-to-keep-current" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Trust Signals To Keep Current
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#known-pre-alpha-limitations" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Known Pre-Alpha Limitations
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#release-checklist" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Release Checklist
+      
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+          
+          
+            <div class="md-content" data-md-component="content">
+              
+              <article class="md-content__inner md-typeset">
+                
+	
+		
+
+
+  
+    <a href="https://github.com/mick-gsk/DevCD/edit/main/docs/devcd/release-readiness.md" title="Edit this page" class="md-content__button md-icon" rel="edit">
+      
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M10 20H6V4h7v5h5v3.1l2-2V8l-6-6H6c-1.1 0-2 .9-2 2v16c0 1.1.9 2 2 2h4zm10.2-7c.1 0 .3.1.4.2l1.3 1.3c.2.2.2.6 0 .8l-1 1-2.1-2.1 1-1c.1-.1.2-.2.4-.2m0 3.9L14.1 23H12v-2.1l6.1-6.1z"/></svg>
+    </a>
+  
+  
+
+
+<h1 id="release-readiness">Release Readiness<a class="headerlink" href="#release-readiness" title="Permanent link">&para;</a></h1>
+<p>DevCD is pre-alpha. This page makes the current maturity level visible so users
+can evaluate the project without guessing from repository shape alone.</p>
+<p>The release goal for the first public alpha is not to look production-sized. It
+is to make the first continuity proof installable, inspectable, policy-safe, and
+easy to share.</p>
+<p>The first public proof is not “the whole platform works.” The first public proof
+is narrower and more important: a fresh agent can read a useful Action Packet in
+minutes, without remote services or recap-heavy setup.</p>
+<h2 id="what-works-today">What Works Today<a class="headerlink" href="#what-works-today" title="Permanent link">&para;</a></h2>
+<ul>
+<li>Checkout install from this repository works.</li>
+<li><code>devcd onboard</code> prepares a local workspace without starting the daemon.</li>
+<li><code>devcd handoff</code> and <code>devcd capture</code> can seed metadata-only continuity.</li>
+<li><code>devcd agentic action-packet</code> gives the next agent a first handoff surface.</li>
+<li><code>devcd quickstart</code> and <code>devcd context passport</code> provide the broader follow-up view.</li>
+<li><code>devcd smoke</code>, <code>make check</code>, and <code>make distribution</code> provide local verification paths.</li>
+</ul>
+<h2 id="what-still-blocks-normal-consumption">What Still Blocks Normal Consumption<a class="headerlink" href="#what-still-blocks-normal-consumption" title="Permanent link">&para;</a></h2>
+<ul>
+<li>PyPI ownership and Trusted Publishing still need maintainer setup outside the repo.</li>
+<li>No public package release exists yet, so README and docs must not over-claim <code>pip install devcd</code>.</li>
+<li>Secondary channels such as Homebrew and a public container registry are still follow-on work, not the alpha blocker.</li>
+</ul>
+<h2 id="current-status">Current Status<a class="headerlink" href="#current-status" title="Permanent link">&para;</a></h2>
+<table>
+<thead>
+<tr>
+<th>Area</th>
+<th>Status</th>
+<th>Notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Package metadata</td>
+<td>Present</td>
+<td><code>pyproject.toml</code> defines the <code>devcd</code> package and CLI entry point.</td>
+</tr>
+<tr>
+<td>Typed package marker</td>
+<td>Present</td>
+<td>The wheel includes <code>devcd/py.typed</code> to match the typed classifier.</td>
+</tr>
+<tr>
+<td>Distribution check</td>
+<td>Present</td>
+<td><code>make distribution</code> builds, checks metadata, verifies wheel contents, and smoke-tests the installed CLI.</td>
+</tr>
+<tr>
+<td>PyPI publishing</td>
+<td>Published</td>
+<td><code>devcd 0.2.0</code> is the current release line for PyPI publication via OIDC Trusted Publishing.</td>
+</tr>
+<tr>
+<td>Container sandbox</td>
+<td>Present</td>
+<td>Dockerfile and CI container workflow build and smoke-test an isolated local sandbox image.</td>
+</tr>
+<tr>
+<td>Public package release</td>
+<td>Published</td>
+<td><code>pip install devcd</code>, <code>pipx install devcd</code>, and <code>uvx devcd</code> all work.</td>
+</tr>
+<tr>
+<td>Local install path</td>
+<td>Present</td>
+<td>Checkout install from source is documented today.</td>
+</tr>
+<tr>
+<td>Local-first defaults</td>
+<td>Present</td>
+<td>Loopback, local storage, deny actions, and no remote export are the default posture.</td>
+</tr>
+<tr>
+<td>Core continuity demo</td>
+<td>Present</td>
+<td>Action Packet and continuity fixtures are documented.</td>
+</tr>
+<tr>
+<td>Extension surface</td>
+<td>Present</td>
+<td>Context Packs and event recipes provide the current metadata-only extension path.</td>
+</tr>
+<tr>
+<td>Agent-ready setup</td>
+<td>Present</td>
+<td><code>devcd onboard</code> prepares local config, selected workspace instruction files, and the Action Packet workflow without external config mutation.</td>
+</tr>
+<tr>
+<td>MCP integration</td>
+<td>Present</td>
+<td>Read-only local MCP resources and smoke-test commands are documented.</td>
+</tr>
+<tr>
+<td>OpenClaw integration</td>
+<td>Present</td>
+<td>Local DevCD MCP shape and snippet are verified; full OpenClaw gateway E2E remains explicitly unclaimed.</td>
+</tr>
+<tr>
+<td>Security policy</td>
+<td>Present</td>
+<td>Security defaults, data classes, and threat model are documented.</td>
+</tr>
+<tr>
+<td>Changelog discipline</td>
+<td>Present</td>
+<td><code>CHANGELOG.md</code> tracks the current <code>0.2.0</code> release line.</td>
+</tr>
+<tr>
+<td>Hosted deployment</td>
+<td>Not planned for alpha</td>
+<td>DevCD handles local developer context; cloud deployment is not the primary trust model.</td>
+</tr>
+</tbody>
+</table>
+<h2 id="alpha-bar">Alpha Bar<a class="headerlink" href="#alpha-bar" title="Permanent link">&para;</a></h2>
+<p>The first public alpha should be considered ready when all of these are true:</p>
+<ul>
+<li><code>pip install devcd</code> works from PyPI.</li>
+<li><code>pipx install devcd</code> works for CLI-first users.</li>
+<li><code>uvx devcd --help</code> or equivalent uv guidance is documented if supported.</li>
+<li><code>devcd onboard</code> gives a useful first-run path without requiring a running daemon.</li>
+<li><code>devcd handoff</code> or equivalent metadata capture gives the next agent a useful
+  warm-start packet without raw recap text.</li>
+<li><code>devcd init</code> creates local configuration without surprising side effects.</li>
+<li><code>devcd smoke</code> validates the installed CLI without requiring a running daemon.</li>
+<li><code>devcd quickstart</code> gives a useful local-first activation report.</li>
+<li><code>devcd agentic action-packet</code> renders a useful first handoff from the
+  configured local ledger.</li>
+<li><code>devcd context passport</code> renders the broader continuity view from the
+  configured local ledger.</li>
+<li><code>devcd integrations openclaw --smoke-test</code> verifies the read-only MCP shape
+  without installing or mutating OpenClaw.</li>
+<li><code>make check</code> passes on the release commit.</li>
+<li><code>make distribution</code> passes on the release commit.</li>
+<li><code>mkdocs build --strict</code> passes on the release commit.</li>
+<li><code>SECURITY.md</code> documents the current data classes, defaults, and reporting path.</li>
+<li><code>CHANGELOG.md</code> has a dated release section with user-visible changes.</li>
+<li>Known limitations are documented rather than hidden.</li>
+</ul>
+<h2 id="distribution-strategy">Distribution Strategy<a class="headerlink" href="#distribution-strategy" title="Permanent link">&para;</a></h2>
+<p>DevCD should optimize for local installation before hosted deployment.</p>
+<p>Recommended order:</p>
+<ol>
+<li>PyPI package release for <code>pip install devcd</code>.</li>
+<li>pipx guidance for isolated CLI installs.</li>
+<li>uv guidance for fast one-shot local trials.</li>
+<li>GitHub Releases with changelog, source archive, and verification notes.</li>
+<li>Homebrew tap only after the CLI surface stabilizes.</li>
+<li>Docker as a demo or sandbox path, not as the primary user path.</li>
+</ol>
+<p>Fly.io, Render, or other hosted deployment artifacts are not the first alpha
+priority because DevCD's product boundary is local developer context. The
+container image is framed as a local sandbox and CI smoke-test surface, not as
+the default operating mode.</p>
+<h2 id="trust-signals-to-keep-current">Trust Signals To Keep Current<a class="headerlink" href="#trust-signals-to-keep-current" title="Permanent link">&para;</a></h2>
+<ul>
+<li>README first viewport: one clear value proposition and one short proof path.</li>
+<li>Getting started: one dominant first-run path ending at Action Packet.</li>
+<li><code>SECURITY.md</code>: concrete defaults, data classes, threat model, and reporting.</li>
+<li><code>CHANGELOG.md</code>: dated releases once public releases begin.</li>
+<li>CI badge: green on the default branch.</li>
+<li>Documentation site: strict MkDocs build passes.</li>
+<li>Examples: checked-in fixture outputs match current schemas.</li>
+<li>Extension docs: Context Packs and recipes stay metadata-only and policy-gated.</li>
+<li>Policy docs: every state-changing operation remains policy-explainable.</li>
+</ul>
+<h2 id="known-pre-alpha-limitations">Known Pre-Alpha Limitations<a class="headerlink" href="#known-pre-alpha-limitations" title="Permanent link">&para;</a></h2>
+<ul>
+<li>No public PyPI release yet; the publish workflow requires PyPI Trusted Publishing setup first.</li>
+<li>No stable versioned API guarantee yet.</li>
+<li>No VS Code extension or native IDE event source yet.</li>
+<li>No Homebrew tap.</li>
+<li>No production support window.</li>
+<li>No remote sync or remote export by default.</li>
+<li>No write-capable MCP tools.</li>
+<li>No hosted deployment story by design for the first alpha.</li>
+</ul>
+<p>These are maturity constraints, not contradictions to the core proof. The local
+warm-start workflow is already the thing being validated.</p>
+<h2 id="release-checklist">Release Checklist<a class="headerlink" href="#release-checklist" title="Permanent link">&para;</a></h2>
+<p>Before cutting a public alpha release:</p>
+<p><code>bash
+make check
+python -m mkdocs build --strict --site-dir "$TEMP/devcd-mkdocs-check"
+make distribution</code></p>
+<p>After publication, prove the public install path in a clean environment with:</p>
+<p><code>bash
+pip install devcd
+devcd smoke</code></p>
+<p>On PowerShell, replace the MkDocs site directory with a valid temporary path,
+for example:</p>
+<p><code>powershell
+python -m mkdocs build --strict --site-dir "$env:TEMP\devcd-mkdocs-check"</code></p>
+<p>The build artifacts should be inspected before upload. Do not publish a package
+that claims support for install paths that have not been verified locally.</p>
+
+
+
+
+
+
+
+
+
+
+
+
+	
+
+              </article>
+            </div>
+          
+          
+<script>var target=document.getElementById(location.hash.slice(1));target&&target.name&&(target.checked=target.name.startsWith("__tabbed_"))</script>
+        </div>
+        
+          <button type="button" class="md-top md-icon" data-md-component="top" hidden>
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M13 20h-2V8l-5.5 5.5-1.42-1.42L12 4.16l7.92 7.92-1.42 1.42L13 8z"/></svg>
+  Back to top
+</button>
+        
+      </main>
+      
+        <footer class="md-footer">
+  
+  <div class="md-footer-meta md-typeset">
+    <div class="md-footer-meta__inner md-grid">
+      <div class="md-copyright">
+  
+  
+    Made with
+    <a href="https://squidfunk.github.io/mkdocs-material/" target="_blank" rel="noopener">
+      Material for MkDocs
+    </a>
+  
+</div>
+      
+    </div>
+  </div>
+</footer>
+      
+    </div>
+    <div class="md-dialog" data-md-component="dialog">
+      <div class="md-dialog__inner md-typeset"></div>
+    </div>
+    
+    
+    
+      
+      
+      <script id="__config" type="application/json">{"annotate": null, "base": "../..", "features": ["navigation.tabs", "navigation.sections", "navigation.top", "content.code.copy", "content.action.edit"], "search": "../../assets/javascripts/workers/search.2c215733.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": null}</script>
+    
+    
+      <script src="../../assets/javascripts/bundle.79ae519e.min.js"></script>
+      
+    
+  </body>
+</html>

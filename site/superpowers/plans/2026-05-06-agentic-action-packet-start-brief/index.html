@@ -1,0 +1,1426 @@
+
+<!doctype html>
+<html lang="en" class="no-js">
+  <head>
+    
+      <meta charset="utf-8">
+      <meta name="viewport" content="width=device-width,initial-scale=1">
+      
+        <meta name="description" content="Local-first context layer that warm-starts every AI agent session with a policy-filtered Action Packet — no recap requests, no context loss.">
+      
+      
+      
+        <link rel="canonical" href="https://mick-gsk.github.io/DevCD/superpowers/plans/2026-05-06-agentic-action-packet-start-brief/">
+      
+      
+      
+      
+        
+      
+      
+      <link rel="icon" href="../../../assets/devcd-mark.svg">
+      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.7.1">
+    
+    
+      
+        <title>Agentic Action Packet Start Brief Implementation Plan - DevCD</title>
+      
+    
+    
+
+      <link rel="stylesheet" href="../../../assets/stylesheets/main.484c7ddc.min.css">
+      
+        
+        <link rel="stylesheet" href="../../../assets/stylesheets/palette.ab4e12ef.min.css">
+      
+      
+
+
+    
+<link rel="stylesheet" href="../../../assets/brand.css">
+
+    
+      
+    
+    
+      
+        
+        
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+        <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Roboto:300,300i,400,400i,700,700i%7CRoboto+Mono:400,400i,700,700i&display=fallback">
+        <style>:root{--md-text-font:"Roboto";--md-code-font:"Roboto Mono"}</style>
+      
+    
+    
+      <link rel="stylesheet" href="../../../assets/devcd-brand-tokens.css">
+    
+      <link rel="stylesheet" href="../../../assets/brand.css">
+    
+    <script>__md_scope=new URL("../../..",location),__md_hash=e=>[...e].reduce(((e,_)=>(e<<5)-e+_.charCodeAt(0)),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
+    
+      
+
+    
+    
+  </head>
+  
+  
+    
+    
+      
+    
+    
+    
+    
+    <body dir="ltr" data-md-color-scheme="default" data-md-color-primary="custom" data-md-color-accent="custom">
+  
+    
+    <input class="md-toggle" data-md-toggle="drawer" type="checkbox" id="__drawer" autocomplete="off">
+    <input class="md-toggle" data-md-toggle="search" type="checkbox" id="__search" autocomplete="off">
+    <label class="md-overlay" for="__drawer"></label>
+    <div data-md-component="skip">
+      
+        
+        <a href="#agentic-action-packet-start-brief-implementation-plan" class="md-skip">
+          Skip to content
+        </a>
+      
+    </div>
+    <div data-md-component="announce">
+      
+    </div>
+    
+    
+      
+
+<header class="md-header" data-md-component="header">
+  <nav class="md-header__inner md-grid" aria-label="Header">
+    <a href="../../.." title="DevCD" class="md-header__button md-logo" aria-label="DevCD" data-md-component="logo">
+      
+  <img src="../../../assets/devcd-mark.svg" alt="logo">
+
+    </a>
+    <label class="md-header__button md-icon" for="__drawer">
+      
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M3 6h18v2H3zm0 5h18v2H3zm0 5h18v2H3z"/></svg>
+    </label>
+    <div class="md-header__title" data-md-component="header-title">
+      <div class="md-header__ellipsis">
+        <div class="md-header__topic">
+          <span class="md-ellipsis">
+            DevCD
+          </span>
+        </div>
+        <div class="md-header__topic" data-md-component="header-topic">
+          <span class="md-ellipsis">
+            
+              Agentic Action Packet Start Brief Implementation Plan
+            
+          </span>
+        </div>
+      </div>
+    </div>
+    
+      
+        <form class="md-header__option" data-md-component="palette">
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="(prefers-color-scheme: light)" data-md-color-scheme="default" data-md-color-primary="custom" data-md-color-accent="custom"  aria-label="Switch to dark mode"  type="radio" name="__palette" id="__palette_0">
+    
+      <label class="md-header__button md-icon" title="Switch to dark mode" for="__palette_1" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a4 4 0 0 0-4 4 4 4 0 0 0 4 4 4 4 0 0 0 4-4 4 4 0 0 0-4-4m0 10a6 6 0 0 1-6-6 6 6 0 0 1 6-6 6 6 0 0 1 6 6 6 6 0 0 1-6 6m8-9.31V4h-4.69L12 .69 8.69 4H4v4.69L.69 12 4 15.31V20h4.69L12 23.31 15.31 20H20v-4.69L23.31 12z"/></svg>
+      </label>
+    
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="(prefers-color-scheme: dark)" data-md-color-scheme="slate" data-md-color-primary="custom" data-md-color-accent="custom"  aria-label="Switch to light mode"  type="radio" name="__palette" id="__palette_1">
+    
+      <label class="md-header__button md-icon" title="Switch to light mode" for="__palette_0" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 18c-.89 0-1.74-.2-2.5-.55C11.56 16.5 13 14.42 13 12s-1.44-4.5-3.5-5.45C10.26 6.2 11.11 6 12 6a6 6 0 0 1 6 6 6 6 0 0 1-6 6m8-9.31V4h-4.69L12 .69 8.69 4H4v4.69L.69 12 4 15.31V20h4.69L12 23.31 15.31 20H20v-4.69L23.31 12z"/></svg>
+      </label>
+    
+  
+</form>
+      
+    
+    
+      <script>var palette=__md_get("__palette");if(palette&&palette.color){if("(prefers-color-scheme)"===palette.color.media){var media=matchMedia("(prefers-color-scheme: light)"),input=document.querySelector(media.matches?"[data-md-color-media='(prefers-color-scheme: light)']":"[data-md-color-media='(prefers-color-scheme: dark)']");palette.color.media=input.getAttribute("data-md-color-media"),palette.color.scheme=input.getAttribute("data-md-color-scheme"),palette.color.primary=input.getAttribute("data-md-color-primary"),palette.color.accent=input.getAttribute("data-md-color-accent")}for(var[key,value]of Object.entries(palette.color))document.body.setAttribute("data-md-color-"+key,value)}</script>
+    
+    
+    
+      
+      
+        <label class="md-header__button md-icon" for="__search">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        </label>
+        <div class="md-search" data-md-component="search" role="dialog">
+  <label class="md-search__overlay" for="__search"></label>
+  <div class="md-search__inner" role="search">
+    <form class="md-search__form" name="search">
+      <input type="text" class="md-search__input" name="query" aria-label="Search" placeholder="Search" autocapitalize="off" autocorrect="off" autocomplete="off" spellcheck="false" data-md-component="search-query" required>
+      <label class="md-search__icon md-icon" for="__search">
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11z"/></svg>
+      </label>
+      <nav class="md-search__options" aria-label="Search">
+        
+        <button type="reset" class="md-search__icon md-icon" title="Clear" aria-label="Clear" tabindex="-1">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M19 6.41 17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
+        </button>
+      </nav>
+      
+    </form>
+    <div class="md-search__output">
+      <div class="md-search__scrollwrap" tabindex="0" data-md-scrollfix>
+        <div class="md-search-result" data-md-component="search-result">
+          <div class="md-search-result__meta">
+            Initializing search
+          </div>
+          <ol class="md-search-result__list" role="presentation"></ol>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+      
+    
+    
+      <div class="md-header__source">
+        <a href="https://github.com/mick-gsk/DevCD" title="Go to repository" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M439.6 236.1 244 40.5c-5.4-5.5-12.8-8.5-20.4-8.5s-15 3-20.4 8.4L162.5 81l51.5 51.5c27.1-9.1 52.7 16.8 43.4 43.7l49.7 49.7c34.2-11.8 61.2 31 35.5 56.7-26.5 26.5-70.2-2.9-56-37.3L240.3 199v121.9c25.3 12.5 22.3 41.8 9.1 55-6.4 6.4-15.2 10.1-24.3 10.1s-17.8-3.6-24.3-10.1c-17.6-17.6-11.1-46.9 11.2-56v-123c-20.8-8.5-24.6-30.7-18.6-45L142.6 101 8.5 235.1C3 240.6 0 247.9 0 255.5s3 15 8.5 20.4l195.6 195.7c5.4 5.4 12.7 8.4 20.4 8.4s15-3 20.4-8.4l194.7-194.7c5.4-5.4 8.4-12.8 8.4-20.4s-3-15-8.4-20.4"/></svg>
+  </div>
+  <div class="md-source__repository">
+    mick-gsk/DevCD
+  </div>
+</a>
+      </div>
+    
+  </nav>
+  
+</header>
+    
+    <div class="md-container" data-md-component="container">
+      
+	
+
+      
+        
+          
+            
+<nav class="md-tabs" aria-label="Tabs" data-md-component="tabs">
+  <div class="md-grid">
+    <ul class="md-tabs__list">
+      
+        
+  
+  
+  
+  
+    <li class="md-tabs__item">
+      <a href="../../.." class="md-tabs__link">
+        
+  
+  
+    
+  
+  Home
+
+      </a>
+    </li>
+  
+
+      
+        
+  
+  
+  
+  
+    <li class="md-tabs__item">
+      <a href="../../../getting-started/" class="md-tabs__link">
+        
+  
+  
+    
+  
+  Getting Started
+
+      </a>
+    </li>
+  
+
+      
+        
+  
+  
+  
+  
+    <li class="md-tabs__item">
+      <a href="../../../use-cases/" class="md-tabs__link">
+        
+  
+  
+    
+  
+  Use Cases
+
+      </a>
+    </li>
+  
+
+      
+        
+  
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../../../devcd/architecture/" class="md-tabs__link">
+          
+  
+  
+  Architecture
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../../../decisions/ADR-001-vertical-slice-architecture/" class="md-tabs__link">
+          
+  
+  
+  Decisions
+
+        </a>
+      </li>
+    
+  
+
+      
+    </ul>
+  </div>
+</nav>
+          
+        
+      
+      <main class="md-main" data-md-component="main">
+        <div class="md-main__inner md-grid">
+          
+            
+              
+              <div class="md-sidebar md-sidebar--primary" data-md-component="sidebar" data-md-type="navigation" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+
+  
+
+
+<nav class="md-nav md-nav--primary md-nav--lifted" aria-label="Navigation" data-md-level="0">
+  <label class="md-nav__title" for="__drawer">
+    <a href="../../.." title="DevCD" class="md-nav__button md-logo" aria-label="DevCD" data-md-component="logo">
+      
+  <img src="../../../assets/devcd-mark.svg" alt="logo">
+
+    </a>
+    DevCD
+  </label>
+  
+    <div class="md-nav__source">
+      <a href="https://github.com/mick-gsk/DevCD" title="Go to repository" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M439.6 236.1 244 40.5c-5.4-5.5-12.8-8.5-20.4-8.5s-15 3-20.4 8.4L162.5 81l51.5 51.5c27.1-9.1 52.7 16.8 43.4 43.7l49.7 49.7c34.2-11.8 61.2 31 35.5 56.7-26.5 26.5-70.2-2.9-56-37.3L240.3 199v121.9c25.3 12.5 22.3 41.8 9.1 55-6.4 6.4-15.2 10.1-24.3 10.1s-17.8-3.6-24.3-10.1c-17.6-17.6-11.1-46.9 11.2-56v-123c-20.8-8.5-24.6-30.7-18.6-45L142.6 101 8.5 235.1C3 240.6 0 247.9 0 255.5s3 15 8.5 20.4l195.6 195.7c5.4 5.4 12.7 8.4 20.4 8.4s15-3 20.4-8.4l194.7-194.7c5.4-5.4 8.4-12.8 8.4-20.4s-3-15-8.4-20.4"/></svg>
+  </div>
+  <div class="md-source__repository">
+    mick-gsk/DevCD
+  </div>
+</a>
+    </div>
+  
+  <ul class="md-nav__list" data-md-scrollfix>
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../.." class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Home
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../getting-started/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Getting Started
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../use-cases/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Use Cases
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_4" >
+        
+          
+          <label class="md-nav__link" for="__nav_4" id="__nav_4_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Architecture
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_4_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_4">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Architecture
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../devcd/architecture/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Overview
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../devcd/memory/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Memory Model
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../devcd/policy/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Policy Layer
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../devcd/agent-consumption/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Agent Consumption
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../devcd/agent-landscape/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Agent Landscape
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../devcd/openclaw-integration/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    OpenClaw Integration
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../devcd/openclaw-product-benchmark/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    OpenClaw Product Benchmark
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../devcd/reality-testing/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Real-World Testing Playbook
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../devcd/context-packs/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Context Packs
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../devcd/brand-system/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Brand System
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../devcd/naming-and-positioning/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Naming and Positioning
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../devcd/release-readiness/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Release Readiness
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../devcd/publishing/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Publishing
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../devcd/container/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Container Sandbox
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../devcd/event-source-recipes/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Event Source Recipes
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../devcd/agent-vision/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Agent Vision
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_5" >
+        
+          
+          <label class="md-nav__link" for="__nav_5" id="__nav_5_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Decisions
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_5_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_5">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Decisions
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../decisions/ADR-001-vertical-slice-architecture/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    ADR-001 Vertical Slice Architecture
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../decisions/ADR-012-public-alpha-agent-passport-surface/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    ADR-012 Public Alpha Agent Passport Surface
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--proposed"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+  </ul>
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+            
+              
+              <div class="md-sidebar md-sidebar--secondary" data-md-component="sidebar" data-md-type="toc" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#task-1-human-readable-agent-start-brief" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Task 1: Human-Readable Agent Start Brief
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#task-2-first-class-resume-signals-in-actionpacket" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Task 2: First-Class Resume Signals In ActionPacket
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#task-3-apimcp-contract-and-golden-path-demo" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Task 3: API/MCP Contract And Golden Path Demo
+      
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+          
+          
+            <div class="md-content" data-md-component="content">
+              
+              <article class="md-content__inner md-typeset">
+                
+	
+		
+
+
+  
+    <a href="https://github.com/mick-gsk/DevCD/edit/main/docs/superpowers/plans/2026-05-06-agentic-action-packet-start-brief.md" title="Edit this page" class="md-content__button md-icon" rel="edit">
+      
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M10 20H6V4h7v5h5v3.1l2-2V8l-6-6H6c-1.1 0-2 .9-2 2v16c0 1.1.9 2 2 2h4zm10.2-7c.1 0 .3.1.4.2l1.3 1.3c.2.2.2.6 0 .8l-1 1-2.1-2.1 1-1c.1-.1.2-.2.4-.2m0 3.9L14.1 23H12v-2.1l6.1-6.1z"/></svg>
+    </a>
+  
+  
+
+
+<h1 id="agentic-action-packet-start-brief-implementation-plan">Agentic Action Packet Start Brief Implementation Plan<a class="headerlink" href="#agentic-action-packet-start-brief-implementation-plan" title="Permanent link">&para;</a></h1>
+<blockquote>
+<p><strong>For agentic workers:</strong> Use subagent-driven-development to implement this plan task-by-task.
+Steps use checkbox (<code>- [ ]</code>) syntax for tracking.</p>
+</blockquote>
+<p><strong>Goal:</strong> Make <code>devcd agentic action-packet</code> useful as a direct start brief for the next coding agent, without adding new trust boundaries or changing MCP behavior.</p>
+<p><strong>Architecture:</strong> Keep the existing <code>agentic_context</code> slice and derive the Action Packet from the policy-filtered Continuity Packet. Task 1 improves the human-readable CLI rendering; Task 2 extends the <code>ActionPacket</code> contract with first-class blockers, <code>do_not_repeat</code>, and policy-safe withheld-context summaries for CLI, API, and MCP consumers.</p>
+<p><strong>Tech Stack:</strong> Python 3.11+, Pydantic v2, FastAPI, pytest + pytest-asyncio</p>
+<hr />
+<h3 id="task-1-human-readable-agent-start-brief">Task 1: Human-Readable Agent Start Brief<a class="headerlink" href="#task-1-human-readable-agent-start-brief" title="Permanent link">&para;</a></h3>
+<p><strong>Files:</strong>
+- Modify: <code>tests/test_cli.py</code>
+- Modify: <code>packages/devcd-core/src/devcd/cli.py</code></p>
+<ul>
+<li>[x] <strong>Step 1: Write the failing test</strong></li>
+</ul>
+<p>Add a test near the existing <code>agentic action-packet</code> CLI tests:</p>
+<pre><code>
+def test_agentic_action_packet_human_output_is_agent_start_brief(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.chdir(tmp_path)
+    runtime_dir = tmp_path / "runtime"
+    runtime_dir.mkdir()
+    config_path = tmp_path / "devcd.toml"
+    config_path.write_text(
+        '[devcd]\nruntime_dir = "runtime"\nworking_memory_ttl_seconds = 315360000\n',
+        encoding="utf-8",
+    )
+    (runtime_dir / "events.jsonl").write_text(
+        "\n".join(
+            [
+                live_ledger_record(
+                    source="task",
+                    event_type="goal_update",
+                    timestamp="2026-05-05T10:00:00Z",
+                    payload={"current_goal": "Resume the release gate fix"},
+                ),
+                live_ledger_record(
+                    source="task",
+                    event_type="test_failure",
+                    timestamp="2026-05-05T10:02:00Z",
+                    payload={
+                        "reason": "make check failed on policy assertions",
+                        "suggested_next_action": "Inspect the policy assertion before editing",
+                    },
+                ),
+            ]
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+    runner = CliRunner()
+
+    result = runner.invoke(app, ["agentic", "action-packet", "--config", str(config_path)])
+
+    assert result.exit_code == 0
+    assert "# DevCD Action Packet" in result.output
+    assert "## Start Brief" in result.output
+    assert "- ready_for_agent: true" in result.output
+    assert "- recommended_agent_mode: debugging" in result.output
+    assert "Resume the release gate fix" in result.output
+    assert "Inspect the policy assertion before editing" in result.output
+    assert "## Evidence" in result.output
+    assert "make check failed on policy assertions" in result.output
+    assert "## Policy" in result.output
+</code></pre>
+
+<ul>
+<li>[x] <strong>Step 2: Run test to verify it fails</strong></li>
+</ul>
+<p>Run: <code>pytest tests/test_cli.py::test_agentic_action_packet_human_output_is_agent_start_brief -v</code></p>
+<p>Expected: FAIL because the existing command prints only the short <code>Action Packet</code> three-line format and lacks the Markdown sections.</p>
+<ul>
+<li>[x] <strong>Step 3: Write minimal implementation</strong></li>
+</ul>
+<p>Add a helper to <code>packages/devcd-core/src/devcd/cli.py</code>:</p>
+<pre><code>
+def _render_action_packet(packet: ActionPacket) -> str:
+    lines = [
+        "# DevCD Action Packet",
+        "",
+        "## Start Brief",
+        f"- ready_for_agent: {str(packet.ready_for_agent).lower()}",
+        f"- recommended_agent_mode: {packet.recommended_agent_mode}",
+        f"- current_goal: {packet.current_goal or 'unknown'}",
+        f"- next_action: {packet.next_action or 'Use Scout Tasks to gather context.'}",
+        "",
+        "## Evidence",
+    ]
+    if packet.evidence:
+        for evidence in packet.evidence:
+            lines.append(f"- {evidence.source}: {evidence.summary}")
+    else:
+        lines.append("- No policy-visible evidence is available yet.")
+    lines.extend(["", "## Policy"])
+    lines.append(f"- {packet.policy_summary or 'No policy summary was attached.'}")
+    return "\n".join(lines)
+</code></pre>
+
+<p>Then replace the manual <code>typer.echo()</code> lines in <code>agentic_action_packet()</code> with <code>typer.echo(_render_action_packet(packet))</code> for non-JSON output.</p>
+<ul>
+<li>[x] <strong>Step 4: Run the focused test</strong></li>
+</ul>
+<p>Run: <code>pytest tests/test_cli.py::test_agentic_action_packet_human_output_is_agent_start_brief -v</code></p>
+<p>Expected: PASS.</p>
+<ul>
+<li>[x] <strong>Step 5: Run focused neighboring tests</strong></li>
+</ul>
+<p>Run: <code>pytest tests/test_cli.py::test_agentic_action_packet_json_returns_ready_field tests/test_cli.py::test_agentic_tasks_json_returns_scout_tasks -v</code></p>
+<p>Expected: PASS; JSON output remains unchanged.</p>
+<ul>
+<li>[x] <strong>Step 6: Run full validation</strong></li>
+</ul>
+<p>Run: <code>make check</code></p>
+<p>Expected: Ruff, mypy, and pytest pass.</p>
+<h3 id="task-2-first-class-resume-signals-in-actionpacket">Task 2: First-Class Resume Signals In ActionPacket<a class="headerlink" href="#task-2-first-class-resume-signals-in-actionpacket" title="Permanent link">&para;</a></h3>
+<p><strong>Files:</strong>
+- Modify: <code>docs/decisions/ADR-011-local-agentic-context-runner.md</code>
+- Modify: <code>tests/test_agentic_context.py</code>
+- Modify: <code>tests/test_cli.py</code>
+- Modify: <code>packages/devcd-core/src/devcd/slices/agentic_context/models.py</code>
+- Modify: <code>packages/devcd-core/src/devcd/slices/agentic_context/service.py</code>
+- Modify: <code>packages/devcd-core/src/devcd/cli.py</code></p>
+<ul>
+<li>[x] <strong>Step 1: Update ADR-011</strong></li>
+</ul>
+<p>Record that Action Packets carry current goal, next action, recommended mode,
+evidence, blockers, <code>do_not_repeat</code>, policy-safe withheld-context summaries, and
+policy summary. Keep raw withheld payloads out of scope.</p>
+<ul>
+<li>[x] <strong>Step 2: Write failing model/service tests</strong></li>
+</ul>
+<p>Add tests that expect <code>ActionPacket</code> JSON to include <code>blockers</code>,
+<code>do_not_repeat</code>, and <code>withheld_context</code>, and that <code>AgenticContextService</code> maps
+these values from the policy-filtered Continuity Packet.</p>
+<ul>
+<li>[x] <strong>Step 3: Write failing CLI test assertion</strong></li>
+</ul>
+<p>Extend the human-readable CLI test to expect <code>## Blockers</code>, <code>## Do Not Repeat</code>,
+and <code>## Withheld Context</code> sections.</p>
+<ul>
+<li>[x] <strong>Step 4: Run failing tests</strong></li>
+</ul>
+<p>Run: <code>pytest tests/test_agentic_context.py::test_service_maps_resume_signals_into_action_packet tests/test_cli.py::test_agentic_action_packet_human_output_is_agent_start_brief -v</code></p>
+<p>Expected: FAIL because the model and renderer do not expose the new sections yet.</p>
+<ul>
+<li>[x] <strong>Step 5: Implement model and mapping</strong></li>
+</ul>
+<p>Add slice-owned safe summary models to <code>agentic_context/models.py</code>, then map
+<code>ContinuityPacket.blockers</code>, <code>ContinuityPacket.do_not_repeat</code>, and
+<code>ContinuityPacket.withheld_context</code> in <code>AgenticContextService.create_action_packet()</code>.</p>
+<ul>
+<li>[x] <strong>Step 6: Extend CLI renderer</strong></li>
+</ul>
+<p>Render the new fields as Markdown sections for shell-capable agents while
+keeping <code>--json</code> output machine-readable through the model dump.</p>
+<ul>
+<li>[x] <strong>Step 7: Run focused and full validation</strong></li>
+</ul>
+<p>Run focused tests, then <code>make check</code>.</p>
+<h3 id="task-3-apimcp-contract-and-golden-path-demo">Task 3: API/MCP Contract And Golden Path Demo<a class="headerlink" href="#task-3-apimcp-contract-and-golden-path-demo" title="Permanent link">&para;</a></h3>
+<p><strong>Files:</strong>
+- Modify: <code>tests/test_api.py</code>
+- Modify: <code>tests/test_mcp_server.py</code>
+- Modify: <code>tests/test_cli.py</code>
+- Modify: <code>packages/devcd-core/src/devcd/cli.py</code>
+- Add: <code>examples/agentic-action-packet/sample-events.jsonl</code>
+- Add: <code>examples/agentic-action-packet/action-packet.md</code>
+- Add: <code>examples/agentic-action-packet/README.md</code>
+- Add: <code>docs/devcd/agent-landscape.md</code>
+- Modify: <code>docs/devcd/agent-consumption.md</code>
+- Modify: <code>docs/getting-started.md</code>
+- Modify: <code>mkdocs.yml</code></p>
+<ul>
+<li>[x] <strong>Step 1: Tighten API and MCP tests</strong></li>
+</ul>
+<p>Assert that <code>/agentic-context/action-packet</code> and <code>devcd://context/action-packet</code>
+include <code>blockers</code>, <code>do_not_repeat</code>, and <code>withheld_context</code>, and that sensitive
+payload text is absent from the exported contract.</p>
+<ul>
+<li>[x] <strong>Step 2: Write failing demo CLI tests</strong></li>
+</ul>
+<p>Add tests for <code>devcd agentic action-packet-demo --events &lt;jsonl&gt;</code> in Markdown
+and JSON modes. The tests use a checked-in JSONL fixture and assert a safe,
+daemonless Action Packet.</p>
+<ul>
+<li>[x] <strong>Step 3: Implement daemonless demo command</strong></li>
+</ul>
+<p>Build an in-memory demo <code>AgenticContextService</code>, replay raw <code>DevEvent</code> JSONL,
+and render the same Action Packet contract as the live command without reading
+the real ledger, starting a daemon, or mutating the workspace.</p>
+<ul>
+<li>[x] <strong>Step 4: Add golden path fixture and docs</strong></li>
+</ul>
+<p>Check in a small fixture where a previous agent lost context after a failing
+attempt. Document the expected Markdown output and the product decision from
+current agent landscape research: DevCD should be the runtime-neutral continuity
+layer, not another executor.</p>
+<ul>
+<li>[x] <strong>Step 5: Run focused and full validation</strong></li>
+</ul>
+<p>Run changed focused tests, then <code>make check</code>.</p>
+
+
+
+
+
+
+
+
+
+
+
+
+	
+
+              </article>
+            </div>
+          
+          
+<script>var target=document.getElementById(location.hash.slice(1));target&&target.name&&(target.checked=target.name.startsWith("__tabbed_"))</script>
+        </div>
+        
+          <button type="button" class="md-top md-icon" data-md-component="top" hidden>
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M13 20h-2V8l-5.5 5.5-1.42-1.42L12 4.16l7.92 7.92-1.42 1.42L13 8z"/></svg>
+  Back to top
+</button>
+        
+      </main>
+      
+        <footer class="md-footer">
+  
+  <div class="md-footer-meta md-typeset">
+    <div class="md-footer-meta__inner md-grid">
+      <div class="md-copyright">
+  
+  
+    Made with
+    <a href="https://squidfunk.github.io/mkdocs-material/" target="_blank" rel="noopener">
+      Material for MkDocs
+    </a>
+  
+</div>
+      
+    </div>
+  </div>
+</footer>
+      
+    </div>
+    <div class="md-dialog" data-md-component="dialog">
+      <div class="md-dialog__inner md-typeset"></div>
+    </div>
+    
+    
+    
+      
+      
+      <script id="__config" type="application/json">{"annotate": null, "base": "../../..", "features": ["navigation.tabs", "navigation.sections", "navigation.top", "content.code.copy", "content.action.edit"], "search": "../../../assets/javascripts/workers/search.2c215733.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": null}</script>
+    
+    
+      <script src="../../../assets/javascripts/bundle.79ae519e.min.js"></script>
+      
+    
+  </body>
+</html>

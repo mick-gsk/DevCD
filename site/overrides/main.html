@@ -1,0 +1,20 @@
+{% extends "base.html" %}
+
+{% block styles %}
+{{ super() }}
+<link rel="stylesheet" href="{{ 'assets/brand.css' | url }}">
+{% endblock %}
+
+{% block hero %}
+	{% if page.is_homepage %}
+		{% include "partials/home-hero.html" %}
+	{% endif %}
+{% endblock %}
+
+{% block content %}
+	{% if page.is_homepage %}
+		{% include "partials/homepage-content.html" %}
+	{% else %}
+		{% include "partials/content.html" %}
+	{% endif %}
+{% endblock %}
