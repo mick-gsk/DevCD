@@ -74,6 +74,13 @@ def test_init_can_prepare_agent_ready_workspace(
     for path in (copilot, claude, codex):
         content = path.read_text(encoding="utf-8")
         assert "DEVCD AGENT CONTINUITY START" in content
+        assert "Treat the installed DevCD startup skill as mandatory" in content
+        assert ".github/skills/devcd-startup-gate/SKILL.md" in content
+        assert ".github/skills/devcd-capture-loop/SKILL.md" in content
+        assert ".github/skills/devcd-handoff-close/SKILL.md" in content
+        assert ".github/skills/devcd-recovery-fallback/SKILL.md" in content
+        assert ".devcd/templates/devcd-first-turn.template.md" in content
+        assert ".devcd/templates/devcd-handoff-close.template.md" in content
         assert "devcd agentic action-packet" in content
         assert "devcd agentic tasks" in content
         assert "devcd context passport" in content
@@ -83,10 +90,17 @@ def test_init_can_prepare_agent_ready_workspace(
         assert "Use this only when shell/local command execution is available." in content
         assert "If shell/local command execution is not available" in content
         assert "Never capture file contents" in content
-        assert "devcd://context/continuity-packet" in content
         assert "withheld context" in content
         assert "handoff-demo" not in content
         assert "sample-events" not in content
+
+    assert (tmp_path / ".github" / "skills" / "devcd-startup-gate" / "SKILL.md").exists()
+    assert (tmp_path / ".github" / "skills" / "devcd-capture-loop" / "SKILL.md").exists()
+    assert (tmp_path / ".github" / "skills" / "devcd-handoff-close" / "SKILL.md").exists()
+    assert (tmp_path / ".github" / "skills" / "devcd-recovery-fallback" / "SKILL.md").exists()
+    assert (tmp_path / ".devcd" / "templates" / "devcd-first-turn.template.md").exists()
+    assert (tmp_path / ".devcd" / "templates" / "devcd-capture-loop.template.md").exists()
+    assert (tmp_path / ".devcd" / "templates" / "devcd-handoff-close.template.md").exists()
 
     body = json.loads(openclaw.read_text(encoding="utf-8"))
     assert body["mcp"]["servers"]["devcd"] == {
@@ -141,6 +155,12 @@ def test_onboard_creates_config_and_agent_ready_workspace(
     assert "DEVCD AGENT CONTINUITY START" in (
         tmp_path / ".github" / "copilot-instructions.md"
     ).read_text(encoding="utf-8")
+    assert (tmp_path / ".github" / "skills" / "devcd-startup-gate" / "SKILL.md").exists()
+    assert (tmp_path / ".github" / "skills" / "devcd-capture-loop" / "SKILL.md").exists()
+    assert (tmp_path / ".github" / "skills" / "devcd-handoff-close" / "SKILL.md").exists()
+    assert (tmp_path / ".github" / "skills" / "devcd-recovery-fallback" / "SKILL.md").exists()
+    assert (tmp_path / ".devcd" / "templates" / "devcd-first-turn.template.md").exists()
+    assert (tmp_path / ".devcd" / "templates" / "devcd-handoff-close.template.md").exists()
     assert json.loads((tmp_path / ".devcd" / "openclaw-mcp.json").read_text(encoding="utf-8"))[
         "mcp"
     ]["servers"]["devcd"] == {"command": "devcd", "args": ["mcp", "serve"]}
@@ -162,11 +182,16 @@ def test_onboard_defaults_to_agent_ready_workspace(
     assert "Copilot" in result.output
     assert "Claude" in result.output
     assert "Codex" in result.output
-    assert "OpenClaw" in result.output
     assert (tmp_path / ".github" / "copilot-instructions.md").exists()
     assert (tmp_path / "CLAUDE.md").exists()
     assert (tmp_path / "AGENTS.md").exists()
-    assert (tmp_path / ".devcd" / "openclaw-mcp.json").exists()
+    assert not (tmp_path / ".devcd" / "openclaw-mcp.json").exists()
+    assert (tmp_path / ".github" / "skills" / "devcd-startup-gate" / "SKILL.md").exists()
+    assert (tmp_path / ".github" / "skills" / "devcd-capture-loop" / "SKILL.md").exists()
+    assert (tmp_path / ".github" / "skills" / "devcd-handoff-close" / "SKILL.md").exists()
+    assert (tmp_path / ".github" / "skills" / "devcd-recovery-fallback" / "SKILL.md").exists()
+    assert (tmp_path / ".devcd" / "templates" / "devcd-first-turn.template.md").exists()
+    assert (tmp_path / ".devcd" / "templates" / "devcd-handoff-close.template.md").exists()
 
 
 def test_onboard_preserves_existing_config_without_force(
@@ -572,6 +597,127 @@ def test_handoff_captures_goal_failure_and_next_action_for_next_agent(
     assert records[2]["event"]["payload"]["suggested_next_action"] == (
         "Inspect the failing quickstart assertion"
     )
+
+
+def test_agentic_completion_check_requires_handoff_by_default(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.chdir(tmp_path)
+    config_path = tmp_path / "devcd.toml"
+    config_path.write_text(
+        '[devcd]\nruntime_dir = "runtime"\nworking_memory_ttl_seconds = 315360000\n',
+        encoding="utf-8",
+    )
+    runner = CliRunner()
+
+    capture_result = runner.invoke(
+        app,
+        [
+            "capture",
+            "--kind",
+            "goal",
+            "--summary",
+            "Ship completion gate",
+            "--config",
+            str(config_path),
+        ],
+    )
+    completion_result = runner.invoke(
+        app,
+        [
+            "agentic",
+            "completion-check",
+            "--config",
+            str(config_path),
+        ],
+    )
+
+    assert capture_result.exit_code == 0
+    assert completion_result.exit_code != 0
+    assert "Completion gate failed" in completion_result.output
+    assert "devcd handoff" in completion_result.output
+
+
+def test_agentic_completion_check_passes_after_handoff(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.chdir(tmp_path)
+    config_path = tmp_path / "devcd.toml"
+    config_path.write_text(
+        '[devcd]\nruntime_dir = "runtime"\nworking_memory_ttl_seconds = 315360000\n',
+        encoding="utf-8",
+    )
+    runner = CliRunner()
+
+    handoff_result = runner.invoke(
+        app,
+        [
+            "handoff",
+            "--goal",
+            "Ship completion gate",
+            "--next-action",
+            "Run make check",
+            "--config",
+            str(config_path),
+        ],
+    )
+    completion_result = runner.invoke(
+        app,
+        [
+            "agentic",
+            "completion-check",
+            "--config",
+            str(config_path),
+        ],
+    )
+
+    assert handoff_result.exit_code == 0
+    assert completion_result.exit_code == 0
+    assert "Completion gate passed" in completion_result.output
+
+
+def test_agentic_compliance_reports_skill_metrics_json(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.chdir(tmp_path)
+    config_path = tmp_path / "devcd.toml"
+    config_path.write_text(
+        '[devcd]\nruntime_dir = "runtime"\nworking_memory_ttl_seconds = 315360000\n',
+        encoding="utf-8",
+    )
+    runner = CliRunner()
+
+    runner.invoke(
+        app,
+        [
+            "handoff",
+            "--goal",
+            "Ship compliance metrics",
+            "--failure",
+            "make check failed",
+            "--next-action",
+            "Inspect failing test",
+            "--config",
+            str(config_path),
+        ],
+    )
+    result = runner.invoke(
+        app,
+        [
+            "agentic",
+            "compliance",
+            "--json",
+            "--config",
+            str(config_path),
+        ],
+    )
+
+    assert result.exit_code == 0
+    body = json.loads(result.output)
+    assert body["metrics"]["capture_events"] >= 3
+    assert body["metrics"]["startup_events"] >= 1
+    assert body["metrics"]["handoff_events"] >= 1
+    assert body["completion_gate"]["ready"] is True
 
 
 def test_capture_does_not_require_running_daemon(
@@ -2639,6 +2785,62 @@ def test_agentic_action_packet_human_output_is_agent_start_brief(
     assert "## Withheld Context" in result.output
     assert "No policy-withheld context is attached." in result.output
     assert "## Policy" in result.output
+
+
+def test_agentic_action_packet_prefers_recent_success_over_stale_failure_next_action(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.chdir(tmp_path)
+    runtime_dir = tmp_path / "runtime"
+    runtime_dir.mkdir()
+    config_path = tmp_path / "devcd.toml"
+    config_path.write_text(
+        '[devcd]\nruntime_dir = "runtime"\nworking_memory_ttl_seconds = 315360000\n',
+        encoding="utf-8",
+    )
+    (runtime_dir / "events.jsonl").write_text(
+        "\n".join(
+            [
+                live_ledger_record(
+                    source="task",
+                    event_type="goal_update",
+                    timestamp="2026-05-05T10:00:00Z",
+                    payload={"current_goal": "Stabilize action packet guidance"},
+                ),
+                live_ledger_record(
+                    source="ide",
+                    event_type="test_failure",
+                    timestamp="2026-05-05T10:02:00Z",
+                    payload={
+                        "reason": "test_failure",
+                        "suggested_next_action": "Investigate test_failure",
+                    },
+                ),
+                live_ledger_record(
+                    source="ide",
+                    event_type="test_passed",
+                    timestamp="2026-05-05T10:03:00Z",
+                    payload={"suite": "reality-check", "case": "fresh-live-pass"},
+                ),
+            ]
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+    runner = CliRunner()
+
+    result = runner.invoke(
+        app,
+        ["agentic", "action-packet", "--config", str(config_path), "--json"],
+    )
+
+    assert result.exit_code == 0
+    body = json.loads(result.output)
+    assert body["current_goal"] == "Stabilize action packet guidance"
+    assert body["next_action"] == "Continue from the successful attempt: test_passed"
+    assert body["session_contract"]["next_action"] == (
+        "Continue from the successful attempt: test_passed"
+    )
 
 
 def test_agentic_action_packet_demo_renders_fixture_without_daemon() -> None:

@@ -115,6 +115,7 @@ _LOOPBACK_HOSTS = {"127.0.0.1", "::1", "localhost"}
 _REPO_ROOT = Path(__file__).resolve().parents[4]
 _SMOKE_DEMO_EVENTS = _REPO_ROOT / "examples" / "agent-handoff" / "sample-events.jsonl"
 _AGENT_READY_TARGETS = ("copilot", "claude", "codex", "openclaw")
+_AGENT_READY_DEFAULT_TARGETS = ("copilot", "claude", "codex")
 _AGENT_READY_DISPLAY_NAMES = {
     "copilot": "Copilot",
     "claude": "Claude",
@@ -273,7 +274,7 @@ def setup(
         str | None,
         typer.Option(
             "--agents",
-            help="Comma-separated targets: copilot, claude, codex, openclaw.",
+            help="Comma-separated targets: copilot, claude, codex. Optional: openclaw.",
         ),
     ] = None,
     archetype: Annotated[
@@ -428,8 +429,8 @@ def _setup_agent_targets(raw_agents: str | None) -> tuple[str, ...]:
     value = raw_agents
     if value is None:
         value = typer.prompt(
-            "Choose agents (copilot, claude, codex, openclaw)",
-            default="copilot,claude,codex,openclaw",
+            "Choose agents (copilot, claude, codex; optional openclaw)",
+            default=",".join(_AGENT_READY_DEFAULT_TARGETS),
         )
     return _parse_agent_ready_targets(value)
 
@@ -491,7 +492,7 @@ def init(
         str | None,
         typer.Option(
             "--agents",
-            help="Comma-separated targets: copilot, claude, codex, openclaw, or all.",
+            help="Comma-separated targets: copilot, claude, codex. Optional: openclaw, or all.",
         ),
     ] = None,
 ) -> None:
@@ -524,18 +525,18 @@ def _resolve_agent_ready_targets(
         if sys.stdin.isatty():
             answer = typer.prompt(
                 "Which agents should read DevCD continuity?",
-                default="copilot,claude,codex,openclaw",
+                default=",".join(_AGENT_READY_DEFAULT_TARGETS),
             )
             return _parse_agent_ready_targets(answer)
-        return _AGENT_READY_TARGETS
+        return _AGENT_READY_DEFAULT_TARGETS
     if (
         agent_ready is None
         and sys.stdin.isatty()
         and typer.confirm("Make this workspace agent-ready?", default=True)
     ):
         answer = typer.prompt(
-            "Choose agents (copilot, claude, codex, openclaw, all)",
-            default="copilot,claude,codex,openclaw",
+            "Choose agents (copilot, claude, codex; optional openclaw, all)",
+            default=",".join(_AGENT_READY_DEFAULT_TARGETS),
         )
         return _parse_agent_ready_targets(answer)
     return ()
@@ -559,6 +560,7 @@ def _parse_agent_ready_targets(raw_targets: str) -> tuple[str, ...]:
 def _write_agent_ready_workspace(
     agent_targets: tuple[str, ...], *, workspace_root: Path
 ) -> list[dict[str, str]]:
+    _write_devcd_skill_templates(workspace_root)
     report: list[dict[str, str]] = []
     for target in agent_targets:
         if target == "openclaw":
@@ -600,13 +602,31 @@ def _agent_instruction_block(target: str) -> str:
             f"## DevCD Continuity for {display_name}",
             "",
             "Before asking the user to recap ongoing work, check local DevCD continuity.",
+            "Treat the installed DevCD startup skill as mandatory before any recap question.",
+            (
+                "Use `.github/skills/devcd-startup-gate/SKILL.md` and "
+                "`.devcd/templates/devcd-first-turn.template.md`."
+            ),
+            (
+                "Use `.github/skills/devcd-capture-loop/SKILL.md` for trigger-based "
+                "continuity capture."
+            ),
+            (
+                "Use `.github/skills/devcd-handoff-close/SKILL.md` before session end "
+                "or agent switch."
+            ),
+            (
+                "Use `.github/skills/devcd-recovery-fallback/SKILL.md` when packet "
+                "readiness is limited."
+            ),
+            (
+                "Use `.devcd/templates/devcd-handoff-close.template.md` for consistent "
+                "handoff closure."
+            ),
             "Start with `devcd agentic action-packet` for the next policy-filtered action.",
             "If the Action Packet is not ready, run `devcd agentic tasks` to see safe Scout Tasks.",
             "Use `devcd context passport` for the current policy-filtered Agent Passport.",
-            (
-                "If this runtime supports MCP, prefer the read-only "
-                "`devcd://context/continuity-packet` resource."
-            ),
+            "Use MCP only as an explicit optional integration, not as the primary startup path.",
             (
                 "Respect withheld context summaries and policy decisions; "
                 "do not ask for raw denied data."
@@ -688,6 +708,182 @@ def _write_openclaw_mcp_snippet(workspace_root: Path) -> dict[str, str]:
         "status": "updated" if existed else "created",
         "mutates_external_config": "false",
     }
+
+
+def _write_devcd_skill_templates(workspace_root: Path) -> None:
+    skill_path = workspace_root / ".github" / "skills" / "devcd-startup-gate" / "SKILL.md"
+    capture_skill_path = workspace_root / ".github" / "skills" / "devcd-capture-loop" / "SKILL.md"
+    handoff_skill_path = workspace_root / ".github" / "skills" / "devcd-handoff-close" / "SKILL.md"
+    recovery_skill_path = (
+        workspace_root / ".github" / "skills" / "devcd-recovery-fallback" / "SKILL.md"
+    )
+    template_path = workspace_root / ".devcd" / "templates" / "devcd-first-turn.template.md"
+    capture_template_path = (
+        workspace_root / ".devcd" / "templates" / "devcd-capture-loop.template.md"
+    )
+    handoff_template_path = (
+        workspace_root / ".devcd" / "templates" / "devcd-handoff-close.template.md"
+    )
+
+    skill_path.parent.mkdir(parents=True, exist_ok=True)
+    capture_skill_path.parent.mkdir(parents=True, exist_ok=True)
+    handoff_skill_path.parent.mkdir(parents=True, exist_ok=True)
+    recovery_skill_path.parent.mkdir(parents=True, exist_ok=True)
+    template_path.parent.mkdir(parents=True, exist_ok=True)
+
+    skill_content = "\n".join(
+        [
+            "---",
+            "name: devcd-startup-gate",
+            "description: Mandatory first move for local DevCD continuity before asking for recap.",
+            "---",
+            "",
+            "# DevCD Startup Gate",
+            "",
+            "Run this at session start before asking the user to summarize work:",
+            "1. devcd agentic action-packet",
+            "2. devcd context passport (only if packet detail is insufficient)",
+            "",
+            "First reply must include:",
+            "- current goal",
+            "- next action",
+            "- blockers or failed attempts",
+            "- do_not_repeat warnings",
+            "- withheld-context policy note when present",
+            "",
+            "Do not ask for recap if DevCD already provides enough continuity.",
+            "Do not request hidden payloads or raw denied context.",
+        ]
+    )
+    capture_skill_content = "\n".join(
+        [
+            "---",
+            "name: devcd-capture-loop",
+            "description: Capture continuity metadata on key execution triggers during work.",
+            "---",
+            "",
+            "# DevCD Capture Loop",
+            "",
+            "Use when work is in progress and one of these triggers occurs:",
+            "- failed attempt",
+            "- important decision",
+            "- blocker detected",
+            "- relevant artifact touched",
+            "",
+            "Capture metadata only:",
+            "- goal: devcd capture --kind goal --summary \"...\"",
+            "- failure: devcd capture --kind failure --summary \"...\" --next-action \"...\"",
+            "- decision: devcd capture --kind decision --summary \"...\"",
+            "- blocker: devcd capture --kind blocker --summary \"...\"",
+            (
+                "- artifact_ref: devcd capture --kind artifact_ref --summary \"...\" "
+                '--artifact \"path=...\"'
+            ),
+            "",
+            "Never capture raw file content, raw logs, secrets, or private chat text.",
+        ]
+    )
+    handoff_skill_content = "\n".join(
+        [
+            "---",
+            "name: devcd-handoff-close",
+            "description: Close a session with a compact handoff before switching agents.",
+            "---",
+            "",
+            "# DevCD Handoff Close",
+            "",
+            "Use before ending a session or switching to another agent.",
+            "",
+            "Required output:",
+            "- goal",
+            "- latest failure or blocker (if present)",
+            "- next action",
+            "",
+            "Command:",
+            "devcd handoff --goal \"...\" --failure \"...\" --next-action \"...\"",
+            "",
+            "If there is no failure, omit --failure and keep goal + next-action.",
+            "Do not end a session claiming continuity is complete without handoff closure.",
+        ]
+    )
+    recovery_skill_content = "\n".join(
+        [
+            "---",
+            "name: devcd-recovery-fallback",
+            "description: Recovery path when continuity packet readiness or tooling is limited.",
+            "---",
+            "",
+            "# DevCD Recovery Fallback",
+            "",
+            "Use this when:",
+            "- action packet is not ready",
+            "- shell command execution is unavailable",
+            "- policy withholds required context",
+            "",
+            "Steps:",
+            "1. Read devcd agentic tasks",
+            "2. Read devcd context passport for broader context",
+            "3. Ask one precise unblock question",
+            "",
+            "Do not invent missing context.",
+            "Do not ask for denied raw payloads.",
+            "Do not promise automatic capture when shell is unavailable.",
+        ]
+    )
+    first_turn_template = "\n".join(
+        [
+            "DevCD continuity loaded.",
+            "Goal: <current_goal>",
+            "Next: <next_action>",
+            "Blocked by: <blocker_or_none>",
+            "I will not repeat: <do_not_repeat_or_none>",
+            "Policy note: <withheld_summary_or_none>",
+            "",
+            "Proceeding with <next_action>. Confirm or redirect.",
+        ]
+    )
+    capture_loop_template = "\n".join(
+        [
+            "DevCD capture loop (metadata only):",
+            "- At start: devcd capture --kind goal --summary \"...\"",
+            (
+                "- After failed attempt: devcd capture --kind failure --summary "
+                '\"...\" --next-action \"...\"'
+            ),
+            "- Important decision: devcd capture --kind decision --summary \"...\"",
+            "- Blocker: devcd capture --kind blocker --summary \"...\"",
+            (
+                "- Artifact ref only: devcd capture --kind artifact_ref --summary "
+                '\"...\" --artifact \"path=...\"'
+            ),
+            "",
+            "Never capture raw file content, raw logs, secrets, or private chat text.",
+        ]
+    )
+    handoff_template = "\n".join(
+        [
+            "DevCD handoff close:",
+            "Goal: <current_goal>",
+            "Latest failure/blocker: <failure_or_blocker_or_none>",
+            "Next action: <next_action>",
+            "",
+            "Command:",
+            "devcd handoff --goal \"<current_goal>\" --next-action \"<next_action>\"",
+            "Optional failure:",
+            (
+                "devcd handoff --goal \"<current_goal>\" --failure \"<failure>\" "
+                "--next-action \"<next_action>\""
+            ),
+        ]
+    )
+
+    skill_path.write_text(skill_content + "\n", encoding="utf-8")
+    capture_skill_path.write_text(capture_skill_content + "\n", encoding="utf-8")
+    handoff_skill_path.write_text(handoff_skill_content + "\n", encoding="utf-8")
+    recovery_skill_path.write_text(recovery_skill_content + "\n", encoding="utf-8")
+    template_path.write_text(first_turn_template + "\n", encoding="utf-8")
+    capture_template_path.write_text(capture_loop_template + "\n", encoding="utf-8")
+    handoff_template_path.write_text(handoff_template + "\n", encoding="utf-8")
 
 
 def _render_agent_ready_report(report: list[dict[str, str]]) -> str:
@@ -792,7 +988,10 @@ def onboard(
         str | None,
         typer.Option(
             "--agents",
-            help="Comma-separated targets: copilot, claude, codex, openclaw, auto, or all.",
+            help=(
+                "Comma-separated targets: copilot, claude, codex, auto. "
+                "Optional: openclaw, or all."
+            ),
         ),
     ] = None,
     archetype: Annotated[
@@ -1069,7 +1268,7 @@ def _agent_layer_requested_agents(*, agent_ready: bool, agents: str | None) -> l
     if not agent_ready:
         return []
     if agents is None:
-        return ["all"]
+        return list(_AGENT_READY_DEFAULT_TARGETS)
     requested = [item.strip().lower() for item in agents.split(",") if item.strip()]
     if not requested:
         raise typer.BadParameter("At least one agent target is required")
@@ -1093,7 +1292,7 @@ def _parse_onboard_agent_targets(
         return ()
     if agents is not None and agents.strip().lower() == "auto":
         return tuple(str(target) for target in proposal.agent_targets)
-    return _parse_agent_ready_targets(agents or "all")
+    return _parse_agent_ready_targets(agents or ",".join(_AGENT_READY_DEFAULT_TARGETS))
 
 
 def _agent_layer_config_status(*, config_existed: bool, force: bool) -> str:
@@ -2220,6 +2419,50 @@ def agentic_action_packet(
     typer.echo(_render_action_packet(packet))
 
 
+@agentic_app.command("completion-check")
+def agentic_completion_check(
+    config: Annotated[Path | None, typer.Option("--config", help="Config file to load.")] = None,
+    surface: Annotated[str, typer.Option("--surface", help="Context surface kind.")] = (
+        "coding-agent"
+    ),
+    pack: Annotated[str, typer.Option("--pack", help="Context pack renderer id.")] = "developer",
+    output_json: Annotated[
+        bool,
+        typer.Option("--json", help="Print machine-readable JSON output."),
+    ] = False,
+) -> None:
+    """Enforce a local completion gate that requires a handoff-ready state."""
+    report = _build_agentic_compliance_report(config=config, surface=surface, pack=pack)
+    completion_gate = cast(dict[str, Any], report["completion_gate"])
+    ready = bool(completion_gate["ready"])
+    if output_json:
+        typer.echo(json.dumps(completion_gate, indent=2, sort_keys=True))
+    else:
+        typer.echo(_render_agentic_completion_gate(completion_gate))
+    if not ready:
+        raise typer.Exit(1)
+
+
+@agentic_app.command("compliance")
+def agentic_compliance(
+    config: Annotated[Path | None, typer.Option("--config", help="Config file to load.")] = None,
+    surface: Annotated[str, typer.Option("--surface", help="Context surface kind.")] = (
+        "coding-agent"
+    ),
+    pack: Annotated[str, typer.Option("--pack", help="Context pack renderer id.")] = "developer",
+    output_json: Annotated[
+        bool,
+        typer.Option("--json", help="Print machine-readable JSON output."),
+    ] = False,
+) -> None:
+    """Report startup/capture/handoff compliance metrics from local continuity data."""
+    report = _build_agentic_compliance_report(config=config, surface=surface, pack=pack)
+    if output_json:
+        typer.echo(json.dumps(report, indent=2, sort_keys=True))
+        return
+    typer.echo(_render_agentic_compliance(report))
+
+
 @agentic_app.command("action-packet-demo")
 def agentic_action_packet_demo(
     events: Annotated[Path, typer.Option("--events", help="JSONL file with DevCD events.")],
@@ -2311,6 +2554,113 @@ def _print_integration_report(
     smoke = report.get("smoke_test")
     if isinstance(smoke, dict) and smoke.get("status") != "pass":
         raise typer.Exit(1)
+
+
+def _build_agentic_compliance_report(
+    *, config: Path | None, surface: str, pack: str
+) -> dict[str, Any]:
+    settings = DevCDSettings.load(config)
+    records = list(EventLedger(settings.ledger_path).read_records())
+
+    counts = {
+        "capture_events": 0,
+        "startup_events": 0,
+        "handoff_events": 0,
+        "failure_events": 0,
+        "decision_events": 0,
+        "blocker_events": 0,
+        "artifact_events": 0,
+    }
+    for event, _decision in records:
+        capture_kind = event.payload.get("capture_kind")
+        if not isinstance(capture_kind, str):
+            continue
+        counts["capture_events"] += 1
+        if capture_kind == "goal":
+            counts["startup_events"] += 1
+        elif capture_kind == "next_action":
+            counts["handoff_events"] += 1
+        elif capture_kind == "failure":
+            counts["failure_events"] += 1
+        elif capture_kind == "decision":
+            counts["decision_events"] += 1
+        elif capture_kind == "blocker":
+            counts["blocker_events"] += 1
+        elif capture_kind == "artifact_ref":
+            counts["artifact_events"] += 1
+
+    packet = _build_local_agentic_context_service(config).create_action_packet(
+        surface=surface,
+        context_pack=_context_pack_id(pack),
+    )
+    has_handoff = counts["handoff_events"] > 0
+    ready = bool(packet.ready_for_agent and has_handoff)
+    metrics = {
+        "total_events": len(records),
+        **counts,
+        "startup_capture_coverage": _safe_ratio(counts["startup_events"], counts["capture_events"]),
+        "handoff_capture_coverage": _safe_ratio(counts["handoff_events"], counts["capture_events"]),
+    }
+    completion_gate = {
+        "ready": ready,
+        "requires": [
+            "action packet ready_for_agent=true",
+            "at least one captured next_action handoff",
+        ],
+        "signals": {
+            "packet_ready": packet.ready_for_agent,
+            "has_handoff": has_handoff,
+            "current_goal": packet.current_goal,
+            "next_action": packet.next_action,
+        },
+        "next_step": "devcd handoff --goal \"...\" --next-action \"...\"" if not ready else "done",
+    }
+    return {
+        "metrics": metrics,
+        "completion_gate": completion_gate,
+    }
+
+
+def _safe_ratio(part: int, total: int) -> float:
+    if total <= 0:
+        return 0.0
+    return round(part / total, 4)
+
+
+def _render_agentic_completion_gate(report: dict[str, Any]) -> str:
+    lines = ["Agentic completion gate"]
+    if bool(report.get("ready", False)):
+        lines.append("Completion gate passed")
+    else:
+        lines.append("Completion gate failed")
+    signals = cast(dict[str, Any], report.get("signals", {}))
+    lines.append(f"- packet_ready: {str(bool(signals.get('packet_ready', False))).lower()}")
+    lines.append(f"- has_handoff: {str(bool(signals.get('has_handoff', False))).lower()}")
+    lines.append(f"- current_goal: {signals.get('current_goal') or 'unknown'}")
+    lines.append(f"- next_action: {signals.get('next_action') or 'missing'}")
+    lines.append(f"- next: {report.get('next_step', 'done')}")
+    return "\n".join(lines)
+
+
+def _render_agentic_compliance(report: dict[str, Any]) -> str:
+    metrics = cast(dict[str, Any], report.get("metrics", {}))
+    gate = cast(dict[str, Any], report.get("completion_gate", {}))
+    lines = [
+        "Agentic compliance",
+        f"- total_events: {metrics.get('total_events', 0)}",
+        f"- capture_events: {metrics.get('capture_events', 0)}",
+        f"- startup_events: {metrics.get('startup_events', 0)}",
+        f"- handoff_events: {metrics.get('handoff_events', 0)}",
+        f"- failure_events: {metrics.get('failure_events', 0)}",
+        f"- decision_events: {metrics.get('decision_events', 0)}",
+        f"- blocker_events: {metrics.get('blocker_events', 0)}",
+        f"- artifact_events: {metrics.get('artifact_events', 0)}",
+        f"- startup_capture_coverage: {metrics.get('startup_capture_coverage', 0.0)}",
+        f"- handoff_capture_coverage: {metrics.get('handoff_capture_coverage', 0.0)}",
+        f"- completion_gate_ready: {str(bool(gate.get('ready', False))).lower()}",
+        f"- completion_next: {gate.get('next_step', 'done')}",
+    ]
+    return "\n".join(lines)
 
 
 def _build_capture_event(
