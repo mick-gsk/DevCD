@@ -1,10 +1,5 @@
 <p align="center">
-  <img src="docs/assets/devcd-wordmark.svg?v=20260507" alt="DevCD" width="520">
-</p>
-
-<p align="center">
-  <img src="docs/assets/devcd-mark.svg?v=20260507" alt="DevCD mark" width="92">
-  <img src="docs/assets/devcd-social-avatar.svg?v=20260507" alt="DevCD social avatar" width="92">
+  <img src="docs/assets/devcd-wordmark.svg" alt="DevCD" width="520">
 </p>
 
 <p align="center">
