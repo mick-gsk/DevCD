@@ -28,9 +28,18 @@ updates standard workspace files that those agents already read:
 - Copilot: `.github/copilot-instructions.md`
 - Claude: `CLAUDE.md`
 - Codex and compatible coding agents: `AGENTS.md`
-- OpenClaw: `.devcd/openclaw-mcp.json`
+- DevCD startup skill: `.github/skills/devcd-startup-gate/SKILL.md`
+- DevCD continuity templates: `.devcd/templates/devcd-first-turn.template.md`, `.devcd/templates/devcd-capture-loop.template.md`
+
+OpenClaw MCP is optional and only written when `openclaw` is explicitly selected.
 
 Non-interactive equivalent:
+
+```bash
+devcd init --agent-ready --agents copilot,claude,codex
+```
+
+Optional MCP target:
 
 ```bash
 devcd init --agent-ready --agents copilot,claude,codex,openclaw
@@ -39,14 +48,13 @@ devcd init --agent-ready --agents copilot,claude,codex,openclaw
 If you only want the single-workspace guided variant, use:
 
 ```bash
-devcd onboard --agents copilot,claude,codex,openclaw
+devcd onboard --agents copilot,claude,codex
 ```
 
 Existing instruction files are preserved. DevCD only adds or replaces a marked
 managed block that tells agents to consult `devcd agentic action-packet`, fall
-back to `devcd agentic tasks` or `devcd context passport`, or read the
-read-only `devcd://context/action-packet` MCP resource before asking the user to
-recap. The same block gives shell-capable agents a small continuity capture
+back to `devcd agentic tasks` or `devcd context passport` before asking the user
+to recap. The same block gives shell-capable agents a small continuity capture
 routine so the user does not need to perform DevCD bookkeeping after onboarding.
 
 ## Action Packet path
@@ -118,6 +126,19 @@ devcd capture --kind failure --summary "make check failed" --next-action "Inspec
 devcd capture --kind decision --summary "Keep MCP read-only for now"
 devcd capture --kind blocker --summary "Agent has no shell access"
 devcd capture --kind artifact_ref --summary "CLI entrypoint" --artifact packages/devcd-core/src/devcd/cli.py
+```
+
+Enforce closure before ending a session or switching agents:
+
+```bash
+devcd agentic completion-check
+```
+
+Track startup/capture/handoff compliance coverage:
+
+```bash
+devcd agentic compliance
+devcd agentic compliance --json
 ```
 
 `devcd capture` does not require the daemon. It writes to the configured local

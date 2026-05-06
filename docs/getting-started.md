@@ -110,7 +110,10 @@ Success looks like: `devcd.toml` exists with loopback, local storage, and policy
 - Copilot: `.github/copilot-instructions.md`
 - Claude: `CLAUDE.md`
 - Codex and compatible coding agents: `AGENTS.md`
-- OpenClaw: `.devcd/openclaw-mcp.json`
+- DevCD startup skill: `.github/skills/devcd-startup-gate/SKILL.md`
+- DevCD continuity templates: `.devcd/templates/devcd-first-turn.template.md`, `.devcd/templates/devcd-capture-loop.template.md`
+
+OpenClaw MCP remains optional and is only created when `openclaw` is explicitly selected.
 
 If you want a narrower target list, pass `--agents` with a comma-separated subset.
 Use `--archetype builder`, `reviewer`, `researcher`, or `orchestrator` when you
@@ -128,6 +131,12 @@ devcd context profile
 
 If you only want the lower-level config primitive, use `init` directly. Most
 users should stay on `devcd onboard`:
+
+```bash
+devcd init --agent-ready --agents copilot,claude,codex
+```
+
+Optional MCP snippet path:
 
 ```bash
 devcd init --agent-ready --agents copilot,claude,codex,openclaw
@@ -150,6 +159,18 @@ Success looks like: the output starts from the work instead of the tool. With an
 Next: if the packet is empty, seed one safe piece of continuity metadata.
 
 If it fails: run `devcd doctor`; it validates local config, policy, ledger, docs, and MCP readiness.
+
+Before ending a session or switching to a fresh agent, enforce closure with:
+
+```bash
+devcd agentic completion-check
+```
+
+To inspect startup/capture/handoff compliance coverage, run:
+
+```bash
+devcd agentic compliance
+```
 
 ### Step 4: Seed safe continuity when the ledger is empty
 
@@ -218,6 +239,9 @@ devcd doctor --fix
 ```
 
 What happened: `status` summarizes local state; `doctor` gives remediation without mutating external tool configs. `doctor --fix` applies only safe local repairs (for example missing `devcd.toml` and missing `.devcd/agent-layer-profile.json`) and records policy receipts for each repair.
+
+Important: `doctor --fix` does not auto-start the daemon. When `daemon_reachable`
+is the only warning, the expected manual recovery step remains `devcd run`.
 
 Success looks like: config, token, daemon, ledger, policy, docs, and MCP checks are understandable.
 

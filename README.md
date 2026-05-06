@@ -27,7 +27,7 @@ stack, not another agent runtime to manage.
 It is not a model, chat app, remote service, or task runner. DevCD is the local
 state and policy layer between your workspace and the agents that help you.
 
-[Getting Started](docs/getting-started.md) | [Examples](examples/README.md) | [Agent Resurrection](docs/superpowers/agent-resurrection.md) | [OpenClaw Integration](docs/devcd/openclaw-integration.md) | [Context Packs](docs/devcd/context-packs.md) | [Security](SECURITY.md) | [Release Readiness](docs/devcd/release-readiness.md) | [Publishing](docs/devcd/publishing.md) | [Brand System](docs/devcd/brand-system.md) | [Architecture](docs/devcd/architecture.md) | [Contributing](CONTRIBUTING.md)
+[Getting Started](docs/getting-started.md) | [Examples](examples/README.md) | [Agent Resurrection](docs/superpowers/agent-resurrection.md) | [OpenClaw Integration](docs/devcd/openclaw-integration.md) | [Real-World Testing Playbook](docs/devcd/reality-testing.md) | [Context Packs](docs/devcd/context-packs.md) | [Security](SECURITY.md) | [Release Readiness](docs/devcd/release-readiness.md) | [Publishing](docs/devcd/publishing.md) | [Brand System](docs/devcd/brand-system.md) | [Architecture](docs/devcd/architecture.md) | [Contributing](CONTRIBUTING.md)
 
 ## Status
 
@@ -117,6 +117,10 @@ Start from the handoff surface the next agent should read first:
 devcd agentic action-packet
 ```
 
+By default, `devcd setup` prepares workspace instruction targets plus a local
+DevCD startup skill and continuity templates. OpenClaw MCP is optional and can
+be added explicitly with `--agents ...openclaw` or via integration commands.
+
 If the local ledger is still empty, seed safe metadata instead of pasting raw
 logs, transcripts, or file contents:
 
@@ -138,7 +142,7 @@ devcd quickstart
 
 Use `devcd context passport` when you want the broader policy-filtered passport directly.
 
-Connect an MCP-capable runtime such as OpenClaw:
+Optional: connect an MCP-capable runtime such as OpenClaw:
 
 ```bash
 devcd integrations openclaw --smoke-test
