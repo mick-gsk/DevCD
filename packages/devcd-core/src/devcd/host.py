@@ -47,7 +47,7 @@ def create_app(settings: DevCDSettings | None = None) -> FastAPI:
     )
     vision_service = VisionService(resolved_settings.runtime_dir, event_ledger=event_ledger)
 
-    app = FastAPI(title="DevCD", version="0.1.0")
+    app = FastAPI(title="DevCD", version="0.2.0")
     app.state.settings = resolved_settings
     app.state.api_token = api_token
     app.state.state_engine = state_engine

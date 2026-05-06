@@ -4,7 +4,7 @@ All notable changes to DevCD will be documented in this file.
 
 The project follows Conventional Commits and Semantic Versioning once public releases begin.
 
-## 0.1.0 - 2026-05-06
+## 0.2.0 - 2026-05-06
 
 Short version: Initial local-first context daemon foundation with context quality scoring, control-plane report, research-session recipe, live Agent Passport, MCP integration snippets, and daemonless Action Packet demo.
 

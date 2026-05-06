@@ -33,7 +33,7 @@ minutes, without remote services or recap-heavy setup.
 | Package metadata | Present | `pyproject.toml` defines the `devcd` package and CLI entry point. |
 | Typed package marker | Present | The wheel includes `devcd/py.typed` to match the typed classifier. |
 | Distribution check | Present | `make distribution` builds, checks metadata, verifies wheel contents, and smoke-tests the installed CLI. |
-| PyPI publishing | Published | `devcd 0.1.0` is live on PyPI via OIDC Trusted Publishing. |
+| PyPI publishing | Published | `devcd 0.2.0` is the current release line for PyPI publication via OIDC Trusted Publishing. |
 | Container sandbox | Present | Dockerfile and CI container workflow build and smoke-test an isolated local sandbox image. |
 | Public package release | Published | `pip install devcd`, `pipx install devcd`, and `uvx devcd` all work. |
 | Local install path | Present | Checkout install from source is documented today. |
@@ -44,7 +44,7 @@ minutes, without remote services or recap-heavy setup.
 | MCP integration | Present | Read-only local MCP resources and smoke-test commands are documented. |
 | OpenClaw integration | Present | Local DevCD MCP shape and snippet are verified; full OpenClaw gateway E2E remains explicitly unclaimed. |
 | Security policy | Present | Security defaults, data classes, and threat model are documented. |
-| Changelog discipline | Present | `CHANGELOG.md` tracks unreleased `0.1.0` changes. |
+| Changelog discipline | Present | `CHANGELOG.md` tracks the current `0.2.0` release line. |
 | Hosted deployment | Not planned for alpha | DevCD handles local developer context; cloud deployment is not the primary trust model. |
 
 ## Alpha Bar

@@ -136,7 +136,7 @@ class ReadOnlyMCPServer:
                 {
                     "protocolVersion": "2024-11-05",
                     "capabilities": {"resources": {}},
-                    "serverInfo": {"name": "devcd", "version": "0.1.0"},
+                    "serverInfo": {"name": "devcd", "version": "0.2.0"},
                 },
             )
         if method == "resources/list":

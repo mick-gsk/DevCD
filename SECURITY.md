@@ -13,7 +13,7 @@ DevCD is pre-alpha. No stable public release exists yet.
 
 | Version | Status | Security support |
 | --- | --- | --- |
-| `0.1.x` | Unreleased / pre-alpha | Security fixes target this line until the first public alpha release. |
+| `0.2.x` | Current pre-alpha | Security fixes target this line until the first public alpha release. |
 
 Security support currently means best-effort maintainer response, focused fixes,
 tests for the affected trust boundary, and clear changelog entries once public

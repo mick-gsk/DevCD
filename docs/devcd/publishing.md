@@ -107,12 +107,12 @@ The release candidate should not proceed until all three gates pass.
 Create and push a release-candidate tag, for example:
 
 ```bash
-git tag v0.1.0rc1
-git push origin v0.1.0rc1
+git tag v0.2.0rc1
+git push origin v0.2.0rc1
 ```
 
 Then run the `Publish TestPyPI` workflow and pass the exact ref, for example
-`v0.1.0rc1`.
+`v0.2.0rc1`.
 
 After the workflow succeeds, verify installation in a clean environment.
 
@@ -145,11 +145,11 @@ before touching production PyPI.
 
 ## GitHub Release
 
-Pushing a semantic version tag such as `v0.1.0` runs the release workflow:
+Pushing a semantic version tag such as `v0.2.0` runs the release workflow:
 
 ```bash
-git tag v0.1.0
-git push origin v0.1.0
+git tag v0.2.0
+git push origin v0.2.0
 ```
 
 The release workflow runs checks, builds artifacts, verifies metadata,
@@ -170,13 +170,13 @@ Before running it:
 2. Configure PyPI Trusted Publishing for this GitHub repository and workflow.
 3. Confirm the version in `pyproject.toml` matches the intended release tag.
 4. Run the local `make distribution` gate.
-5. Trigger the `Publish PyPI` workflow with the exact tag ref, for example `v0.1.0`.
+5. Trigger the `Publish PyPI` workflow with the exact tag ref, for example `v0.2.0`.
 
 Recommended production sequence:
 
 1. Merge the final release commit to the default branch.
 2. Update `CHANGELOG.md` so the target version section is the newest visible release block.
-3. Create and push the final tag, for example `v0.1.0`.
+3. Create and push the final tag, for example `v0.2.0`.
 4. Run the `Publish PyPI` workflow for that exact ref.
 5. Wait for the workflow to complete successfully before changing README install instructions.
 
