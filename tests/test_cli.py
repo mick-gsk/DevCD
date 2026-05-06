@@ -9,6 +9,7 @@ import pytest
 import typer
 from typer.testing import CliRunner
 
+from devcd import __version__
 from devcd.cli import _ensure_mcp_token, _post_event, app
 from devcd.kernel.settings import DevCDSettings
 from devcd.slices.events.ledger import EventLedger
@@ -673,6 +674,15 @@ def test_cli_exposes_context_group() -> None:
     assert "policy" in result.output
 
 
+def test_cli_version_flag_prints_version() -> None:
+    runner = CliRunner()
+
+    result = runner.invoke(app, ["--version"])
+
+    assert result.exit_code == 0
+    assert result.output.strip() == f"DevCD {__version__}"
+
+
 def test_welcome_command_prints_first_run_success_chain() -> None:
     runner = CliRunner()
 
@@ -813,7 +823,7 @@ def test_smoke_command_verifies_local_first_run() -> None:
     result = runner.invoke(app, ["smoke"])
 
     assert result.exit_code == 0
-    assert "██████  ███████ ██    ██  ██████ ██████ " in result.output
+    assert "████ ██████   █ ████████ " in result.output
     assert "DevCD install check" in result.output
     assert "devcd --help: ok" in result.output
     assert "devcd context packs: ok" in result.output
@@ -843,6 +853,17 @@ def test_smoke_help_positions_it_as_install_check() -> None:
     output = plain_help(result.output)
     assert "Verify the local install with a daemonless first-run check" in output
     assert "--json" in output
+    assert "--compact" in output
+
+
+def test_smoke_compact_hides_ascii_banner() -> None:
+    runner = CliRunner()
+
+    result = runner.invoke(app, ["smoke", "--compact"])
+
+    assert result.exit_code == 0
+    assert "DevCD install check" in result.output
+    assert "████ ██████   █ ████████ " not in result.output
 
 
 def test_quickstart_help_positions_it_as_interactive_follow_up() -> None:
@@ -2984,7 +3005,7 @@ def test_quickstart_prioritizes_action_packet_and_reports_next_steps(
     assert "Local-first defaults" in result.output
     assert "loopback: 127.0.0.1" in result.output
     assert "remote export: disabled by default" in result.output
-    assert "Step 1: Install from checkout" in result.output
+    assert "Step 1: Install DevCD" in result.output
     assert "Step 2: Prepare local workspace" in result.output
     assert "Demo Agent Passport" not in result.output
     assert "Continue the resurrection demo after Agent A lost chat context" not in result.output

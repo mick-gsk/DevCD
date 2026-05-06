@@ -17,6 +17,7 @@ import tomli_w
 import typer
 import uvicorn
 
+from devcd import __version__
 from devcd.host import create_app
 from devcd.kernel.settings import DevCDSettings
 from devcd.slices.agentic_context.models import ActionPacket, ScoutReport
@@ -94,6 +95,23 @@ app.add_typer(recipe_app, name="recipe")
 vision_app = typer.Typer(help="Manage your persistent agent vision and North Star.")
 app.add_typer(vision_app, name="vision")
 
+
+@app.callback(invoke_without_command=True)
+def _app_callback(
+    version: Annotated[
+        bool,
+        typer.Option(
+            "--version",
+            "-V",
+            help="Show DevCD version and exit.",
+            is_eager=True,
+        ),
+    ] = False,
+) -> None:
+    if version:
+        typer.echo(f"DevCD {__version__}")
+        raise typer.Exit()
+
 _LOCAL_TOKEN_PATH = Path(".devcd") / "token"
 _LOOPBACK_HOSTS = {"127.0.0.1", "::1", "localhost"}
 _REPO_ROOT = Path(__file__).resolve().parents[4]
@@ -130,11 +148,13 @@ _CAPTURE_SENSITIVE_KEYS = {
     "password",
 }
 _SMOKE_LOGO_LINES = (
-    "██████  ███████ ██    ██  ██████ ██████ ",
-    "██   ██ ██      ██    ██ ██      ██   ██",
-    "██   ██ █████   ██    ██ ██      ██   ██",
-    "██   ██ ██       ██  ██  ██      ██   ██",
-    "██████  ███████   ████    ██████ ██████ ",
+    "████ ██████   █ ████████ ",
+    "█   ██    █   ██    █   █",
+    "█   ██    █   ██    █   █",
+    "█   █████ █   ██    █   █",
+    "█   ██     █ █ █    █   █",
+    "█   ██     █ █ █    █   █",
+    "████ █████  █   ████████ ",
 )
 
 
@@ -150,7 +170,7 @@ def welcome(
     if output_json:
         typer.echo(json.dumps(report, indent=2, sort_keys=True))
         return
-    typer.echo(_render_welcome_report(report))
+    _print_welcome_report(report)
 
 
 def _build_welcome_report() -> dict[str, Any]:
@@ -197,41 +217,47 @@ def _build_welcome_report() -> dict[str, Any]:
     }
 
 
-def _render_welcome_report(report: dict[str, Any]) -> str:
-    lines = [
-        "DevCD welcome",
-        "Local-first continuity for fresh AI agent sessions.",
-        "",
-        "Recommended first command",
-        f"- {report['next_command']}",
-        "",
-        "Install proof",
-        f"Install proof: {report['install_proof']['command']}",
-        f"- Run: {report['install_proof']['command']}",
-        f"- Success: {report['install_proof']['success']}",
-        "",
-        "First 5 minutes",
-    ]
+def _print_welcome_report(report: dict[str, Any]) -> None:
+    from rich.console import Console
+    from rich.text import Text
+
+    console = Console(highlight=False)
+    console.print("DevCD welcome", style="bold white")
+    console.print("Local-first continuity for fresh AI agent sessions.", style="dim")
+    console.print()
+    console.print("Recommended first command", style="bold")
+    console.print(f"  {report['next_command']}", style="bold #18b7a6")
+    console.print()
+    console.rule(style="dim")
+    console.print()
+    console.print("Install proof", style="bold")
+    console.print(f"Install proof: {report['install_proof']['command']}", style="dim")
+    console.print(f"  Run:     {report['install_proof']['command']}", style="dim")
+    console.print(f"  Success: {report['install_proof']['success']}", style="dim")
+    console.print()
+    console.print("First 5 minutes", style="bold")
     for index, step in enumerate(cast(list[dict[str, str]], report["success_chain"]), start=1):
-        lines.append(f"- {index}. {step['label']}: {step['command']}")
-        lines.append(f"  success: {step['success']}")
+        line = Text()
+        line.append(f"  {index}. {step['label']}: {step['command']}")
+        console.print(line)
+        console.print(f"    success: {step['success']}", style="dim")
     trust = cast(dict[str, Any], report["trust"])
-    lines.extend(
-        [
-            "",
-            "Local-first",
-            "- No daemon starts until devcd run",
-            "- No external agent config is mutated by default",
-            "- Remote export is disabled by default",
-            f"- Policy: {trust['policy']}",
-        ]
-    )
+    console.print()
+    console.rule(style="dim")
+    console.print()
+    console.print("Local-first", style="bold")
+    console.print("  No daemon starts until devcd run", style="dim")
+    console.print("  No external agent config is mutated by default", style="dim")
+    console.print("  Remote export is disabled by default", style="dim")
+    console.print(f"  Policy: {trust['policy']}", style="dim")
     platform_info = cast(dict[str, Any], report["platform"])
     windows_note = platform_info.get("windows_note")
     if isinstance(windows_note, str):
-        lines.extend(["", "Platform", f"- {windows_note}"])
-    lines.extend(["", f"Docs: {report['docs']}"])
-    return "\n".join(lines)
+        console.print()
+        console.print("Platform", style="bold")
+        console.print(f"  {windows_note}", style="dim")
+    console.print()
+    console.print(f"Docs: {report['docs']}", style="dim")
 
 
 @app.command()
@@ -600,7 +626,7 @@ def onboard(
     if output_json:
         typer.echo(json.dumps(report, indent=2, sort_keys=True))
         return
-    typer.echo(_render_onboard_report(report, no_tui=no_tui))
+    _print_onboard_report(report, no_tui=no_tui)
 
 
 def _build_onboard_report(
@@ -973,48 +999,78 @@ def _write_onboard_config(config: Path, *, force: bool) -> str:
     return "updated" if existed else "created"
 
 
-def _render_onboard_report(report: dict[str, Any], *, no_tui: bool) -> str:
-    lines = [
-        "DevCD onboard",
-        "One-command success chain for local-first agent continuity.",
-        "",
-        f"Primary outcome: {report['primary_outcome']}",
-        "",
-        "Run this when a new agent session starts cold.",
-        "",
-        "Success chain",
-    ]
+def _print_onboard_report(report: dict[str, Any], *, no_tui: bool) -> None:
+    from rich.console import Console
+    from rich.text import Text
+
+    status_style_map: dict[str, str] = {
+        "ok": "#18b7a6",
+        "attention": "#f7c948",
+    }
+    console = Console(highlight=False)
+    console.print("DevCD onboard", style="bold white")
+    console.print("One-command success chain for local-first agent continuity.", style="dim")
+    console.print()
+    console.print(f"Primary outcome: {report['primary_outcome']}", style="bold")
+    console.print()
+    console.print("Run this when a new agent session starts cold.", style="dim")
+    console.print()
+    console.rule(style="dim")
+    console.print()
+    console.print("Success chain", style="bold")
     for index, stage in enumerate(cast(list[dict[str, str]], report.get("stages", [])), start=1):
-        lines.append(f"- {index}. {stage['title']} [{stage['status']}]")
-        lines.append(f"  what happened: {stage['what_happened']}")
-        lines.append(f"  success looks like: {stage['success_looks_like']}")
-        lines.append(f"  next: {stage['next']}")
+        status = stage["status"]
+        status_style = status_style_map.get(status, "#d95f59")
+        line = Text()
+        line.append(f"  {index}. {stage['title']} ")
+        line.append(f"[{status}]", style=f"bold {status_style}")
+        console.print(line)
+        console.print(f"    what happened: {stage['what_happened']}", style="dim")
+        console.print(f"    success looks like: {stage['success_looks_like']}", style="dim")
+        next_val = stage["next"]
+        next_line = Text()
+        next_line.append("    next: ", style="dim")
+        if next_val == "done":
+            next_line.append(next_val, style="dim")
+        else:
+            next_line.append(next_val, style="#18b7a6")
+        console.print(next_line)
 
     agent_layer = report.get("agent_layer")
     if isinstance(agent_layer, dict):
-        lines.extend(["", _render_onboard_agent_layer(agent_layer)])
+        console.print()
+        console.rule(style="dim")
+        console.print()
+        _print_onboard_agent_layer(console, agent_layer)
 
-    lines.extend(
-        [
-            "",
-            "Trust receipts",
-            "- no daemon started",
-            "- no external agent config mutated",
-            "- local ledger only",
-            "",
-            f"Return command: {report['return_command']}",
-        ]
-    )
+    warm_start = cast(dict[str, Any], report.get("warm_start", {}))
+    first_actionable = str(warm_start.get("primary_command", report["return_command"]))
+
+    console.print()
+    console.rule(style="dim")
+    console.print()
+    console.print("Trust receipts", style="bold")
+    console.print("  no daemon started", style="dim")
+    console.print("  no external agent config mutated", style="dim")
+    console.print("  local ledger only", style="dim")
+    console.print()
+    console.print("Do this now", style="bold")
+    console.print(f"  {first_actionable}", style="bold #18b7a6")
+    console.print()
+    ret_line = Text()
+    ret_line.append("Return command: ")
+    ret_line.append(report["return_command"], style="#18b7a6")
+    console.print(ret_line)
+    console.print("Docs: docs/getting-started.md", style="dim")
 
     advanced_commands = cast(list[str], report.get("advanced_commands", []))
     if advanced_commands:
-        lines.extend(["", "Advanced commands"])
+        console.print()
+        console.print("Advanced commands", style="bold")
         for command in advanced_commands:
-            lines.append(f"- {command}")
-
+            console.print(f"  {command}", style="dim")
     if no_tui:
-        lines.append("- TUI skipped by --no-tui")
-    return "\n".join(lines)
+        console.print("- TUI skipped by --no-tui", style="dim")
 
 
 def _render_onboard_action_packet_workflow(
@@ -1059,37 +1115,38 @@ def _render_onboard_action_packet_workflow(
     return "\n".join(lines)
 
 
-def _render_onboard_agent_layer(agent_layer: dict[str, Any]) -> str:
+def _print_onboard_agent_layer(
+    console: Any,
+    agent_layer: dict[str, Any],
+) -> None:
+    from rich.text import Text
+
     proposal = cast(dict[str, Any], agent_layer["proposal"])
     profile = agent_layer.get("profile")
     agent_targets = ", ".join(cast(list[str], proposal.get("agent_targets", [])))
     surface_plan = ", ".join(cast(list[str], proposal.get("surface_plan", [])))
-    lines = [
-        "Agent layer proposal",
-        f"- preview: {'yes' if agent_layer.get('preview') else 'no'}",
-        f"- recommended: {proposal['recommended_archetype']}",
-        f"- context pack: {proposal['context_pack']}",
-        f"- agents: {agent_targets or 'none'}",
-        f"- surfaces: {surface_plan}",
-    ]
+    console.print("Agent layer proposal", style="bold")
+    console.print(f"  preview: {'yes' if agent_layer.get('preview') else 'no'}", style="dim")
+    console.print(f"  recommended: {proposal['recommended_archetype']}", style="dim")
+    console.print(f"  context pack: {proposal['context_pack']}", style="dim")
+    console.print(f"  agents: {agent_targets or 'none'}", style="dim")
+    console.print(f"  surfaces: {surface_plan}", style="dim")
     writes = cast(list[dict[str, Any]], proposal.get("writes", []))
     for write in writes:
         verb = "would write" if agent_layer.get("preview") else "write"
-        lines.append(f"- {verb}: {write['path']} ({write['status']})")
+        console.print(f"  {verb}: {write['path']} ({write['status']})", style="dim")
     if isinstance(profile, dict):
-        lines.extend(
-            [
-                "",
-                "Agent layer profile",
-                f"- applied: {agent_layer['profile_path']}",
-                f"- archetype: {profile['archetype']}",
-                f"- next: {agent_layer['next_step']}",
-            ]
-        )
+        console.print()
+        console.print("Agent layer profile", style="bold")
+        console.print(f"  applied: {agent_layer['profile_path']}", style="#18b7a6")
+        console.print(f"  archetype: {profile['archetype']}", style="dim")
+        next_line = Text()
+        next_line.append("  next: ", style="dim")
+        next_line.append(str(agent_layer["next_step"]), style="#18b7a6")
+        console.print(next_line)
     receipts = cast(list[str], agent_layer.get("trust_receipts", []))
     if receipts:
-        lines.append("- trust: " + "; ".join(receipts))
-    return "\n".join(lines)
+        console.print(f"  trust: {'; '.join(receipts)}", style="dim")
 
 
 def _sentence_case(value: str) -> str:
@@ -1153,11 +1210,10 @@ def doctor(
 ) -> None:
     """Run local DevCD operational readiness checks."""
     report = _build_doctor_report(config=config, endpoint=endpoint, fix=fix)
-    typer.echo(
-        json.dumps(report, indent=2, sort_keys=True)
-        if output_json
-        else _render_doctor_report(report)
-    )
+    if output_json:
+        typer.echo(json.dumps(report, indent=2, sort_keys=True))
+    else:
+        _print_doctor_report(report)
 
 
 @app.command()
@@ -1181,13 +1237,20 @@ def smoke(
         bool,
         typer.Option("--json", help="Print machine-readable JSON output."),
     ] = False,
+    compact: Annotated[
+        bool,
+        typer.Option(
+            "--compact/--full",
+            help="Use compact output without the ASCII banner.",
+        ),
+    ] = False,
 ) -> None:
     """Verify the local install with a daemonless first-run check."""
     report = _build_smoke_report(config=config, endpoint=endpoint, demo_events=demo_events)
     if output_json:
         typer.echo(json.dumps(report, indent=2, sort_keys=True))
     else:
-        typer.echo(_render_smoke_report(report))
+        _print_smoke_report(report, compact=compact)
     if report["status"] != "pass":
         raise typer.Exit(1)
 
@@ -2656,13 +2719,16 @@ def _build_quickstart_report(
     steps = [
         _quickstart_step(
             "install",
-            "Install from checkout",
-            'python -m pip install -e ".[dev]"',
-            "The devcd CLI becomes available from this checkout.",
+            "Install DevCD",
+            "python -m pip install --disable-pip-version-check --quiet devcd",
+            "The devcd CLI is installed for a normal local-first first run.",
             "devcd --help lists quickstart, status, doctor, context, mcp, and integrations.",
             workspace_command,
-            "Confirm Python 3.11+ is active, then rerun the editable install.",
-            "manual",
+            (
+                "Confirm Python 3.11+ is active and rerun the install; "
+                "contributors can use editable install from checkout."
+            ),
+            "complete",
         ),
         _quickstart_step(
             "workspace",
@@ -2745,7 +2811,7 @@ def _build_quickstart_report(
             "devcd integrations openclaw --smoke-test",
             "DevCD prints a copyable MCP snippet and verifies the read-only MCP resource shape.",
             "The smoke test passes without installing OpenClaw or mutating external config.",
-            "devcd integrations hermes --json --smoke-test",
+            "devcd integrations openclaw --json --smoke-test",
             "If the smoke test fails, fix the local devcd command path or run devcd doctor.",
             "optional",
         ),
@@ -2993,16 +3059,12 @@ def _build_smoke_report(
     }
 
 
-def _render_smoke_report(report: dict[str, Any]) -> str:
+def _render_smoke_report(report: dict[str, Any], *, compact: bool = False) -> str:
     overall = "OK" if report["status"] == "pass" else "FAIL"
-    lines = [
-        *_SMOKE_LOGO_LINES,
-        "",
-        "DevCD install check",
-        "Validate install + local-first quickstart contract.",
-        "",
-        f"[{overall}] smoke status: {report['status']}",
-    ]
+    lines = ["DevCD install check", "Validate install + local-first quickstart contract.", ""]
+    if not compact:
+        lines = [*_SMOKE_LOGO_LINES, "", *lines]
+    lines.append(f"[{overall}] smoke status: {report['status']}")
     for check in cast(list[dict[str, Any]], report["checks"]):
         check_ok = check["status"] == "pass"
         marker = "OK" if check_ok else "FAIL"
@@ -3017,6 +3079,53 @@ def _render_smoke_report(report: dict[str, Any]) -> str:
     if report["status"] == "pass":
         lines.extend(["", f"[OK] Next: {report['next_command']}"])
     return "\n".join(lines)
+
+
+def _print_smoke_report(report: dict[str, Any], *, compact: bool = False) -> None:
+    from rich.console import Console
+    from rich.text import Text
+
+    if compact:
+        typer.echo(_render_smoke_report(report, compact=True))
+        return
+
+    console = Console(highlight=False)
+    for line in _SMOKE_LOGO_LINES:
+        console.print(line, style="bold #f7c948")
+    console.rule(style="#f7c948 dim")
+    console.print()
+    console.print("DevCD install check", style="bold white")
+    console.print("Validate install + local-first quickstart contract.", style="dim")
+    console.print()
+    overall_ok = report["status"] == "pass"
+    overall_style = "bold #18b7a6" if overall_ok else "bold #d95f59"
+    overall_marker = "[OK]" if overall_ok else "[FAIL]"
+    status_line = Text()
+    status_line.append(overall_marker, style=overall_style)
+    status_line.append(f" smoke status: {report['status']}")
+    console.print(status_line)
+    for check in cast(list[dict[str, Any]], report["checks"]):
+        check_ok = check["status"] == "pass"
+        marker = "[OK]" if check_ok else "[FAIL]"
+        marker_style = "bold #18b7a6" if check_ok else "bold #d95f59"
+        display_status = "ok" if check_ok else str(check["status"])
+        check_line = Text()
+        check_line.append(marker, style=marker_style)
+        check_line.append(f" {check['label']}: {display_status}")
+        console.print(check_line)
+        if not check_ok:
+            for error in cast(list[str], check.get("errors", [])):
+                console.print(f"  error: {error}", style="#d95f59")
+            missing_packs = cast(list[str], check.get("missing_packs", []))
+            if missing_packs:
+                console.print(f"  missing packs: {', '.join(missing_packs)}", style="dim")
+    if report["status"] == "pass":
+        console.print()
+        console.rule(style="#18b7a6 dim")
+        next_line = Text()
+        next_line.append(" [OK] ", style="bold #18b7a6")
+        next_line.append(f"Next: {report['next_command']}", style="bold #18b7a6")
+        console.print(next_line)
 
 
 def _quickstart_step(
@@ -3348,6 +3457,8 @@ def _render_status_report(report: dict[str, Any]) -> str:
     daemon_status = "reachable" if daemon["reachable"] else "unreachable"
     lines = [
         "DevCD status",
+        "Current local continuity readiness.",
+        "",
         f"Daemon: {daemon_status} ({report['endpoint']})",
         f"Auth token: {report['token_source']}",
         f"Workspace: {report['workspace']}",
@@ -3362,35 +3473,67 @@ def _render_status_report(report: dict[str, Any]) -> str:
         ),
         f"Handoff: {'available' if report['handoff_available'] else 'unavailable'}",
         f"MCP: {'available' if report['mcp_available'] else 'unavailable'}",
+        "",
+        "Recommended next command",
         f"Next: {report['next_command']}",
     ]
     return "\n".join(lines)
 
 
-def _render_doctor_report(report: dict[str, Any]) -> str:
-    lines = ["DevCD doctor"]
+def _print_doctor_report(report: dict[str, Any]) -> None:
+    from rich.console import Console
+    from rich.text import Text
+
+    check_style_map: dict[str, str] = {
+        "pass": "#18b7a6",
+        "warn": "#f7c948",
+        "fail": "#d95f59",
+    }
+    console = Console(highlight=False)
+    console.print("DevCD doctor", style="bold white")
+    console.print("Operational readiness and safe local repairs.", style="dim")
     repairs = cast(list[dict[str, Any]], report.get("repairs", []))
     if repairs:
-        lines.extend(["", "Repairs"])
+        console.print()
+        console.rule(style="dim")
+        console.print()
+        console.print("Repairs", style="bold")
         for repair in repairs:
-            lines.append(
-                f"- {repair['id']}: {repair['status']} - {repair['action']} ({repair['path']})"
-            )
+            repair_style = check_style_map.get(repair["status"], "dim")
+            line = Text()
+            line.append(f"  {repair['id']}: ", style="bold")
+            line.append(repair["status"], style=repair_style)
+            line.append(f" — {repair['action']} ({repair['path']})")
+            console.print(line)
             decision = cast(dict[str, Any], repair.get("policy_decision", {}))
             reason = decision.get("reason")
             if isinstance(reason, str):
-                lines.append(f"  policy: {decision.get('kind', 'unknown')} - {reason}")
-        lines.append("")
+                console.print(
+                    f"    policy: {decision.get('kind', 'unknown')} — {reason}", style="dim"
+                )
+    console.print()
+    console.rule(style="dim")
+    console.print()
+    console.print("Checks", style="bold")
     for check in report["checks"]:
-        lines.append(f"{check['id']}: {check['status']} - {check['summary']}")
+        status = check["status"]
+        status_style = check_style_map.get(status, "dim")
+        line = Text()
+        line.append(f"  {check['id']}: ", style="bold")
+        line.append(status, style=status_style)
+        line.append(f"  {check['summary']}")
+        console.print(line)
     next_steps = [check["next_step"] for check in report["checks"] if check["status"] != "pass"]
+    console.print()
+    console.print("Next steps", style="bold")
     if next_steps:
-        lines.extend(["", "Next steps"])
         for next_step in dict.fromkeys(next_steps):
-            lines.append(f"- {next_step}")
+            next_line = Text()
+            next_line.append("  ", style="dim")
+            next_line.append(next_step, style="#18b7a6")
+            console.print(next_line)
     else:
-        lines.extend(["", "Next steps", "- devcd status"])
-    return "\n".join(lines)
+        console.print("  devcd status", style="#18b7a6")
 
 
 def _render_quickstart_report(report: dict[str, Any]) -> str:
@@ -3405,8 +3548,12 @@ def _render_quickstart_report(report: dict[str, Any]) -> str:
     live_context_status = "empty" if local_state["live_context_empty"] else "has events"
     lines = [
         "DevCD quickstart",
+        "Guided local-first activation for fresh agent sessions.",
         "",
         str(report["value_proposition"]),
+        "",
+        "Recommended first command",
+        f"- {action_packet_first['command']}",
         "",
         "Happy path",
         "- 1. Prepare workspace: devcd onboard",
@@ -3886,6 +4033,7 @@ def _render_workspace_analysis_report(report: dict[str, Any]) -> str:
     mcp = _names_from_detection(detection, "mcp_hints", "name")
     lines = [
         "DevCD workspace analysis",
+        "Detected local signals and proposed agent layer.",
         f"Recommended layer: {proposal['recommended_archetype']}",
         f"Context pack: {proposal['context_pack']}",
         f"Surface plan: {', '.join(cast(list[str], proposal['surface_plan']))}",
@@ -3901,7 +4049,11 @@ def _render_workspace_analysis_report(report: dict[str, Any]) -> str:
 
 
 def _render_agent_layer_profile_report(report: dict[str, Any]) -> str:
-    lines = ["DevCD agent layer profile", f"Status: {report['status']}"]
+    lines = [
+        "DevCD agent layer profile",
+        "Current persisted profile used by onboarding and quickstart.",
+        f"Status: {report['status']}",
+    ]
     profile = report.get("profile")
     if isinstance(profile, dict):
         lines.extend(

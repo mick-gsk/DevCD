@@ -10,6 +10,7 @@ Short version: Initial local-first context daemon foundation with context qualit
 
 ### Added
 
+- CLI polish for first-run flows: root `devcd --version`/`-V`, `devcd smoke --compact`, and richer terminal rendering for `welcome`, `onboard`, and `doctor`.
 - `devcd welcome` zero-write first-run guide, Smoke next-step output, and OpenClaw product benchmark notes to make installation and onboarding feel more guided and product-grade.
 - `devcd doctor --fix` policy-gated local repair mode with explicit receipts for applied or denied config/profile scaffolding actions.
 - Agent-Layer onboarding for `devcd onboard --preview` and `devcd onboard --yes`, including metadata-only workspace detection, persisted `.devcd/agent-layer-profile.json`, Quickstart Agent Layer console, read-only workspace/profile inspectors, and Smoke/Doctor readiness checks.
