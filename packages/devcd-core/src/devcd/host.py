@@ -16,6 +16,7 @@ from devcd.slices.host_state_engine.service import StateEngine
 from devcd.slices.memory_layer.service import MemoryStore
 from devcd.slices.policy_layer.models import PolicyDecision, PolicyDecisionKind
 from devcd.slices.policy_layer.service import PolicyEngine
+from devcd.slices.vision_layer.service import VisionService
 
 _LOOPBACK_HOSTS = {"127.0.0.1", "::1", "localhost"}
 
@@ -44,6 +45,7 @@ def create_app(settings: DevCDSettings | None = None) -> FastAPI:
         memory_store=memory_store,
         event_ledger=event_ledger,
     )
+    vision_service = VisionService(resolved_settings.runtime_dir, event_ledger=event_ledger)
 
     app = FastAPI(title="DevCD", version="0.1.0")
     app.state.settings = resolved_settings
@@ -53,12 +55,16 @@ def create_app(settings: DevCDSettings | None = None) -> FastAPI:
         state_engine=state_engine,
         memory_store=memory_store,
         policy_engine=policy_engine,
+        vision_service=vision_service,
     )
     app.state.ambient_context_service = ambient_context_service
     app.state.agentic_context_service = AgenticContextService(
         ambient_context_service=ambient_context_service,
         policy_engine=policy_engine,
+        vision_service=vision_service,
+        event_ledger=event_ledger,
     )
+    app.state.vision_service = vision_service
     state_engine.rebuild_from_ledger()
 
     @app.middleware("http")

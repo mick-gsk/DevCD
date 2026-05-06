@@ -57,6 +57,23 @@ def _minimal_report() -> dict[str, Any]:
             "doctor_status": "attention",
             "next_command": "devcd init",
         },
+        "agent_layer": {
+            "profile_status": "missing",
+            "archetype": "builder",
+            "context_pack": "developer",
+            "agent_targets": ["copilot"],
+            "surface_plan": ["coding-agent", "debugging-agent"],
+            "detected_agents": [],
+            "detected_tools": ["python", "pytest"],
+            "next_action": "devcd onboard --yes",
+            "progress": [
+                {"id": "detect", "label": "Detect", "status": "done"},
+                {"id": "choose", "label": "Choose", "status": "suggested"},
+                {"id": "apply", "label": "Apply", "status": "next"},
+                {"id": "seed", "label": "Seed", "status": "pending"},
+                {"id": "use_action_packet", "label": "Use Action Packet", "status": "pending"},
+            ],
+        },
         "steps": [
             {
                 "id": "install",
@@ -191,6 +208,22 @@ async def test_quickstart_app_renders_path_buttons() -> None:
         assert "Proof in one minute" in str(pilot.app.query_one("#path-demo", Button).label)
         assert "Action Packet workflow" in str(pilot.app.query_one("#path-live", Button).label)
         assert "Optional MCP follow-up" in str(pilot.app.query_one("#path-mcp", Button).label)
+
+
+@pytest.mark.asyncio
+async def test_quickstart_app_renders_agent_layer_console() -> None:
+    from textual.widgets import Static
+
+    app = QuickstartApp(_minimal_report())
+    async with app.run_test(headless=True) as pilot:
+        await pilot.pause()
+        summary = pilot.app.query_one("#agent-layer-summary", Static)
+        progress = pilot.app.query_one("#agent-layer-progress", Static)
+        assert "builder" in str(summary.render())
+        assert "devcd onboard --yes" in str(summary.render())
+        assert "Detect -> Choose -> Apply -> Seed -> Use Action Packet" in str(
+            progress.render()
+        )
 
 
 @pytest.mark.asyncio

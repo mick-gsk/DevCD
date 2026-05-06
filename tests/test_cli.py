@@ -786,6 +786,19 @@ def test_smoke_command_verifies_local_first_run() -> None:
     assert "devcd quickstart: ok" in result.output
 
 
+def test_smoke_json_verifies_agent_layer_quickstart_contract() -> None:
+    runner = CliRunner()
+
+    result = runner.invoke(app, ["smoke", "--json"])
+
+    assert result.exit_code == 0
+    body = json.loads(result.output)
+    quickstart_check = next(check for check in body["checks"] if check["id"] == "quickstart")
+    assert quickstart_check["status"] == "pass"
+    assert quickstart_check["agent_layer_profile_status"] in {"missing", "ready"}
+    assert quickstart_check["agent_layer_next_action"]
+
+
 def test_smoke_help_positions_it_as_install_check() -> None:
     runner = CliRunner()
 
@@ -2804,6 +2817,20 @@ def test_doctor_reports_missing_token_and_config(tmp_path, monkeypatch) -> None:
     assert "devcd init" in result.output
 
 
+def test_doctor_profile_check_is_warn_not_fail_when_missing(tmp_path, monkeypatch) -> None:
+    monkeypatch.chdir(tmp_path)
+    runner = CliRunner()
+
+    result = runner.invoke(app, ["doctor", "--json"])
+
+    assert result.exit_code == 0
+    body = json.loads(result.output)
+    profile_check = next(check for check in body["checks"] if check["id"] == "agent_layer_profile")
+    assert profile_check["status"] == "warn"
+    assert profile_check["details"]["profile_status"] == "missing"
+    assert body["summary"]["status"] == "attention"
+
+
 def test_doctor_json_verifies_sensitive_policy_denial(tmp_path, monkeypatch) -> None:
     monkeypatch.chdir(tmp_path)
     runner = CliRunner()
@@ -2960,6 +2987,69 @@ def test_quickstart_json_reports_live_first_readiness(
         'devcd handoff --goal "<current goal>" --next-action "<safe next step>"'
     )
     assert body["next_paths"]["connect_agent"] == "devcd integrations openclaw --smoke-test"
+
+
+def test_quickstart_json_reports_agent_layer_console_state(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.chdir(tmp_path)
+    (tmp_path / "pyproject.toml").write_text(
+        "[project]\nname = \"demo\"\n[tool.pytest.ini_options]\n", encoding="utf-8"
+    )
+    runner = CliRunner()
+
+    result = runner.invoke(
+        app,
+        [
+            "quickstart",
+            "--config",
+            str(tmp_path / "devcd.toml"),
+            "--endpoint",
+            "http://127.0.0.1:9/state",
+            "--json",
+        ],
+    )
+
+    assert result.exit_code == 0
+    body = json.loads(result.output)
+    agent_layer = body["agent_layer"]
+    assert agent_layer["profile_status"] == "missing"
+    assert agent_layer["archetype"] == "builder"
+    assert agent_layer["context_pack"] == "developer"
+    assert agent_layer["detected_tools"] == ["python", "pytest"]
+    assert agent_layer["next_action"] == "devcd onboard --yes"
+    assert [item["id"] for item in agent_layer["progress"]] == [
+        "detect",
+        "choose",
+        "apply",
+        "seed",
+        "use_action_packet",
+    ]
+
+
+def test_quickstart_plain_text_renders_agent_layer_console(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.chdir(tmp_path)
+    runner = CliRunner()
+
+    result = runner.invoke(
+        app,
+        [
+            "quickstart",
+            "--config",
+            str(tmp_path / "devcd.toml"),
+            "--endpoint",
+            "http://127.0.0.1:9/state",
+            "--no-tui",
+        ],
+    )
+
+    assert result.exit_code == 0
+    assert "Agent layer console" in result.output
+    assert "- Profile: missing" in result.output
+    assert "- Archetype: builder" in result.output
+    assert "- Next action: devcd onboard --yes" in result.output
 
 
 def test_quickstart_demo_preview_is_explicit(

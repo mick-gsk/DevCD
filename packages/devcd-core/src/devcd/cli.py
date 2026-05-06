@@ -8,7 +8,7 @@ import urllib.error
 import urllib.request
 from pathlib import Path
 from tempfile import TemporaryDirectory
-from typing import Annotated, Any, cast
+from typing import TYPE_CHECKING, Annotated, Any, cast
 from urllib.parse import quote, urlparse
 from uuid import uuid4
 
@@ -68,6 +68,9 @@ from devcd.slices.mcp_server.service import (
 from devcd.slices.memory_layer.service import MemoryStore
 from devcd.slices.policy_layer.service import PolicyEngine
 
+if TYPE_CHECKING:
+    from devcd.slices.vision_layer.service import VisionService
+
 app = typer.Typer(
     help=(
         "DevCD terminal-first continuity for AI power users. "
@@ -86,6 +89,8 @@ app.add_typer(mcp_app, name="mcp")
 app.add_typer(integrations_app, name="integrations")
 app.add_typer(policy_app, name="policy")
 app.add_typer(recipe_app, name="recipe")
+vision_app = typer.Typer(help="Manage your persistent agent vision and North Star.")
+app.add_typer(vision_app, name="vision")
 
 _LOCAL_TOKEN_PATH = Path(".devcd") / "token"
 _LOOPBACK_HOSTS = {"127.0.0.1", "::1", "localhost"}
@@ -2303,6 +2308,7 @@ def _build_doctor_report(*, config: Path | None, endpoint: str) -> dict[str, Any
             state_status,
             'devcd event ide file_focus --payload \'{"path":"src/app.py"}\'',
         ),
+        _agent_layer_profile_check(),
         _policy_sensitive_denial_check(settings),
         _sample_events_valid_check(),
         _handoff_demo_check(),
@@ -2335,6 +2341,7 @@ def _build_quickstart_report(
     token_source = str(status_report["token_source"])
     config_exists = bool(status_report["config_exists"])
     live_context_empty = events_count == 0
+    agent_layer = _build_quickstart_agent_layer_report(settings=settings)
     workspace_command = "devcd status" if config_exists else "devcd init"
     daemon_command = "devcd status" if daemon_reachable else "devcd run"
     capture_command = (
@@ -2498,6 +2505,7 @@ def _build_quickstart_report(
             "next_command": status_report["next_command"],
             "doctor_status": doctor_report["summary"]["status"],
         },
+        "agent_layer": agent_layer,
         "defaults": {
             "host": "127.0.0.1",
             "port": 8765,
@@ -2548,6 +2556,61 @@ def _build_quickstart_report(
     return report
 
 
+def _build_quickstart_agent_layer_report(*, settings: DevCDSettings) -> dict[str, Any]:
+    workspace_root = Path.cwd()
+    detection = detect_workspace_agent_layer(workspace_root, settings=settings)
+    proposal = build_agent_layer_proposal(detection)
+    profile_result = load_agent_layer_profile(workspace_root)
+    profile = profile_result.profile
+    archetype = (
+        profile.archetype.value if profile is not None else proposal.recommended_archetype.value
+    )
+    agent_targets = (
+        [target.value for target in profile.agent_targets]
+        if profile is not None
+        else [target.value for target in proposal.agent_targets]
+    )
+    context_pack = profile.context_pack if profile is not None else proposal.context_pack
+    surface_plan = profile.surface_plan if profile is not None else proposal.surface_plan
+    detected_agents = [agent.target.value for agent in detection.agents]
+    detected_tools = _quickstart_detected_tool_names(detection.model_dump(mode="json"))
+    profile_ready = profile is not None
+    action_packet_ready = profile_ready
+    return {
+        "profile_status": profile_result.status,
+        "archetype": archetype,
+        "context_pack": context_pack,
+        "agent_targets": agent_targets,
+        "surface_plan": surface_plan,
+        "detected_agents": detected_agents,
+        "detected_tools": detected_tools,
+        "next_action": profile_result.next_step,
+        "profile_path": profile_result.path,
+        "progress": [
+            {"id": "detect", "label": "Detect", "status": "done"},
+            {"id": "choose", "label": "Choose", "status": "done" if profile_ready else "suggested"},
+            {"id": "apply", "label": "Apply", "status": "done" if profile_ready else "next"},
+            {"id": "seed", "label": "Seed", "status": "next" if profile_ready else "pending"},
+            {
+                "id": "use_action_packet",
+                "label": "Use Action Packet",
+                "status": "next" if action_packet_ready else "pending",
+            },
+        ],
+        "trust_receipts": proposal.trust_receipts,
+    }
+
+
+def _quickstart_detected_tool_names(detection: dict[str, Any]) -> list[str]:
+    names: list[str] = []
+    for key in ("languages", "test_tools", "lint_tools", "build_tools", "mcp_hints"):
+        for item in cast(list[dict[str, Any]], detection.get(key, [])):
+            value = item.get("name")
+            if isinstance(value, str) and value not in names:
+                names.append(value)
+    return names
+
+
 def _build_smoke_report(
     *, config: Path | None, endpoint: str, demo_events: Path
 ) -> dict[str, Any]:
@@ -2572,7 +2635,14 @@ def _build_smoke_report(
         endpoint=endpoint,
         demo_events=demo_events,
     )
-    required_keys = {"defaults", "live_first", "privacy", "steps", "value_proposition"}
+    required_keys = {
+        "agent_layer",
+        "defaults",
+        "live_first",
+        "privacy",
+        "steps",
+        "value_proposition",
+    }
     missing_quickstart_keys = sorted(required_keys - set(quickstart_report))
     quickstart_errors: list[str] = []
     if missing_quickstart_keys:
@@ -2581,12 +2651,30 @@ def _build_smoke_report(
         )
     if quickstart_report.get("privacy", {}).get("remote_export_enabled_by_default") is not False:
         quickstart_errors.append("remote export must stay disabled by default")
+    agent_layer = quickstart_report.get("agent_layer")
+    if not isinstance(agent_layer, dict):
+        quickstart_errors.append("agent_layer must be present")
+        agent_layer = {}
+    required_agent_layer_keys = {
+        "archetype",
+        "next_action",
+        "profile_status",
+        "progress",
+        "surface_plan",
+    }
+    missing_agent_layer_keys = sorted(required_agent_layer_keys - set(agent_layer))
+    if missing_agent_layer_keys:
+        quickstart_errors.append(
+            f"agent_layer missing keys: {', '.join(missing_agent_layer_keys)}"
+        )
     checks.append(
         {
             "id": "quickstart",
             "label": "devcd quickstart",
             "status": "pass" if not quickstart_errors else "fail",
             "demo_events": str(demo_events),
+            "agent_layer_profile_status": agent_layer.get("profile_status"),
+            "agent_layer_next_action": agent_layer.get("next_action"),
             "errors": quickstart_errors,
         }
     )
@@ -2683,6 +2771,23 @@ def _doctor_check(
         "details": details,
         "next_step": next_step,
     }
+
+
+def _agent_layer_profile_check() -> dict[str, Any]:
+    profile = load_agent_layer_profile(Path.cwd())
+    return _doctor_check(
+        "agent_layer_profile",
+        "pass" if profile.status == "ready" else "warn",
+        "Agent layer profile is ready"
+        if profile.status == "ready"
+        else "No agent layer profile found",
+        {
+            "profile_status": profile.status,
+            "path": profile.path,
+            "archetype": profile.profile.archetype if profile.profile else None,
+        },
+        profile.next_step,
+    )
 
 
 def _policy_sensitive_denial_check(settings: DevCDSettings) -> dict[str, Any]:
@@ -3004,6 +3109,8 @@ def _render_quickstart_report(report: dict[str, Any]) -> str:
         f"- Live context: {live_context_status} ({local_state['events_count']} events)",
         f"- Doctor: {local_state['doctor_status']}",
         "",
+        _render_quickstart_agent_layer(cast(dict[str, Any], report["agent_layer"])),
+        "",
         "Primary workflow",
         f"- Start with: {action_packet_first['command']}",
         f"- Broader continuity view: {action_packet_first['broader_view_command']}",
@@ -3068,6 +3175,31 @@ def _render_quickstart_report(report: dict[str, Any]) -> str:
         ]
     )
     return "\n".join(lines)
+
+
+def _render_quickstart_agent_layer(agent_layer: dict[str, Any]) -> str:
+    detected_agents = ", ".join(cast(list[str], agent_layer.get("detected_agents", [])))
+    detected_tools = ", ".join(cast(list[str], agent_layer.get("detected_tools", [])))
+    targets = ", ".join(cast(list[str], agent_layer.get("agent_targets", [])))
+    surfaces = ", ".join(cast(list[str], agent_layer.get("surface_plan", [])))
+    progress = " -> ".join(
+        str(item["label"])
+        for item in cast(list[dict[str, Any]], agent_layer.get("progress", []))
+    )
+    return "\n".join(
+        [
+            "Agent layer console",
+            f"- Profile: {agent_layer['profile_status']} ({agent_layer['profile_path']})",
+            f"- Archetype: {agent_layer['archetype']}",
+            f"- Context pack: {agent_layer['context_pack']}",
+            f"- Agents: {targets or 'none'}",
+            f"- Surfaces: {surfaces}",
+            f"- Detected agents: {detected_agents or 'none'}",
+            f"- Detected tools: {detected_tools or 'none'}",
+            f"- Progress: {progress}",
+            f"- Next action: {agent_layer['next_action']}",
+        ]
+    )
 
 
 def _render_quickstart_steps(steps: list[object], *, start_index: int) -> list[str]:
@@ -3557,6 +3689,211 @@ def _resolve_local_api_token(endpoint: str, token: str | None = None) -> str | N
 
 def _is_loopback_endpoint(endpoint: str) -> bool:
     return urlparse(endpoint).hostname in _LOOPBACK_HOSTS
+
+
+# ---------------------------------------------------------------------------
+# vision sub-app
+# ---------------------------------------------------------------------------
+
+
+def _vision_service(settings: DevCDSettings) -> VisionService:
+    from devcd.slices.vision_layer.service import VisionService
+
+    return VisionService(settings.runtime_dir)
+
+
+@vision_app.command("init")
+def vision_init(
+    domain: Annotated[
+        str,
+        typer.Option(
+            "--domain",
+            "-d",
+            prompt="Project/domain label",
+            help="Project or domain label.",
+        ),
+    ] = "",
+    north_star: Annotated[
+        str,
+        typer.Option(
+            "--north-star",
+            "-n",
+            help="The North Star statement (omit to be prompted).",
+        ),
+    ] = "",
+    rationale: Annotated[
+        str,
+        typer.Option("--rationale", "-r", help="Optional rationale for this vision."),
+    ] = "",
+    guided: Annotated[
+        bool,
+        typer.Option(
+            "--guided",
+            help="Use guided mode to compose a vision from structured answers.",
+        ),
+    ] = False,
+    force: Annotated[
+        bool,
+        typer.Option("--force", "-f", help="Overwrite existing vision without confirmation."),
+    ] = False,
+) -> None:
+    """Initialize a persistent agent vision for the current workspace."""
+    from devcd.slices.vision_layer.service import VisionService
+
+    settings = DevCDSettings.load()
+    svc = VisionService(settings.runtime_dir)
+
+    existing = svc.load()
+    if existing is not None and not force:
+        typer.echo(
+            f"A vision already exists (North Star: \"{existing.north_star[:60]}...\").\n"
+            "Use --force to overwrite, or run 'devcd vision update' to update it."
+        )
+        raise typer.Exit(code=1)
+
+    if guided:
+        typer.echo("Guided vision setup — answer four questions to compose your North Star.\n")
+        if not domain:
+            domain = typer.prompt("1. What is your project or domain label?")
+        project_goal = typer.prompt(
+            "2. What is the primary goal of this project in one sentence?"
+        )
+        agent_behavior = typer.prompt(
+            "3. How should agents behave when working on this project? "
+            "(e.g., cautious, bold, test-first)"
+        )
+        time_horizon = typer.prompt(
+            "4. What is the time horizon for this goal? (e.g., 3 months, next release)"
+        )
+        composed = (
+            f"In {time_horizon}, {project_goal.rstrip('.')}. "
+            f"Agents should be {agent_behavior} and keep this goal as their constant orientation."
+        )
+        typer.echo(f"\nDraft North Star:\n  {composed}\n")
+        confirmed = typer.confirm("Save this as your active vision?")
+        if not confirmed:
+            typer.echo("Vision not saved. Re-run 'devcd vision init --guided' to try again.")
+            raise typer.Exit(code=0)
+        north_star = composed
+    else:
+        if not domain:
+            domain = typer.prompt("Project/domain label")
+        if not north_star:
+            north_star = typer.prompt("North Star statement")
+
+    warnings = VisionService.check_for_sensitive_content(north_star)
+    for warning in warnings:
+        typer.echo(f"Warning: {warning}")
+    if warnings and not typer.confirm("Sensitive content detected. Save anyway?"):
+        raise typer.Exit(code=1)
+
+    svc.init_vision(
+        domain=domain,
+        north_star=north_star,
+        rationale=rationale or None,
+        guided=guided,
+    )
+    typer.echo(f'Vision initialized. North Star: "{north_star}"')
+
+
+@vision_app.command("update")
+def vision_update(
+    north_star: Annotated[str, typer.Argument(help="The new North Star statement.")],
+    reason: Annotated[
+        str,
+        typer.Option("--reason", "-r", help="Optional reason for the update."),
+    ] = "",
+) -> None:
+    """Update the active North Star, preserving the previous version in history."""
+    from devcd.slices.vision_layer.service import VisionService
+
+    settings = DevCDSettings.load()
+    svc = VisionService(settings.runtime_dir)
+
+    warnings = VisionService.check_for_sensitive_content(north_star)
+    for warning in warnings:
+        typer.echo(f"Warning: {warning}")
+    if warnings and not typer.confirm("Sensitive content detected. Save anyway?"):
+        raise typer.Exit(code=1)
+
+    svc.update_vision(north_star, reason=reason or None)
+    typer.echo(f'Vision updated. New North Star: "{north_star}"')
+
+
+@vision_app.command("show")
+def vision_show(
+    as_json: Annotated[
+        bool,
+        typer.Option("--json", help="Output as JSON."),
+    ] = False,
+) -> None:
+    """Show the currently active agent vision."""
+    from devcd.slices.vision_layer.service import VisionService
+
+    settings = DevCDSettings.load()
+    svc = VisionService(settings.runtime_dir)
+    record = svc.load()
+
+    if record is None:
+        typer.echo(
+            "No vision set. Run 'devcd vision init' to establish a "
+            "persistent North Star for your agents."
+        )
+        raise typer.Exit(code=0)
+
+    if as_json:
+        typer.echo(record.model_dump_json(indent=2))
+        return
+
+    typer.echo(f"Domain      : {record.domain}")
+    typer.echo(f"North Star  : {record.north_star}")
+    if record.rationale:
+        typer.echo(f"Rationale   : {record.rationale}")
+    typer.echo(f"Created     : {record.created_at.isoformat()}")
+    typer.echo(f"Last updated: {record.updated_at.isoformat()}")
+    typer.echo(f"Versions    : {len(record.history)} previous version(s)")
+
+
+@vision_app.command("history")
+def vision_history(
+    limit: Annotated[
+        int,
+        typer.Option("--limit", "-l", help="Maximum number of history entries to show."),
+    ] = 10,
+    as_json: Annotated[
+        bool,
+        typer.Option("--json", help="Output as JSON."),
+    ] = False,
+) -> None:
+    """List previous North Star versions in reverse chronological order."""
+    from devcd.slices.vision_layer.service import VisionService
+
+    settings = DevCDSettings.load()
+    svc = VisionService(settings.runtime_dir)
+    record = svc.load()
+
+    if record is None:
+        typer.echo(
+            "No vision set. Run 'devcd vision init' to establish a "
+            "persistent North Star for your agents."
+        )
+        raise typer.Exit(code=0)
+
+    entries = record.history[:limit]
+
+    if not entries:
+        typer.echo("No previous versions. This is the first North Star for this workspace.")
+        raise typer.Exit(code=0)
+
+    if as_json:
+        typer.echo(json.dumps([e.model_dump(mode="json") for e in entries], indent=2))
+        return
+
+    for i, entry in enumerate(entries, start=1):
+        typer.echo(
+            f"{i}. [{entry.replaced_at.isoformat()}] {entry.statement}"
+            + (f" (reason: {entry.replaced_by_reason})" if entry.replaced_by_reason else "")
+        )
 
 
 def main() -> None:

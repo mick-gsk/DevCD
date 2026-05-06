@@ -55,6 +55,12 @@ Screen { background: $surface; }
     color: $text-muted;
 }
 
+.agent-layer {
+    border: round $primary-darken-1;
+    padding: 1 2;
+    margin-bottom: 1;
+}
+
 .path-btn { width: 100%; height: 4; margin-bottom: 1; }
 
 Collapsible { margin-bottom: 1; }
@@ -114,13 +120,15 @@ async def _exec_allowed(argv: tuple[str, ...], log: Log) -> int:
     return proc.returncode or 0
 
 
-def _sidebar(local_state: dict[str, Any]) -> Vertical:
+def _sidebar(local_state: dict[str, Any], agent_layer: dict[str, Any] | None = None) -> Vertical:
     """Build the persistent local-state sidebar widget."""
     config_ok = bool(local_state.get("config_exists", False))
     daemon_ok = bool(local_state.get("daemon_reachable", False))
     events_count = int(local_state.get("events_count", 0))
     goal: str | None = local_state.get("active_goal")
     token = str(local_state.get("token_source", "missing"))
+    profile_status = str((agent_layer or {}).get("profile_status", "unknown"))
+    archetype = str((agent_layer or {}).get("archetype", "auto"))
 
     def row(text: str, css: str = "neutral") -> Label:
         return Label(text, classes=f"state-{css}")
@@ -132,7 +140,35 @@ def _sidebar(local_state: dict[str, Any]) -> Vertical:
         row(f"  Token    {token[:18]}", "ok" if token != "missing" else "warn"),
         row(f"  Events   {events_count}", "ok" if events_count > 0 else "neutral"),
         row(f"  Goal     {(goal or '—')[:20]}", "ok" if goal else "neutral"),
+        row("Agent Layer", "title"),
+        row(f"  Profile  {profile_status[:18]}", "ok" if profile_status == "ready" else "warn"),
+        row(f"  Layer    {archetype[:18]}", "neutral"),
         id="sidebar",
+    )
+
+
+def _agent_layer_panel(report: dict[str, Any]) -> Vertical:
+    agent_layer = cast(dict[str, Any], report.get("agent_layer") or {})
+    targets = ", ".join(cast(list[str], agent_layer.get("agent_targets", []))) or "none"
+    surfaces = ", ".join(cast(list[str], agent_layer.get("surface_plan", [])))
+    tools = ", ".join(cast(list[str], agent_layer.get("detected_tools", []))) or "none"
+    progress = " -> ".join(
+        str(item["label"])
+        for item in cast(list[dict[str, Any]], agent_layer.get("progress", []))
+    )
+    summary = (
+        f"Agent layer: {agent_layer.get('archetype', 'auto')}\n"
+        f"Profile: {agent_layer.get('profile_status', 'unknown')}\n"
+        f"Context pack: {agent_layer.get('context_pack', 'developer')}\n"
+        f"Agents: {targets}\n"
+        f"Surfaces: {surfaces}\n"
+        f"Detected tools: {tools}\n"
+        f"Next: {agent_layer.get('next_action', 'devcd onboard --yes')}"
+    )
+    return Vertical(
+        Label("Agent Layer", classes="section-header"),
+        Static(summary, id="agent-layer-summary", markup=False, classes="agent-layer"),
+        Static(progress, id="agent-layer-progress", markup=False, classes="step-prose"),
     )
 
 
@@ -172,7 +208,10 @@ class DemoScreen(Screen[None]):  # type: ignore[type-arg]
         )
         yield Header(show_clock=False)
         with Horizontal(classes="h-layout"):
-            yield _sidebar(self._report["local_state"])
+            yield _sidebar(
+                self._report["local_state"],
+                cast(dict[str, Any], self._report.get("agent_layer")),
+            )
             with ScrollableContainer(id="content"):
                 yield Label("Proof in one minute", classes="section-header")
                 yield Static(f"  $ {command}", markup=False, classes="cmd-block")
@@ -225,7 +264,10 @@ class LiveSetupScreen(Screen[None]):  # type: ignore[type-arg]
         repeat_use = cast(dict[str, Any], self._report["repeat_use"])
         yield Header(show_clock=False)
         with Horizontal(classes="h-layout"):
-            yield _sidebar(self._report["local_state"])
+            yield _sidebar(
+                self._report["local_state"],
+                cast(dict[str, Any], self._report.get("agent_layer")),
+            )
             with ScrollableContainer(id="content"):
                 yield Label("Action Packet workflow", classes="section-header")
                 yield Static(
@@ -316,7 +358,10 @@ class McpScreen(Screen[None]):  # type: ignore[type-arg]
     def compose(self) -> ComposeResult:
         yield Header(show_clock=False)
         with Horizontal(classes="h-layout"):
-            yield _sidebar(self._report["local_state"])
+            yield _sidebar(
+                self._report["local_state"],
+                cast(dict[str, Any], self._report.get("agent_layer")),
+            )
             with ScrollableContainer(id="content"):
                 yield Label("MCP Integration", classes="section-header")
                 yield Label(
@@ -402,13 +447,17 @@ class QuickstartApp(App[None]):  # type: ignore[type-arg]
     def compose(self) -> ComposeResult:
         yield Header(show_clock=False)
         with Horizontal(classes="h-layout"):
-            yield _sidebar(self._report["local_state"])
+            yield _sidebar(
+                self._report["local_state"],
+                cast(dict[str, Any], self._report.get("agent_layer")),
+            )
             with ScrollableContainer(id="content"):
                 yield Static(
                     self._report["value_proposition"],
                     classes="value-prop",
                     markup=False,
                 )
+                yield _agent_layer_panel(self._report)
                 yield Label("Choose your next move:", classes="section-header")
                 yield Button(
                     (
