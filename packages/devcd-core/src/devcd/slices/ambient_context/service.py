@@ -12,6 +12,8 @@ from devcd.slices.ambient_context.models import (
     AgentResurrectionContext,
     BlockerSignal,
     ContextBrief,
+    ContextBudget,
+    ContextBudgetReport,
     ContextControlContinuityPreview,
     ContextControlQualitySummary,
     ContextControlReport,
@@ -21,6 +23,7 @@ from devcd.slices.ambient_context.models import (
     ContextPack,
     ContextPackEventSupport,
     ContextQualityReport,
+    ContextReference,
     ContinuityArtifact,
     ContinuityAttempt,
     ContinuityBlocker,
@@ -43,6 +46,7 @@ from devcd.slices.ambient_context.models import (
     ProactiveSuggestionStatus,
     RecentAttempt,
     RelevantArtifact,
+    SessionContract,
     SurfaceKind,
     WithheldContext,
     WorkState,
@@ -337,6 +341,39 @@ def render_context_packs_json() -> str:
 
 def render_context_control_report_json(report: ContextControlReport) -> str:
     return report.model_dump_json(indent=2)
+
+
+def render_context_budget_report_json(report: ContextBudgetReport) -> str:
+    return report.model_dump_json(indent=2)
+
+
+def render_context_budget_report_text(report: ContextBudgetReport) -> str:
+    lines = [
+        "DevCD context budget",
+        f"Surface: {report.surface}",
+        f"Pack: {report.context_pack}",
+        f"Estimated tokens: {report.estimated_tokens}",
+        f"References: {report.reference_count}",
+        f"Withheld context: {report.withheld_context_count}",
+        "",
+        "Context references",
+    ]
+    if report.context_references:
+        for reference in report.context_references:
+            lines.append(f"- {reference.kind}: {reference.identifier}")
+            lines.append(f"  reason: {reference.include_reason}")
+            lines.append(f"  load_hint: {reference.load_hint}")
+    else:
+        lines.append("- None selected for this surface.")
+    lines.extend(["", "Session contract"])
+    if report.session_contract is None:
+        lines.append("- No session contract is available.")
+    else:
+        lines.append(f"- next_action: {report.session_contract.next_action}")
+        lines.append(f"- verification: {report.session_contract.verification_command}")
+    lines.extend(["", "Suggested actions"])
+    lines.extend(_bullet_lines(report.suggested_actions, empty="No budget action suggested."))
+    return "\n".join(lines)
 
 
 def render_context_control_report_text(report: ContextControlReport) -> str:
@@ -698,6 +735,30 @@ class AmbientContextService:
         if include_empty_guidance:
             return _with_empty_passport_guidance(packet)
         return packet
+
+    def create_context_budget_report(
+        self,
+        surface: AgentContextSurface | None = None,
+        *,
+        context_pack: str = "developer",
+    ) -> ContextBudgetReport:
+        packet = self.create_continuity_packet(
+            surface,
+            context_pack=context_pack,
+            include_empty_guidance=True,
+        )
+        return ContextBudgetReport(
+            surface=packet.surface,
+            context_pack=packet.context_pack,
+            estimated_tokens=packet.context_budget.estimated_tokens,
+            reference_count=packet.context_budget.reference_count,
+            withheld_context_count=packet.context_budget.withheld_context_count,
+            included_sources=packet.context_budget.included_sources,
+            suggested_actions=packet.context_budget.suggested_actions,
+            context_references=packet.context_references,
+            session_contract=packet.session_contract,
+            generated_at=packet.generated_at,
+        )
 
     def _feedback_payload(
         self,
@@ -2535,11 +2596,13 @@ def _with_empty_passport_guidance(packet: ContinuityPacket) -> ContinuityPacket:
     unknowns = list(packet.unknowns)
     if _EMPTY_PASSPORT_UNKNOWN not in unknowns:
         unknowns.insert(0, _EMPTY_PASSPORT_UNKNOWN)
-    return packet.model_copy(
-        update={
-            "suggested_next_steps": list(_EMPTY_PASSPORT_NEXT_STEPS),
-            "unknowns": unknowns,
-        }
+    return _with_context_contracts(
+        packet.model_copy(
+            update={
+                "suggested_next_steps": list(_EMPTY_PASSPORT_NEXT_STEPS),
+                "unknowns": unknowns,
+            }
+        )
     )
 
 
@@ -2622,7 +2685,8 @@ def continuity_packet_from_context_brief(
         for index, blocker in enumerate(brief.blockers)
     ]
 
-    return ContinuityPacket(
+    return _with_context_contracts(
+        ContinuityPacket(
         schema_version=brief.schema_version,
         id=brief.id,
         context_pack=context_pack,
@@ -2665,7 +2729,149 @@ def continuity_packet_from_context_brief(
         },
         confidence=brief.confidence,
         generated_at=brief.generated_at,
+        )
     )
+
+
+def _with_context_contracts(packet: ContinuityPacket) -> ContinuityPacket:
+    context_references = _context_references_from_packet(packet)
+    context_budget = _context_budget_from_packet(packet, context_references)
+    session_contract = _session_contract_from_packet(packet)
+    return packet.model_copy(
+        update={
+            "context_references": context_references,
+            "context_budget": context_budget,
+            "session_contract": session_contract,
+        }
+    )
+
+
+def _context_references_from_packet(packet: ContinuityPacket) -> list[ContextReference]:
+    references: list[ContextReference] = []
+    if packet.intent is not None:
+        references.append(
+            ContextReference(
+                kind="intent",
+                identifier="active_goal",
+                summary=packet.intent.summary,
+                source="devcd",
+                load_hint="Use this summary as the current goal; do not request raw history first.",
+                include_reason="active goal is the strongest continuity signal",
+                freshness=FreshnessState(
+                    status=FreshnessStatus.CURRENT,
+                    last_seen_at=packet.intent.updated_at,
+                ),
+                confidence=packet.intent.confidence,
+                policy_reason=packet.policy_decision.reason,
+            )
+        )
+    for artifact in packet.artifacts[:8]:
+        references.append(
+            ContextReference(
+                kind="artifact",
+                identifier=artifact.identifier,
+                summary=artifact.summary,
+                source=artifact.source,
+                load_hint="Load this path only if the next action needs file-level detail.",
+                include_reason="artifact was selected by surface relevance limits",
+                freshness=FreshnessState(
+                    status=FreshnessStatus.CURRENT,
+                    last_seen_at=artifact.last_seen_at,
+                ),
+                confidence=artifact.relevance,
+                policy_reason=artifact.policy_reason,
+            )
+        )
+    for blocker in packet.blockers[:5]:
+        references.append(
+            ContextReference(
+                kind="blocker",
+                identifier=blocker.kind,
+                summary=blocker.summary,
+                source="devcd",
+                load_hint="Use this blocker summary before repeating earlier attempts.",
+                include_reason="visible blocker changes the safest next action",
+                freshness=FreshnessState(
+                    status=FreshnessStatus.CURRENT,
+                    last_seen_at=blocker.detected_at,
+                ),
+                confidence=blocker.confidence,
+                policy_reason=blocker.policy_reason,
+            )
+        )
+    for attempt in packet.attempts[:5]:
+        references.append(
+            ContextReference(
+                kind="attempt",
+                identifier=attempt.type,
+                summary=attempt.summary,
+                source=attempt.source,
+                load_hint="Use this attempt summary to avoid rediscovering recent work.",
+                include_reason="recent attempts preserve continuity across agent sessions",
+                freshness=FreshnessState(
+                    status=FreshnessStatus.CURRENT,
+                    last_seen_at=attempt.timestamp,
+                ),
+                confidence=0.8 if attempt.outcome != "unknown" else 0.5,
+                policy_reason=attempt.policy_reason,
+            )
+        )
+    return references
+
+
+def _context_budget_from_packet(
+    packet: ContinuityPacket,
+    context_references: list[ContextReference],
+) -> ContextBudget:
+    estimated_tokens = _estimate_context_tokens(packet, context_references)
+    included_sources = _dedupe_strings(reference.source for reference in context_references)
+    suggested_actions = [
+        "Use context references first; load raw files or logs only when the next action needs them."
+    ]
+    if packet.withheld_context:
+        suggested_actions.append(
+            "Review withheld-context policy notes before asking for missing details."
+        )
+    if not context_references:
+        suggested_actions.append(
+            "Capture a metadata-only goal before handing off to a fresh agent."
+        )
+    return ContextBudget(
+        estimated_tokens=estimated_tokens,
+        reference_count=len(context_references),
+        withheld_context_count=len(packet.withheld_context),
+        included_sources=included_sources,
+        suggested_actions=suggested_actions,
+    )
+
+
+def _session_contract_from_packet(packet: ContinuityPacket) -> SessionContract:
+    next_action = packet.suggested_next_steps[0] if packet.suggested_next_steps else None
+    if next_action is None and packet.intent is not None:
+        next_action = "Continue from the visible goal and inspect the context references first."
+    if next_action is None:
+        next_action = "Capture a metadata-only goal or run Scout Tasks before implementation."
+    return SessionContract(
+        next_action=next_action,
+        definition_of_done="Run make check and leave the workspace in a clean state.",
+        verification_command="make check",
+        clean_state_required=True,
+    )
+
+
+def _estimate_context_tokens(
+    packet: ContinuityPacket,
+    context_references: list[ContextReference],
+) -> int:
+    text_parts: list[str] = []
+    if packet.intent is not None:
+        text_parts.append(packet.intent.summary)
+    text_parts.extend(reference.summary for reference in context_references)
+    text_parts.extend(packet.do_not_repeat)
+    text_parts.extend(packet.suggested_next_steps)
+    text_parts.extend(withheld.safe_summary for withheld in packet.withheld_context)
+    character_count = sum(len(part) for part in text_parts if part)
+    return max(1, (character_count + 3) // 4) if character_count else 0
 
 
 def _continuity_attempt_from_recent_attempt(

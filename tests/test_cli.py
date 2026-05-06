@@ -131,7 +131,24 @@ def test_onboard_creates_config_and_agent_ready_workspace(
     assert "Agent-ready workspace" in result.output
     assert "Copilot" in result.output
     assert "OpenClaw" in result.output
-    assert "Agent Passport" in result.output
+    assert "Action Packet workflow" in result.output
+    assert "- 1. Read first: devcd agentic action-packet" in result.output
+    assert "- 2. Broader view only if needed: devcd context passport" in result.output
+    assert "devcd context passport" in result.output
+    assert (
+        "Primary outcome: A fresh agent reads the local Action Packet before asking "
+        "you to recap."
+    ) in result.output
+    assert "Next agent starts with: devcd agentic action-packet" in result.output
+    assert (
+        "Success looks like: the new agent starts from the current goal instead of "
+        "asking what you are doing"
+        in result.output
+    )
+    assert "No daemon started" in result.output
+    assert "No external agent config mutated" in result.output
+    assert "Seed visible continuity: devcd handoff --goal" in result.output
+    assert "Granular goal capture: devcd capture --kind goal" in result.output
     assert (tmp_path / "devcd.toml").exists()
     assert "DEVCD AGENT CONTINUITY START" in (
         tmp_path / ".github" / "copilot-instructions.md"
@@ -140,6 +157,28 @@ def test_onboard_creates_config_and_agent_ready_workspace(
         "mcp"
     ]["servers"]["devcd"] == {"command": "devcd", "args": ["mcp", "serve"]}
     assert not (tmp_path / "home" / ".openclaw").exists()
+
+
+def test_onboard_defaults_to_agent_ready_workspace(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.setenv("HOME", str(tmp_path / "home"))
+    monkeypatch.setenv("USERPROFILE", str(tmp_path / "home"))
+    runner = CliRunner()
+
+    result = runner.invoke(app, ["onboard", "--no-tui"])
+
+    assert result.exit_code == 0
+    assert "DevCD onboard" in result.output
+    assert "Copilot" in result.output
+    assert "Claude" in result.output
+    assert "Codex" in result.output
+    assert "OpenClaw" in result.output
+    assert (tmp_path / ".github" / "copilot-instructions.md").exists()
+    assert (tmp_path / "CLAUDE.md").exists()
+    assert (tmp_path / "AGENTS.md").exists()
+    assert (tmp_path / ".devcd" / "openclaw-mcp.json").exists()
 
 
 def test_onboard_preserves_existing_config_without_force(
@@ -180,6 +219,65 @@ def test_onboard_json_contract_is_stable(tmp_path: Path, monkeypatch: pytest.Mon
     assert [item["target"] for item in body["agent_ready"]] == ["copilot", "claude"]
     assert body["mutates_external_config"] is False
     assert body["starts_daemon"] is False
+    assert body["warm_start"] == {
+        "primary_moment": (
+            "A fresh agent reads the local Action Packet before asking you to recap."
+        ),
+        "primary_command": "devcd agentic action-packet",
+        "fallback_commands": ["devcd agentic tasks", "devcd context passport"],
+        "daemon_required": False,
+        "mutates_external_config": False,
+        "repeat_use": {
+            "trigger": "Switch to a fresh agent after capturing at least one goal or failure.",
+            "return_command": "devcd agentic action-packet",
+            "why_it_matters": (
+                "The next agent should be able to continue from goal, latest failure, and "
+                "next action without asking for a recap."
+            ),
+        },
+        "agent_readiness": [
+            {
+                "target": "copilot",
+                "display_name": "Copilot",
+                "path": ".github/copilot-instructions.md",
+                "status": "created",
+                "connection": "workspace instruction block",
+            },
+            {
+                "target": "claude",
+                "display_name": "Claude",
+                "path": "CLAUDE.md",
+                "status": "created",
+                "connection": "workspace instruction block",
+            },
+        ],
+        "live_context_empty": True,
+        "next_agent_can": [
+            "read the current goal when one is captured",
+            "see the latest failure or blocker when present",
+            "avoid stale failed attempts",
+            "start from a suggested next action",
+            "respect withheld-context policy notes",
+        ],
+        "seed_commands": [
+            (
+                'devcd handoff --goal "<current goal>" '
+                '--next-action "<safe next step>"'
+            ),
+            'devcd capture --kind goal --summary "<current goal>"',
+            (
+                'devcd capture --kind failure --summary "<what failed>" '
+                '--next-action "<safe next step>"'
+            ),
+            "devcd git-snapshot --repo .",
+        ],
+        "trust_receipts": [
+            "no daemon started",
+            "no external agent config mutated",
+            "local ledger only",
+            "sensitive/raw context remains withheld by policy",
+        ],
+    }
     assert body["quickstart"]["live_first"]["daemon_required"] is False
     assert body["next_commands"] == [
         "devcd agentic action-packet",
@@ -267,6 +365,61 @@ def test_capture_failure_with_next_action_feeds_live_passport(
     assert passport_result.exit_code == 0
     assert "make check failed" in passport_result.output
     assert "Inspect CLI tests" in passport_result.output
+
+
+def test_handoff_captures_goal_failure_and_next_action_for_next_agent(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.chdir(tmp_path)
+    runtime_dir = tmp_path / "runtime"
+    config_path = tmp_path / "devcd.toml"
+    config_path.write_text(
+        '[devcd]\nruntime_dir = "runtime"\nworking_memory_ttl_seconds = 315360000\n',
+        encoding="utf-8",
+    )
+    runner = CliRunner()
+
+    result = runner.invoke(
+        app,
+        [
+            "handoff",
+            "--goal",
+            "Ship sticky onboarding",
+            "--failure",
+            "make check failed in CLI tests",
+            "--next-action",
+            "Inspect the failing quickstart assertion",
+            "--agent",
+            "copilot",
+            "--session",
+            "session-2",
+            "--config",
+            str(config_path),
+        ],
+    )
+
+    assert result.exit_code == 0
+    assert "Captured handoff for next agent" in result.output
+    assert "Next agent starts with: devcd agentic action-packet" in result.output
+    records = _ledger_records(runtime_dir / "events.jsonl")
+    assert [record["event"]["type"] for record in records] == [
+        "goal_update",
+        "test_failure",
+        "next_action",
+    ]
+    assert records[0]["event"]["payload"]["current_goal"] == "Ship sticky onboarding"
+    assert records[1]["event"]["payload"] == {
+        "agent": "copilot",
+        "basis": "agent_inference",
+        "capture_kind": "failure",
+        "confidence": "inferred",
+        "reason": "make check failed in CLI tests",
+        "session": "session-2",
+        "suggested_next_action": "Inspect the failing quickstart assertion",
+    }
+    assert records[2]["event"]["payload"]["suggested_next_action"] == (
+        "Inspect the failing quickstart assertion"
+    )
 
 
 def test_capture_does_not_require_running_daemon(
@@ -428,10 +581,72 @@ def test_cli_exposes_context_group() -> None:
     result = runner.invoke(app, ["--help"])
 
     assert result.exit_code == 0
+    output = plain_help(result.output)
+    assert "DevCD terminal-first continuity for AI power users" in output
+    assert "Start with 'devcd" in output
+    assert "onboard'" in output
     assert "context" in result.output
     assert "agentic" in result.output
     assert "mcp" in result.output
     assert "policy" in result.output
+
+
+def test_onboard_help_positions_it_as_primary_entry() -> None:
+    runner = CliRunner()
+
+    result = runner.invoke(app, ["onboard", "--help"])
+
+    assert result.exit_code == 0
+    output = plain_help(result.output)
+    assert "Primary guided setup for the Action Packet workflow" in output
+    assert "Defaults to preparing the common local agent targets" in output
+    assert "--no-tui" in output
+
+
+def test_smoke_command_verifies_local_first_run() -> None:
+    runner = CliRunner()
+
+    result = runner.invoke(app, ["smoke"])
+
+    assert result.exit_code == 0
+    assert "DevCD smoke" in result.output
+    assert "devcd --help: ok" in result.output
+    assert "devcd context packs: ok" in result.output
+    assert "devcd quickstart: ok" in result.output
+
+
+def test_smoke_help_positions_it_as_install_check() -> None:
+    runner = CliRunner()
+
+    result = runner.invoke(app, ["smoke", "--help"])
+
+    assert result.exit_code == 0
+    output = plain_help(result.output)
+    assert "Verify the local install with a daemonless first-run check" in output
+    assert "--json" in output
+
+
+def test_quickstart_help_positions_it_as_interactive_follow_up() -> None:
+    runner = CliRunner()
+
+    result = runner.invoke(app, ["quickstart", "--help"])
+
+    assert result.exit_code == 0
+    output = plain_help(result.output)
+    assert "Interactive walkthrough for the onboard Action Packet workflow" in output
+    assert "--demo-events" in output
+
+
+def test_cli_exposes_agentic_group_as_warm_start_surface() -> None:
+    runner = CliRunner()
+
+    result = runner.invoke(app, ["agentic", "--help"])
+
+    assert result.exit_code == 0
+    output = plain_help(result.output)
+    assert "Warm-start the next agent with action packets and scout tasks" in output
+    assert "action-packet" in output
+    assert "action-packet-demo" in output
 
 
 def test_cli_exposes_mcp_serve_command() -> None:
@@ -1403,6 +1618,54 @@ def test_cli_live_passport_json_emits_continuity_packet(
     assert "# DevCD Agent Passport" not in result.output
 
 
+def test_cli_context_budget_json_reports_local_budget(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.chdir(tmp_path)
+    runtime_dir = tmp_path / "runtime"
+    runtime_dir.mkdir()
+    config_path = tmp_path / "devcd.toml"
+    config_path.write_text(
+        '[devcd]\nruntime_dir = "runtime"\nworking_memory_ttl_seconds = 315360000\n',
+        encoding="utf-8",
+    )
+    (runtime_dir / "events.jsonl").write_text(
+        "\n".join(
+            [
+                live_ledger_record(
+                    source="task",
+                    event_type="goal_update",
+                    timestamp="2026-05-05T10:00:00Z",
+                    payload={"current_goal": "Inspect local context budget"},
+                ),
+                live_ledger_record(
+                    source="task",
+                    event_type="test_failure",
+                    timestamp="2026-05-05T10:01:00Z",
+                    payload={
+                        "reason": "budget command missing",
+                        "suggested_next_action": "Add devcd context budget",
+                    },
+                ),
+            ]
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+    runner = CliRunner()
+
+    result = runner.invoke(app, ["context", "budget", "--config", str(config_path), "--json"])
+
+    assert result.exit_code == 0
+    body = json.loads(result.output)
+    assert body["surface"] == "coding-agent"
+    assert body["context_pack"] == "developer"
+    assert body["reference_count"] == len(body["context_references"])
+    assert body["estimated_tokens"] > 0
+    assert body["session_contract"]["next_action"] == "Add devcd context budget"
+    assert any("Use context references" in action for action in body["suggested_actions"])
+
+
 def test_cli_live_passport_reflects_context_feedback_in_json_and_markdown(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
@@ -2038,6 +2301,8 @@ def test_agentic_action_packet_human_output_is_agent_start_brief(
 
     assert result.exit_code == 0
     assert "# DevCD Action Packet" in result.output
+    assert "## Immediate Path" in result.output
+    assert "- 1. Start from next_action before gathering more context." in result.output
     assert "## Start Brief" in result.output
     assert "- ready_for_agent: true" in result.output
     assert "- recommended_agent_mode: debugging" in result.output
@@ -2398,7 +2663,7 @@ def test_doctor_validates_handoff_demo() -> None:
     assert "docs_commands: pass" in result.output
 
 
-def test_quickstart_is_live_first_and_reports_next_steps(
+def test_quickstart_prioritizes_action_packet_and_reports_next_steps(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     monkeypatch.chdir(tmp_path)
@@ -2417,21 +2682,36 @@ def test_quickstart_is_live_first_and_reports_next_steps(
 
     assert result.exit_code == 0
     assert "DevCD quickstart" in result.output
-    assert "DevCD lets a new agent continue from local, policy-filtered context" in result.output
+    assert (
+        "DevCD lets a new agent continue from a local, policy-filtered Action Packet"
+        in result.output
+    )
+    assert "Primary workflow" in result.output
+    assert "- Start with: devcd agentic action-packet" in result.output
+    assert "- Broader continuity view: devcd context passport" in result.output
+    assert "- Policy receipts: devcd context control" in result.output
+    assert "Happy path" in result.output
+    assert "- 1. Prepare workspace: devcd onboard" in result.output
+    assert "- 2. Warm-start the next agent: devcd agentic action-packet" in result.output
+    assert "- 3. Open the follow-up report: devcd quickstart" in result.output
     assert "Local-first defaults" in result.output
     assert "loopback: 127.0.0.1" in result.output
     assert "remote export: disabled by default" in result.output
     assert "Step 1: Install from checkout" in result.output
-    assert "Step 2: Initialize local config" in result.output
+    assert "Step 2: Prepare local workspace" in result.output
     assert "Demo Agent Passport" not in result.output
     assert "Continue the resurrection demo after Agent A lost chat context" not in result.output
-    assert "# DevCD Agent Passport" in result.output
-    assert "No local ledger events are visible in this passport yet." in result.output
+    assert "# DevCD Action Packet" in result.output
+    assert "No current goal is visible yet." in result.output
+    assert "Action Packet first" in result.output
     assert "Agents with shell access capture continuity metadata themselves" in result.output
-    assert "devcd capture --kind goal" in result.output
+    assert "devcd handoff --goal" in result.output
+    assert "Repeat-use moment" in result.output
+    assert "Come back with: devcd agentic action-packet" in result.output
     assert "Config: missing" in result.output
-    assert "Step 3: Check readiness" in result.output
-    assert "devcd doctor" in result.output
+    assert "Step 3: Open the Action Packet" in result.output
+    assert "Step 5: Inspect the broader continuity view" in result.output
+    assert "devcd context passport" in result.output
     assert "Step 7: Optional MCP/OpenClaw integration" in result.output
     assert "devcd integrations openclaw --smoke-test" in result.output
 
@@ -2457,9 +2737,13 @@ def test_quickstart_json_reports_live_first_readiness(
     assert result.exit_code == 0
     body = json.loads(result.output)
     assert body["value_proposition"] == (
-        "DevCD lets a new agent continue from local, policy-filtered context without "
+        "DevCD lets a new agent continue from a local, policy-filtered Action Packet without "
         "asking you to recap."
     )
+    assert body["action_packet_first"]["command"] == "devcd agentic action-packet"
+    assert body["action_packet_first"]["broader_view_command"] == "devcd context passport"
+    assert body["action_packet_first"]["policy_command"] == "devcd context control"
+    assert body["action_packet_first"]["packet"]["ready_for_agent"] is False
     assert body["live_first"]["daemon_required"] is False
     assert body["live_first"]["packet"]["intent"] is None
     assert (
@@ -2475,15 +2759,35 @@ def test_quickstart_json_reports_live_first_readiness(
     assert body["defaults"]["port"] == 8765
     assert body["defaults"]["remote_export"] == "disabled by default"
     assert body["defaults"]["mcp"] == "read-only resources only"
+    assert body["repeat_use"] == {
+        "trigger": "Switch to a fresh agent after capturing at least one goal or failure.",
+        "return_command": "devcd agentic action-packet",
+        "capture_command": (
+            'devcd handoff --goal "<current goal>" --next-action "<safe next step>"'
+        ),
+        "why_it_matters": (
+            "The next agent should be able to continue from goal, latest failure, and "
+            "next action without asking for a recap."
+        ),
+        "success_looks_like": [
+            "the new agent starts from the current goal instead of asking what you are doing",
+            "the latest failure or blocker is visible without pasting logs again",
+            "the next safe action is already named for the handoff",
+        ],
+    }
     assert [step["id"] for step in body["steps"]] == [
         "install",
-        "init",
-        "readiness",
-        "daemon",
-        "first_event",
+        "workspace",
+        "action_packet",
+        "capture",
         "passport",
+        "daemon",
         "mcp",
     ]
+    assert body["next_paths"]["get_action_packet"] == "devcd agentic action-packet"
+    assert body["next_paths"]["capture_handoff"] == (
+        'devcd handoff --goal "<current goal>" --next-action "<safe next step>"'
+    )
     assert body["next_paths"]["connect_agent"] == "devcd integrations openclaw --smoke-test"
 
 

@@ -1,8 +1,15 @@
 # Agent Handoff Demo
 
-This demo proves the core DevCD handoff loop: replay local work-context events,
-apply the default local-first policy, and generate a Markdown brief a coding
-agent can use without another user explanation.
+This demo shows the broader compatibility handoff layer behind DevCD's warm-start
+story: replay local work-context events, apply the default local-first policy,
+and generate a Markdown brief a coding agent can use without another user
+explanation.
+
+If you want the shortest first proof, start with the Action Packet demo instead:
+
+```bash
+devcd agentic action-packet-demo --events examples/agentic-action-packet/sample-events.jsonl
+```
 
 It does not start a remote service, export telemetry, or perform actions. The
 CLI command reads the JSONL events, runs the existing policy, memory, and state
@@ -34,6 +41,12 @@ The expected output is checked in as `context-brief.md`.
 - `test_failure`: the last failed attempt and current blocker.
 - `note_update` with `sensitivity=sensitive`: a sensitive signal denied by policy.
 - `url_focus` from `browser`: a disabled source denied by policy.
+
+## Why This Demo Still Matters
+
+The Action Packet is the shortest start surface. This demo remains useful when
+you want to inspect the broader compatibility brief, compare packet fields, or
+work with consumers that still expect the older handoff-oriented structure.
 
 ## Agent Handoff
 

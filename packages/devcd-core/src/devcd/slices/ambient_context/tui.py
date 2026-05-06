@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import asyncio
 import shutil
-from typing import Any
+from typing import Any, cast
 
 from textual import on, work
 from textual.app import App, ComposeResult
@@ -21,7 +21,9 @@ ALLOWED_QUICKSTART_COMMANDS: frozenset[tuple[str, ...]] = frozenset(
         ("devcd", "init"),
         ("devcd", "status"),
         ("devcd", "doctor"),
+        ("devcd", "agentic", "action-packet"),
         ("devcd", "context", "passport"),
+        ("devcd", "context", "control"),
         ("devcd", "integrations", "openclaw", "--smoke-test"),
     }
 )
@@ -138,7 +140,7 @@ def _sidebar(local_state: dict[str, Any]) -> Vertical:
 
 
 class DemoScreen(Screen[None]):  # type: ignore[type-arg]
-    """Renders the demo Agent Passport with an explanation panel."""
+    """Renders the fastest proof path for the Action Packet workflow."""
 
     BINDINGS = [Binding("escape", "back", "Back")]
 
@@ -150,34 +152,65 @@ class DemoScreen(Screen[None]):  # type: ignore[type-arg]
         self.app.pop_screen()
 
     def compose(self) -> ComposeResult:
-        demo = self._report["demo_first"]
+        demo = cast(dict[str, Any], self._report.get("demo_preview") or {})
+        command = str(
+            demo.get(
+                "command",
+                "devcd agentic action-packet-demo --events "
+                "examples/agentic-action-packet/sample-events.jsonl",
+            )
+        )
+        packet_markdown = str(
+            demo.get(
+                "packet_markdown",
+                (
+                    "# Proof in one minute\n\n"
+                    "Run the checked-in Action Packet demo to preview the "
+                    "warm-start handoff without touching your workspace."
+                ),
+            )
+        )
         yield Header(show_clock=False)
         with Horizontal(classes="h-layout"):
             yield _sidebar(self._report["local_state"])
             with ScrollableContainer(id="content"):
-                yield Markdown(str(demo["packet_markdown"]))
+                yield Label("Proof in one minute", classes="section-header")
+                yield Static(f"  $ {command}", markup=False, classes="cmd-block")
+                yield Markdown(packet_markdown)
                 yield Static(
-                    "What you see:\n"
-                    "  Goal           — what the previous agent was working toward\n"
-                    "  Latest failure — what broke last\n"
-                    "  Do-not-repeat  — tested fixes that did not work\n"
-                    "  Withheld       — sensitive data held back by local policy\n",
+                    (
+                        "What you prove:\n"
+                        "  Action Packet  — the next agent gets a compact handoff first\n"
+                        "  Policy notes    — withheld context stays visible "
+                        "without leaking raw payloads\n"
+                        "  No daemon       — the proof works without live "
+                        "ingestion or external mutation\n"
+                    ),
                     markup=False,
                     classes="value-prop",
                 )
                 yield Label(
-                    "Next step:  devcd init  →  devcd run  →  devcd context passport",
+                    (
+                        "Next step:  devcd onboard  ->  devcd agentic "
+                        "action-packet  ->  devcd quickstart"
+                    ),
                     classes="next-hint",
                 )
         yield Footer()
 
 
 class LiveSetupScreen(Screen[None]):  # type: ignore[type-arg]
-    """Step-by-step live daemon setup with optional command execution."""
+    """Interactive follow-up for the Action Packet workflow."""
 
     BINDINGS = [Binding("escape", "back", "Back")]
 
-    _LIVE_STEP_IDS: tuple[str, ...] = ("init", "readiness", "daemon", "first_event", "passport")
+    _LIVE_STEP_IDS: tuple[str, ...] = (
+        "workspace",
+        "action_packet",
+        "capture",
+        "passport",
+        "daemon",
+    )
 
     def __init__(self, report: dict[str, Any]) -> None:
         super().__init__()
@@ -188,11 +221,23 @@ class LiveSetupScreen(Screen[None]):  # type: ignore[type-arg]
         self.app.pop_screen()
 
     def compose(self) -> ComposeResult:
+        action_packet_first = cast(dict[str, Any], self._report["action_packet_first"])
+        repeat_use = cast(dict[str, Any], self._report["repeat_use"])
         yield Header(show_clock=False)
         with Horizontal(classes="h-layout"):
             yield _sidebar(self._report["local_state"])
             with ScrollableContainer(id="content"):
-                yield Label("Live Setup — step by step", classes="section-header")
+                yield Label("Action Packet workflow", classes="section-header")
+                yield Static(
+                    self._report["value_proposition"],
+                    classes="value-prop",
+                    markup=False,
+                )
+                yield Markdown(str(action_packet_first["packet_markdown"]))
+                yield Label(
+                    f"Come back with: {repeat_use['return_command']}",
+                    classes="next-hint",
+                )
                 for step in self._steps:
                     argv = tuple(step["command"].split())
                     can_run = argv in ALLOWED_QUICKSTART_COMMANDS
@@ -364,21 +409,33 @@ class QuickstartApp(App[None]):  # type: ignore[type-arg]
                     classes="value-prop",
                     markup=False,
                 )
-                yield Label("Choose a path to get started:", classes="section-header")
+                yield Label("Choose your next move:", classes="section-header")
                 yield Button(
-                    "  [D]  Demo Passport\n  See continuity in 2 minutes — no daemon required",
+                    (
+                        "  [D]  Proof in one minute\n"
+                        "  Preview the checked-in Action Packet before "
+                        "touching your workspace"
+                    ),
                     id="path-demo",
                     classes="path-btn",
                     variant="primary",
                 )
                 yield Button(
-                    "  [L]  Live Setup\n  Configure daemon, send events, get a live passport",
+                    (
+                        "  [L]  Action Packet workflow\n"
+                        "  Follow the real workspace path around onboard "
+                        "and quickstart"
+                    ),
                     id="path-live",
                     classes="path-btn",
                     variant="default",
                 )
                 yield Button(
-                    "  [M]  MCP Integration\n  Connect OpenClaw or Hermes as a context consumer",
+                    (
+                        "  [M]  Optional MCP follow-up\n"
+                        "  Connect a read-only context consumer after the "
+                        "primary flow"
+                    ),
                     id="path-mcp",
                     classes="path-btn",
                     variant="default",

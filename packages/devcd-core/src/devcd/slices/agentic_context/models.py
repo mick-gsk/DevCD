@@ -6,6 +6,8 @@ from uuid import uuid4
 
 from pydantic import BaseModel, Field, field_validator, model_validator
 
+from devcd.slices.ambient_context.models import ContextBudget, ContextReference, SessionContract
+
 
 class ScoutTaskKind(StrEnum):
     IDENTIFY_CURRENT_GOAL = "identify_current_goal"
@@ -138,6 +140,10 @@ class ActionPacket(BaseModel):
     evidence: list[ScoutEvidence] = Field(default_factory=list, max_length=30)
     blockers: list[ActionPacketBlocker] = Field(default_factory=list, max_length=20)
     do_not_repeat: list[str] = Field(default_factory=list, max_length=20)
+    context_references: list[ContextReference] = Field(default_factory=list, max_length=30)
+    context_budget: ContextBudget = Field(default_factory=ContextBudget)
+    session_contract: SessionContract | None = None
+    verification_required: bool = True
     withheld_context: list[ActionPacketWithheldContext] = Field(default_factory=list, max_length=20)
     policy_summary: str | None = Field(default=None, max_length=1000)
     ready_for_agent: bool = False

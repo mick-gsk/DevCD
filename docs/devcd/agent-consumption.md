@@ -4,7 +4,18 @@ Use DevCD as a local context source, not as an executor. It gives agents a polic
 
 ## Fastest local activation
 
-Make the current workspace agent-ready during initialization:
+Use the friendly workspace-first wrapper when you want the next agent to have a
+clear warm-start path immediately:
+
+```bash
+devcd onboard
+```
+
+That default prepares the common local agent targets for the current
+workspace. Use `--agents` only when you want a narrower target list.
+
+If you prefer the lower-level initialization primitive, make the current
+workspace agent-ready during initialization:
 
 ```bash
 devcd init
@@ -24,12 +35,19 @@ Non-interactive equivalent:
 devcd init --agent-ready --agents copilot,claude,codex,openclaw
 ```
 
+If you only want the same selection behavior through the friendlier wrapper,
+use:
+
+```bash
+devcd onboard --agents copilot,claude,codex,openclaw
+```
+
 Existing instruction files are preserved. DevCD only adds or replaces a marked
 managed block that tells agents to consult `devcd agentic action-packet`, fall
 back to `devcd agentic tasks` or `devcd context passport`, or read the
 read-only `devcd://context/action-packet` MCP resource before asking the user to
 recap. The same block gives shell-capable agents a small continuity capture
-routine so the user does not need to perform DevCD bookkeeping after `devcd init`.
+routine so the user does not need to perform DevCD bookkeeping after onboarding.
 
 ## Action Packet path
 
@@ -38,6 +56,19 @@ Use the Action Packet when you need to continue work, not just inspect state:
 ```bash
 devcd agentic action-packet
 devcd agentic action-packet --json
+```
+
+The JSON Action Packet includes a `session_contract` with one next action, a
+definition of done, the local verification command, and whether the next agent
+should leave a clean state. It also includes `context_references` and a
+`context_budget` so agents can load details just in time instead of asking for a
+raw recap.
+
+Before handing off to a fresh agent, inspect the same budget directly:
+
+```bash
+devcd context budget
+devcd context budget --json
 ```
 
 If the packet is not ready, ask DevCD for metadata-only Scout Tasks:
@@ -68,7 +99,15 @@ devcd context passport
 If the current goal is obvious from the task, capture it as metadata:
 
 ```bash
+devcd handoff --goal "Implement agent-ready init" --next-action "Read devcd agentic action-packet before continuing"
 devcd capture --kind goal --summary "Implement agent-ready init"
+```
+
+Before switching to a fresh agent, prefer the compact handoff shortcut when a
+goal, latest failure, and next action are all known:
+
+```bash
+devcd handoff --goal "Implement agent-ready init" --failure "make check failed" --next-action "Inspect CLI tests"
 ```
 
 During work, capture only compact continuity metadata:
@@ -94,7 +133,8 @@ capture.
 
 ## Demo handoff preview
 
-Run the checked-in Action Packet proof from the repository root:
+Run the checked-in Action Packet proof from the repository root. This is the
+shortest honest demo of what DevCD is for:
 
 ```bash
 devcd agentic action-packet-demo --events examples/agentic-action-packet/sample-events.jsonl
@@ -156,6 +196,7 @@ devcd mcp serve
 It exposes only read-only resources:
 
 - `devcd://context/action-packet`
+- `devcd://context/session-contract`
 - `devcd://context/agent-handoff-packet`
 - `devcd://context/continuity-packet`
 - `devcd://context/brief`
@@ -166,7 +207,7 @@ It exposes only read-only resources:
 - `devcd://context/recent-timeline`
 - `devcd://context/policy-summary`
 
-Agents that need the next concrete handoff action should prefer `devcd://context/action-packet`. Agents that need domain-neutral continuity should use `devcd://context/continuity-packet`. Developer-only compatibility consumers can continue using `devcd://context/agent-handoff-packet`.
+Agents that need the next concrete handoff action should prefer `devcd://context/action-packet`. Agents that only need the next-session contract, budget, and context-reference loading hints can read `devcd://context/session-contract`. Agents that need domain-neutral continuity should use `devcd://context/continuity-packet`. Developer-only compatibility consumers can continue using `devcd://context/agent-handoff-packet`.
 
 It does not expose MCP tools, prompts, shell execution, browser automation, memory writes, or remote HTTP MCP.
 

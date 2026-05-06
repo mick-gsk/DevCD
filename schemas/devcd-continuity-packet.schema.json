@@ -17,6 +17,9 @@
     "suggested_next_steps",
     "unknowns",
     "context_quality_notes",
+    "context_references",
+    "context_budget",
+    "session_contract",
     "withheld_context",
     "policy_decision",
     "provenance",
@@ -75,6 +78,9 @@
     "suggested_next_steps": { "type": "array", "items": { "type": "string" } },
     "unknowns": { "type": "array", "items": { "type": "string" } },
     "context_quality_notes": { "type": "array", "items": { "type": "string" } },
+    "context_references": { "type": "array", "items": { "$ref": "#/$defs/ContextReference" } },
+    "context_budget": { "$ref": "#/$defs/ContextBudget" },
+    "session_contract": { "type": ["object", "null"], "$ref": "#/$defs/SessionContract" },
     "withheld_context": { "type": "array", "items": { "type": "object" } },
     "policy_decision": { "type": "object" },
     "provenance": { "type": "array", "items": { "type": "string" } },
@@ -130,6 +136,77 @@
         "summary": { "type": "string", "minLength": 1 },
         "source": { "type": "string", "minLength": 1 },
         "policy_reason": { "type": "string", "minLength": 1 }
+      },
+      "additionalProperties": false
+    },
+    "ContextReference": {
+      "type": "object",
+      "required": [
+        "kind",
+        "identifier",
+        "summary",
+        "source",
+        "load_hint",
+        "include_reason",
+        "freshness",
+        "confidence",
+        "policy_reason",
+        "discard_reason"
+      ],
+      "properties": {
+        "kind": { "type": "string", "minLength": 1 },
+        "identifier": { "type": "string", "minLength": 1 },
+        "summary": { "type": "string", "minLength": 1 },
+        "source": { "type": "string", "minLength": 1 },
+        "load_hint": { "type": "string", "minLength": 1 },
+        "include_reason": { "type": "string", "minLength": 1 },
+        "freshness": {
+          "type": "object",
+          "required": ["status", "last_seen_at", "expires_at"],
+          "properties": {
+            "status": { "type": "string", "enum": ["current", "aging", "stale", "expired"] },
+            "last_seen_at": { "type": "string", "format": "date-time" },
+            "expires_at": { "type": ["string", "null"], "format": "date-time" }
+          },
+          "additionalProperties": false
+        },
+        "confidence": { "type": "number", "minimum": 0, "maximum": 1 },
+        "policy_reason": { "type": "string", "minLength": 1 },
+        "discard_reason": { "type": ["string", "null"] }
+      },
+      "additionalProperties": false
+    },
+    "ContextBudget": {
+      "type": "object",
+      "required": [
+        "estimated_tokens",
+        "reference_count",
+        "withheld_context_count",
+        "included_sources",
+        "suggested_actions"
+      ],
+      "properties": {
+        "estimated_tokens": { "type": "integer", "minimum": 0 },
+        "reference_count": { "type": "integer", "minimum": 0 },
+        "withheld_context_count": { "type": "integer", "minimum": 0 },
+        "included_sources": { "type": "array", "items": { "type": "string" } },
+        "suggested_actions": { "type": "array", "items": { "type": "string" } }
+      },
+      "additionalProperties": false
+    },
+    "SessionContract": {
+      "type": "object",
+      "required": [
+        "next_action",
+        "definition_of_done",
+        "verification_command",
+        "clean_state_required"
+      ],
+      "properties": {
+        "next_action": { "type": "string", "minLength": 1 },
+        "definition_of_done": { "type": "string", "minLength": 1 },
+        "verification_command": { "type": "string", "minLength": 1 },
+        "clean_state_required": { "type": "boolean" }
       },
       "additionalProperties": false
     }

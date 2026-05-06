@@ -25,6 +25,7 @@ READ_ONLY_RESOURCE_URIS: tuple[str, ...] = (
     "devcd://context/agent-handoff-packet",
     "devcd://context/continuity-packet",
     "devcd://context/action-packet",
+    "devcd://context/session-contract",
     "devcd://context/recent-timeline",
     "devcd://context/policy-summary",
 )
@@ -76,6 +77,13 @@ _RESOURCE_METADATA: dict[str, dict[str, str]] = {
             "Agentic Action Packet for the next local agent run. "
             "Includes current goal, next action, evidence, and policy summary. "
             "No sensitive payloads."
+        ),
+    },
+    "devcd://context/session-contract": {
+        "name": "session_contract",
+        "description": (
+            "Read-only next-session contract with context references, budget, "
+            "verification command, and clean-state guidance. No sensitive payloads."
         ),
     },
     "devcd://context/recent-timeline": {
@@ -217,6 +225,25 @@ class ReadOnlyMCPServer:
                 context_pack="developer",
             )
             return self._json_text(action_packet.model_dump(mode="json"))
+        if uri == "devcd://context/session-contract":
+            packet = self._ambient_context_service.create_continuity_packet(
+                self._mcp_surface(),
+                context_pack="developer",
+                include_empty_guidance=True,
+            )
+            return self._json_text(
+                {
+                    "session_contract": packet.session_contract.model_dump(mode="json")
+                    if packet.session_contract is not None
+                    else None,
+                    "context_budget": packet.context_budget.model_dump(mode="json"),
+                    "context_references": [
+                        reference.model_dump(mode="json")
+                        for reference in packet.context_references
+                    ],
+                    "policy_summary": packet.policy_decision.reason,
+                }
+            )
         if uri == "devcd://context/recent-timeline":
             return self._json_text({"recent_timeline": self._recent_timeline()})
         if uri == "devcd://context/policy-summary":

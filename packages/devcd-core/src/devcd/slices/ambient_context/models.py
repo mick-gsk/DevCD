@@ -263,6 +263,34 @@ class ContinuityPreference(BaseModel):
     policy_reason: str = Field(min_length=1)
 
 
+class ContextReference(BaseModel):
+    kind: str = Field(min_length=1)
+    identifier: str = Field(min_length=1)
+    summary: str = Field(min_length=1)
+    source: str = Field(min_length=1)
+    load_hint: str = Field(min_length=1)
+    include_reason: str = Field(min_length=1)
+    freshness: FreshnessState
+    confidence: float = Field(default=0.0, ge=0.0, le=1.0)
+    policy_reason: str = Field(min_length=1)
+    discard_reason: str | None = None
+
+
+class ContextBudget(BaseModel):
+    estimated_tokens: int = Field(default=0, ge=0)
+    reference_count: int = Field(default=0, ge=0)
+    withheld_context_count: int = Field(default=0, ge=0)
+    included_sources: list[str] = Field(default_factory=list)
+    suggested_actions: list[str] = Field(default_factory=list)
+
+
+class SessionContract(BaseModel):
+    next_action: str = Field(min_length=1)
+    definition_of_done: str = Field(min_length=1)
+    verification_command: str = Field(min_length=1)
+    clean_state_required: bool = True
+
+
 class ContinuityPacket(BaseModel):
     schema_version: str = "1"
     id: str = Field(default_factory=lambda: str(uuid4()), min_length=1)
@@ -278,6 +306,9 @@ class ContinuityPacket(BaseModel):
     suggested_next_steps: list[str] = Field(default_factory=list)
     unknowns: list[str] = Field(default_factory=list)
     context_quality_notes: list[str] = Field(default_factory=list)
+    context_references: list[ContextReference] = Field(default_factory=list)
+    context_budget: ContextBudget = Field(default_factory=ContextBudget)
+    session_contract: SessionContract | None = None
     withheld_context: list[WithheldContext] = Field(default_factory=list)
     policy_decision: PolicySummary
     provenance: list[str] = Field(default_factory=list)
@@ -325,6 +356,20 @@ class ContextQualityReport(BaseModel):
     risk_notes: list[str] = Field(default_factory=list)
     suggested_next_actions: list[str] = Field(default_factory=list)
     withheld_feedback_count: int = Field(default=0, ge=0)
+    generated_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
+
+
+class ContextBudgetReport(BaseModel):
+    schema_version: str = "1"
+    surface: str = Field(min_length=1)
+    context_pack: str = Field(min_length=1)
+    estimated_tokens: int = Field(default=0, ge=0)
+    reference_count: int = Field(default=0, ge=0)
+    withheld_context_count: int = Field(default=0, ge=0)
+    included_sources: list[str] = Field(default_factory=list)
+    suggested_actions: list[str] = Field(default_factory=list)
+    context_references: list[ContextReference] = Field(default_factory=list)
+    session_contract: SessionContract | None = None
     generated_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
 
 

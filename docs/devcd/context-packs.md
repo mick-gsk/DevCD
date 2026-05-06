@@ -5,9 +5,28 @@ which local metadata matters, which event types are expected, which agent
 surfaces can consume the result, and which policy notes should travel with the
 Continuity Packet.
 
+The practical way to think about a pack is simpler: a pack tells DevCD what a
+useful warm-start looks like for a specific kind of work.
+
+The `developer` pack is for coding handoffs. The `research` pack is for research
+resumption. Future packs should feel like workflow accelerators, not plugin
+plumbing.
+
 A Context Pack is not a plugin that executes arbitrary code. It is a local,
 policy-filtered rendering contract over typed DevCD events. This keeps extension
 work aligned with DevCD's local-first defaults.
+
+## Start From Outcomes
+
+Choose a pack by the job you want the next agent to resume:
+
+| If you want to resume... | Use this pack | First command |
+| --- | --- | --- |
+| a coding task across agent sessions | `developer` | `devcd agentic action-packet` |
+| a research thread without rereading every source | `research` | `devcd context passport --surface research-agent --pack research` |
+
+That is the intended pack experience: the next agent gets the right continuity
+shape for the job without you having to rebuild context by hand.
 
 ## What A Pack Owns
 
@@ -49,6 +68,17 @@ devcd context handoff-demo \
 | --- | --- | --- |
 | `developer` | Coding-agent continuity across goals, files, git state, failures, and next actions. | Emit metadata events from IDE, Git, task, notes, or system sources. |
 | `research` | Research-agent continuity across reviewed sources, note metadata, hypotheses, decisions, and failed attempts. | Use the research-session recipe or emit equivalent metadata events. |
+
+## What A Good Pack Feels Like
+
+A good pack does three things for the next agent:
+
+1. It exposes the smallest set of signals that changes the next action.
+2. It keeps raw content out unless a later step genuinely needs it.
+3. It gives the next session a stronger start than a manual recap would.
+
+If a proposed pack cannot produce a better warm start than a pasted summary, it
+is not ready yet.
 
 ## How To Extend DevCD Today
 
@@ -92,3 +122,6 @@ content:
 
 Each pack should prove the same contract: useful continuity from local metadata,
 with sensitive context withheld by policy.
+
+The bar is not “can this pack exist?” The bar is “does this make the next agent
+meaningfully easier to resume?”

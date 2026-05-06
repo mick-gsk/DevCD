@@ -92,6 +92,10 @@ class AgenticContextService:
             evidence=[*self._evidence_from_packet(packet), *report_evidence],
             blockers=[self._action_blocker(blocker) for blocker in packet.blockers[:20]],
             do_not_repeat=packet.do_not_repeat[:20],
+            context_references=packet.context_references[:30],
+            context_budget=packet.context_budget,
+            session_contract=packet.session_contract,
+            verification_required=True,
             withheld_context=[
                 self._action_withheld_context(withheld) for withheld in packet.withheld_context[:20]
             ],

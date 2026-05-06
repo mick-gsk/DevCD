@@ -1,8 +1,35 @@
 # Getting Started
 
-DevCD lets a new agent continue from local, policy-filtered context without asking you to recap. The first success point is an agent-ready workspace, not a running daemon and not a demo fixture. The goal is: Stop re-explaining yourself to AI agents.
+DevCD lets a new agent continue from local, policy-filtered context without asking you to recap. The first success point is a warm-started agent workspace, not a running daemon and not a demo fixture. The goal is: Stop re-explaining yourself to AI agents.
 
-Use this guide when you want DevCD to solve the real frustration: a new agent starts cold and asks you to re-explain the work. The path below gets from a fresh checkout to a live local passport with as little friction as possible.
+Use this guide when you want DevCD to solve the real frustration: a new agent starts cold and asks you to re-explain the work. The path below gets from a fresh checkout to a local Action Packet in 2 to 5 minutes, then leaves live daemon ingestion and MCP integration as explicit follow-up paths. The primary entry point is `devcd onboard`; `devcd quickstart` is the interactive follow-up report around that same Action Packet workflow.
+
+<div class="devcd-happy-path">
+	<div class="devcd-happy-path__step devcd-callout--checkpoint">
+		<strong>1. Prepare the workspace</strong>
+		<p>Run onboard first so the repo becomes agent-ready without starting the daemon.</p>
+		<code>devcd onboard</code>
+	</div>
+	<div class="devcd-happy-path__step devcd-callout--trust">
+		<strong>2. Read the Action Packet</strong>
+		<p>Make the next agent start from current continuity instead of a recap request.</p>
+		<code>devcd agentic action-packet</code>
+	</div>
+	<div class="devcd-happy-path__step devcd-callout--safe-share">
+		<strong>3. Open the follow-up report</strong>
+		<p>Use quickstart after onboarding when you want the broader guided activation view.</p>
+		<code>devcd quickstart</code>
+	</div>
+</div>
+
+If you want the shortest zero-state proof before touching a real workspace, run:
+
+```bash
+devcd agentic action-packet-demo --events examples/agentic-action-packet/sample-events.jsonl
+```
+
+That demo shows the exact warm-start shape DevCD is trying to produce in your
+own workspace. Then come back here for the real path.
 
 ## Prerequisites
 
@@ -10,34 +37,45 @@ Use this guide when you want DevCD to solve the real frustration: a new agent st
 - A local shell on Windows, macOS, or Linux
 - A local checkout of this repository
 
-## Live-first path: make the real workspace useful
+## Warm-start path: make the real workspace useful
 
-This path starts with your actual local workspace. It starts no background service until you explicitly choose `devcd run`, makes no remote calls, and keeps agent setup inside explicit terminal choices. After `devcd onboard`, you should not need to do DevCD bookkeeping; agents with shell access capture continuity metadata themselves, and agents without shell access only read DevCD context.
+This path starts with your actual local workspace. It starts no background service until you explicitly choose `devcd run`, makes no remote calls, and keeps agent setup inside explicit terminal choices. After `devcd onboard`, the next agent should know to read `devcd agentic action-packet` before asking you to recap; agents with shell access can capture continuity metadata themselves, and agents without shell access only read DevCD context.
+
+Success checkpoint after Step 2:
+
+- `devcd.toml` exists locally.
+- Selected agent runtime files contain the DevCD managed continuity block.
+- A fresh agent in this workspace should start from `devcd agentic action-packet`.
+- No daemon was started and no external agent config was mutated.
 
 ### Step 1: Install from checkout
 
 ```bash
 git clone https://github.com/mick-gsk/DevCD.git
 cd DevCD
-python -m pip install -e ".[dev]"
-make smoke
+python -m pip install .
+devcd smoke
 ```
 
 What happened: the `devcd` CLI becomes available from this checkout.
 
-Success looks like: `devcd --help` lists `onboard`, `quickstart`, `status`, `doctor`, `context`, `agentic`, `mcp`, and `integrations`.
+If you prefer an isolated local tool install and already use one of these
+tooling paths, you can install from the same checkout with `pipx install .` or
+`uv tool install .` instead.
+
+Success looks like: `devcd smoke` reports `devcd --help: ok`, `devcd context packs: ok`, and `devcd quickstart: ok`.
 
 Next: initialize local config for this workspace.
 
-If it fails: confirm Python 3.11+ is active, then rerun the editable install.
+If it fails: confirm Python 3.11+ is active, then rerun the install. Use `python -m pip install -e ".[dev]"` only when you want contributor tooling such as pytest, Ruff, and mypy in the same environment.
 
 ### Step 2: Onboard the workspace
 
 ```bash
-devcd onboard --agents copilot,claude,codex,openclaw
+devcd onboard
 ```
 
-What happened: DevCD creates `devcd.toml` if it is missing, keeps it if it already exists, prepares selected agent runtime files, and prints the local Agent Passport path without starting the daemon.
+What happened: DevCD creates `devcd.toml` if it is missing, keeps it if it already exists, prepares the common local agent runtime files by default, and prints the local Agent Passport path without starting the daemon.
 
 Success looks like: `devcd.toml` exists with loopback, local storage, and policy defaults. Selected agent files contain a managed DevCD continuity block with a small capture routine:
 
@@ -46,32 +84,67 @@ Success looks like: `devcd.toml` exists with loopback, local storage, and policy
 - Codex and compatible coding agents: `AGENTS.md`
 - OpenClaw: `.devcd/openclaw-mcp.json`
 
-If you only want the lower-level config primitive, use `init` directly:
+If you want a narrower target list, pass `--agents` with a comma-separated subset.
+
+If you only want the lower-level config primitive, use `init` directly. Most
+users should stay on `devcd onboard`:
 
 ```bash
 devcd init --agent-ready --agents copilot,claude,codex,openclaw
 ```
 
-Next: inspect the local passport and readiness.
+Next: read the Action Packet the next agent should see first.
 
 If it fails: if config already exists, do not overwrite it blindly; run `devcd doctor` and decide whether to keep, modify, or intentionally reset. Existing instruction files are preserved; DevCD only adds or replaces its marked managed block.
 
-### Step 3: Inspect the local passport
+### Step 3: Read the warm-start Action Packet
+
+```bash
+devcd agentic action-packet
+```
+
+What happened: DevCD renders the handoff surface a fresh coding agent should read first. If local continuity exists, it shows the current goal, latest failure or blocker, stale attempt warnings, suggested next action, and withheld-context policy notes.
+
+Success looks like: the output starts from the work instead of the tool. With an empty ledger, it should say the packet is not ready yet and point to safe metadata capture rather than pretending a demo solved the problem.
+
+Next: if the packet is empty, seed one safe piece of continuity metadata.
+
+If it fails: run `devcd doctor`; it validates local config, policy, ledger, docs, and MCP readiness.
+
+### Step 4: Seed safe continuity when the ledger is empty
+
+```bash
+devcd handoff --goal "Try DevCD live continuity" --next-action "Ask the next agent to read the Action Packet"
+devcd capture --kind goal --summary "Try DevCD live continuity"
+```
+
+What happened: `devcd handoff` stores a compact next-agent handoff, and `devcd capture` remains available when you only want one granular continuity event. Both paths store local metadata only after observation and storage policy allow it. Do not paste raw logs, source text, full chat transcripts, credentials, or private notes into capture fields.
+
+Success looks like: rerunning `devcd agentic action-packet` or `devcd context passport` shows the goal as visible continuity for the next agent.
+
+Next: when a session ends with a useful failure, capture the whole handoff in one command.
+
+```bash
+devcd handoff --goal "Try DevCD live continuity" --failure "Example check failed" --next-action "Inspect the failing command output"
+```
+
+### Step 5: Open the interactive follow-up report
 
 ```bash
 devcd quickstart
 ```
 
-What happened: DevCD reads the configured local ledger and prints a policy-filtered activation report. If no events are visible yet, the report says what is missing; agent-ready instructions tell capable agents how to capture continuity metadata themselves during work.
+What happened: DevCD reads the configured local ledger and prints the interactive activation report for the onboard flow. If no events are visible yet, the report says what is missing; agent-ready instructions tell capable agents how to capture continuity metadata themselves during work.
 
-The handoff-oriented surface is the Action Packet:
+The handoff-oriented surface remains the Action Packet, and the passport is the
+broader continuity view around it:
 
 ```bash
 devcd agentic action-packet
 devcd agentic tasks
 ```
 
-Success looks like: the output is honest about the current workspace. With an empty ledger, it should not pretend a demo solved the problem or ask you to do bookkeeping; it should point at agent-led capture.
+Success looks like: the output is honest about the current workspace. With an empty ledger, it should not pretend a demo solved the problem or ask you to do bookkeeping; it should point at agent-led capture and make it obvious how to return to the Action Packet.
 
 Next: run `devcd quickstart --json` if another local tool needs the same activation report.
 
@@ -83,7 +156,7 @@ Machine-readable report:
 devcd quickstart --json
 ```
 
-Optional preview commands are still available when you want to inspect the shape before recording real context:
+Optional preview commands are still available when you want to inspect the shape before recording real context. Start with the Action Packet demo; the others are deeper comparisons and compatibility checks:
 
 ```bash
 devcd agentic action-packet-demo --events examples/agentic-action-packet/sample-events.jsonl
@@ -96,7 +169,7 @@ devcd context handoff-demo --events examples/agent-resurrection/sample-events.js
 
 Use this path when you want DevCD to accept live local events from CLI calls, hooks, or future editor integrations.
 
-### Step 4: Check readiness
+### Step 6: Check readiness
 
 ```bash
 devcd status
@@ -113,7 +186,7 @@ If it fails: follow the first non-pass `doctor` next step.
 
 `devcd status` reports the daemon endpoint, token source, local workspace, event/state summary, policy mode, memory path, handoff availability, MCP availability, and the next suggested command. `devcd doctor --json` emits the same readiness checks for local automation.
 
-### Step 5: Start the live daemon path
+### Step 7: Start the live daemon path
 
 ```bash
 devcd run
@@ -141,17 +214,18 @@ PowerShell:
 $env:DEVCD_TOKEN = Get-Content .devcd/token
 ```
 
-### Step 6: Optional manual live event
+### Step 8: Optional manual live event
 
 The normal agent-ready path does not require you to write DevCD events by hand. Agents with shell access use daemonless capture while they work:
 
 ```bash
+devcd handoff --goal "Try DevCD live continuity" --failure "Example check failed" --next-action "Inspect the failing command output"
 devcd capture --kind goal --summary "Try DevCD live continuity"
 devcd capture --kind failure --summary "Example check failed" --next-action "Inspect the failing command output"
 devcd capture --kind artifact_ref --summary "CLI entrypoint" --artifact packages/devcd-core/src/devcd/cli.py
 ```
 
-Each capture is local, metadata-only, and policy-gated through observation and storage decisions before it reaches the configured ledger. Capture must not include raw file contents, raw logs, full chat text, secrets, or remote data.
+Each handoff or capture is local, metadata-only, and policy-gated through observation and storage decisions before it reaches the configured ledger. Capture must not include raw file contents, raw logs, full chat text, secrets, or remote data.
 
 The older live event command remains useful for diagnostics and integrations that already emit normalized events:
 
@@ -179,7 +253,7 @@ To add richer continuity, send a failure with a suggested next action:
 devcd event task test_failure --payload '{"reason":"Example check failed","suggested_next_action":"Inspect the failing command output"}'
 ```
 
-### Step 7: Get context brief / passport
+### Step 9: Get context brief / passport
 
 ```bash
 devcd context passport
@@ -204,7 +278,7 @@ devcd context passport --json --surface coding-agent --pack developer
 
 This path is optional. DevCD is not an OpenClaw plugin, ClawHub package, chat interface, model provider, channel gateway, or remote service. It is a local context and policy source that MCP-capable runtimes can read.
 
-### Step 8: Generate and smoke-test a read-only MCP snippet
+### Step 10: Generate and smoke-test a read-only MCP snippet
 
 ```bash
 devcd integrations openclaw --smoke-test

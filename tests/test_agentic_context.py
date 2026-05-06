@@ -167,6 +167,42 @@ def test_service_uses_visible_continuity_for_action_packet(tmp_path) -> None:
     assert packet.evidence
 
 
+def test_action_packet_projects_session_contract_and_context_budget(tmp_path) -> None:
+    service, state_engine = build_agentic_context_service(tmp_path)
+    state_engine.accept_event(
+        DevEvent(
+            source=EventSource.TASK,
+            type="goal_update",
+            timestamp=datetime(2026, 5, 5, 12, 0, tzinfo=UTC),
+            payload={"current_goal": "Ship action packet session contracts"},
+        )
+    )
+    state_engine.accept_event(
+        DevEvent(
+            source=EventSource.TASK,
+            type="test_failure",
+            timestamp=datetime(2026, 5, 5, 12, 1, tzinfo=UTC),
+            payload={
+                "reason": "action packet lacks definition of done",
+                "suggested_next_action": "Project the session contract into the action packet",
+            },
+        )
+    )
+
+    packet = service.create_action_packet(surface="coding-agent", context_pack="developer")
+    body = packet.model_dump(mode="json")
+
+    assert body["session_contract"] == {
+        "next_action": "Project the session contract into the action packet",
+        "definition_of_done": "Run make check and leave the workspace in a clean state.",
+        "verification_command": "make check",
+        "clean_state_required": True,
+    }
+    assert body["verification_required"] is True
+    assert body["context_budget"]["reference_count"] == len(body["context_references"])
+    assert body["context_budget"]["estimated_tokens"] > 0
+
+
 def test_service_maps_resume_signals_into_action_packet(tmp_path) -> None:
     service, state_engine = build_agentic_context_service(tmp_path)
     state_engine.accept_event(

@@ -36,6 +36,8 @@ from devcd.slices.ambient_context.service import (
     list_context_packs,
     render_context_brief_json,
     render_context_brief_markdown,
+    render_context_budget_report_json,
+    render_context_budget_report_text,
     render_context_control_report_json,
     render_context_control_report_text,
     render_context_packs_json,
@@ -60,9 +62,14 @@ from devcd.slices.mcp_server.service import (
 from devcd.slices.memory_layer.service import MemoryStore
 from devcd.slices.policy_layer.service import PolicyEngine
 
-app = typer.Typer(help="DevCD local context daemon.")
-context_app = typer.Typer(help="Inspect ambient developer context.")
-agentic_app = typer.Typer(help="Prepare agentic context and action packets.")
+app = typer.Typer(
+    help=(
+        "DevCD terminal-first continuity for AI power users. "
+        "Start with 'devcd onboard'."
+    )
+)
+context_app = typer.Typer(help="Inspect the broader local continuity view and policy receipts.")
+agentic_app = typer.Typer(help="Warm-start the next agent with action packets and scout tasks.")
 mcp_app = typer.Typer(help="Serve read-only DevCD context through MCP.")
 integrations_app = typer.Typer(help="Print local runtime integration snippets.")
 policy_app = typer.Typer(help="Explain and simulate local policy decisions.")
@@ -76,6 +83,8 @@ app.add_typer(recipe_app, name="recipe")
 
 _LOCAL_TOKEN_PATH = Path(".devcd") / "token"
 _LOOPBACK_HOSTS = {"127.0.0.1", "::1", "localhost"}
+_REPO_ROOT = Path(__file__).resolve().parents[4]
+_SMOKE_DEMO_EVENTS = _REPO_ROOT / "examples" / "agent-handoff" / "sample-events.jsonl"
 _AGENT_READY_TARGETS = ("copilot", "claude", "codex", "openclaw")
 _AGENT_READY_DISPLAY_NAMES = {
     "copilot": "Copilot",
@@ -348,6 +357,11 @@ def _render_action_packet(packet: ActionPacket) -> str:
     lines = [
         "# DevCD Action Packet",
         "",
+        "## Immediate Path",
+        "- 1. Start from next_action before gathering more context.",
+        "- 2. Check blockers and evidence if the next action is not yet safe.",
+        "- 3. Open devcd context passport only when the packet is not enough.",
+        "",
         "## Start Brief",
         f"- ready_for_agent: {str(packet.ready_for_agent).lower()}",
         f"- recommended_agent_mode: {packet.recommended_agent_mode}",
@@ -375,6 +389,20 @@ def _render_action_packet(packet: ActionPacket) -> str:
         lines.extend(f"- {item}" for item in packet.do_not_repeat)
     else:
         lines.append("- No stale attempt warning is attached.")
+    lines.extend(["", "## Session Contract"])
+    if packet.session_contract is None:
+        lines.append("- No session contract is attached.")
+    else:
+        lines.append(f"- next_action: {packet.session_contract.next_action}")
+        lines.append(f"- definition_of_done: {packet.session_contract.definition_of_done}")
+        lines.append(f"- verification_command: {packet.session_contract.verification_command}")
+        lines.append(
+            f"- clean_state_required: {str(packet.session_contract.clean_state_required).lower()}"
+        )
+    lines.extend(["", "## Context Budget"])
+    lines.append(f"- estimated_tokens: {packet.context_budget.estimated_tokens}")
+    lines.append(f"- references: {packet.context_budget.reference_count}")
+    lines.append(f"- withheld_context: {packet.context_budget.withheld_context_count}")
     lines.extend(["", "## Withheld Context"])
     if packet.withheld_context:
         for withheld in packet.withheld_context:
@@ -424,7 +452,10 @@ def onboard(
         typer.Option("--no-tui", help="Print plain-text output instead of launching a TUI."),
     ] = False,
 ) -> None:
-    """Guide first-run setup toward a local Agent Passport."""
+    """Primary guided setup for the Action Packet workflow.
+
+    Defaults to preparing the common local agent targets for this workspace.
+    """
     report = _build_onboard_report(
         config=config,
         force=force,
@@ -453,13 +484,18 @@ def _build_onboard_report(
         if agent_targets
         else []
     )
+    quickstart_report = _build_quickstart_report(
+        config=config,
+        endpoint=endpoint,
+        demo_events=None,
+    )
     return {
         "config": {"path": str(config), "status": config_status},
         "agent_ready": agent_report,
-        "quickstart": _build_quickstart_report(
-            config=config,
-            endpoint=endpoint,
-            demo_events=None,
+        "quickstart": quickstart_report,
+        "warm_start": _build_onboard_warm_start_report(
+            agent_report=agent_report,
+            quickstart_report=quickstart_report,
         ),
         "doctor": _build_doctor_report(config=config, endpoint=endpoint),
         "mutates_external_config": False,
@@ -471,6 +507,70 @@ def _build_onboard_report(
             "devcd integrations openclaw --smoke-test",
         ],
     }
+
+
+def _build_onboard_warm_start_report(
+    *, agent_report: list[dict[str, str]], quickstart_report: dict[str, Any]
+) -> dict[str, Any]:
+    local_state = quickstart_report.get("local_state")
+    repeat_use = quickstart_report.get("repeat_use")
+    live_context_empty = True
+    if isinstance(local_state, dict):
+        live_context_empty = bool(local_state.get("live_context_empty", True))
+    report = {
+        "primary_moment": "A fresh agent reads the local Action Packet before asking you to recap.",
+        "primary_command": "devcd agentic action-packet",
+        "fallback_commands": ["devcd agentic tasks", "devcd context passport"],
+        "daemon_required": False,
+        "mutates_external_config": False,
+        "agent_readiness": [
+            {
+                "target": item["target"],
+                "display_name": item["display_name"],
+                "path": Path(item["path"]).as_posix(),
+                "status": item["status"],
+                "connection": (
+                    "read-only MCP snippet"
+                    if item["target"] == "openclaw"
+                    else "workspace instruction block"
+                ),
+            }
+            for item in agent_report
+        ],
+        "live_context_empty": live_context_empty,
+        "next_agent_can": [
+            "read the current goal when one is captured",
+            "see the latest failure or blocker when present",
+            "avoid stale failed attempts",
+            "start from a suggested next action",
+            "respect withheld-context policy notes",
+        ],
+        "seed_commands": [
+            (
+                'devcd handoff --goal "<current goal>" '
+                '--next-action "<safe next step>"'
+            ),
+            'devcd capture --kind goal --summary "<current goal>"',
+            (
+                'devcd capture --kind failure --summary "<what failed>" '
+                '--next-action "<safe next step>"'
+            ),
+            "devcd git-snapshot --repo .",
+        ],
+        "trust_receipts": [
+            "no daemon started",
+            "no external agent config mutated",
+            "local ledger only",
+            "sensitive/raw context remains withheld by policy",
+        ],
+    }
+    if isinstance(repeat_use, dict):
+        report["repeat_use"] = {
+            "trigger": str(repeat_use.get("trigger", "")),
+            "return_command": str(repeat_use.get("return_command", "")),
+            "why_it_matters": str(repeat_use.get("why_it_matters", "")),
+        }
+    return report
 
 
 def _write_onboard_config(config: Path, *, force: bool) -> str:
@@ -499,6 +599,15 @@ def _render_onboard_report(report: dict[str, Any], *, no_tui: bool) -> str:
         lines.append(_render_agent_ready_report(cast(list[dict[str, str]], agent_ready)))
     else:
         lines.extend(["", "Agent-ready workspace", "- skipped"])
+    lines.extend(
+        [
+            "",
+            _render_onboard_action_packet_workflow(
+                warm_start=cast(dict[str, Any], report["warm_start"]),
+                quickstart_report=cast(dict[str, Any], report["quickstart"]),
+            ),
+        ]
+    )
     quickstart_text = _render_quickstart_report(cast(dict[str, Any], report["quickstart"]))
     lines.extend(["", quickstart_text])
     lines.extend(["", "Next commands"])
@@ -507,6 +616,52 @@ def _render_onboard_report(report: dict[str, Any], *, no_tui: bool) -> str:
     if no_tui:
         lines.append("- TUI skipped by --no-tui")
     return "\n".join(lines)
+
+
+def _render_onboard_action_packet_workflow(
+    *, warm_start: dict[str, Any], quickstart_report: dict[str, Any]
+) -> str:
+    fallback_commands = warm_start.get("fallback_commands", [])
+    fallback_text = "; ".join(str(command) for command in fallback_commands)
+    agent_readiness = warm_start.get("agent_readiness", [])
+    repeat_use = warm_start.get("repeat_use")
+    repeat_use_report = quickstart_report.get("repeat_use", {})
+    ready_agents = ", ".join(
+        str(item["display_name"])
+        for item in agent_readiness
+        if isinstance(item, dict) and "display_name" in item
+    )
+    trust_receipts = warm_start.get("trust_receipts", [])
+    trust_text = "; ".join(_sentence_case(str(receipt)) for receipt in trust_receipts)
+    lines = [
+        "Action Packet workflow",
+        f"- Primary outcome: {warm_start['primary_moment']}",
+        f"- 1. Read first: {warm_start['primary_command']}",
+        "- 2. Broader view only if needed: devcd context passport",
+        f"- Next agent starts with: {warm_start['primary_command']}",
+        f"- Fallbacks: {fallback_text}",
+    ]
+    if ready_agents:
+        lines.append(f"- Agent readiness: {ready_agents}")
+    if bool(warm_start.get("live_context_empty", True)):
+        seed_commands = warm_start.get("seed_commands", [])
+        if seed_commands:
+            lines.append(f"- Seed visible continuity: {seed_commands[0]}")
+        if len(seed_commands) > 1:
+            lines.append(f"- Granular goal capture: {seed_commands[1]}")
+        if len(seed_commands) > 2:
+            lines.append(f"- Add a failure when useful: {seed_commands[2]}")
+    if isinstance(repeat_use, dict):
+        lines.append(f"- Second use trigger: {repeat_use['trigger']}")
+        lines.append(f"- Come back with: {repeat_use['return_command']}")
+    for item in cast(list[str], repeat_use_report.get("success_looks_like", [])):
+        lines.append(f"- Success looks like: {item}")
+    lines.append(f"- Trust receipts: {trust_text}")
+    return "\n".join(lines)
+
+
+def _sentence_case(value: str) -> str:
+    return value[:1].upper() + value[1:] if value else value
 
 
 @app.command()
@@ -570,6 +725,38 @@ def doctor(
 
 
 @app.command()
+def smoke(
+    config: Annotated[Path | None, typer.Option("--config", help="Config file to load.")] = None,
+    endpoint: Annotated[
+        str,
+        typer.Option(
+            "--endpoint",
+            help="DevCD daemon state endpoint used for the quickstart check.",
+        ),
+    ] = "http://127.0.0.1:9/state",
+    demo_events: Annotated[
+        Path,
+        typer.Option(
+            "--demo-events",
+            help="JSONL events used for the daemonless quickstart check.",
+        ),
+    ] = _SMOKE_DEMO_EVENTS,
+    output_json: Annotated[
+        bool,
+        typer.Option("--json", help="Print machine-readable JSON output."),
+    ] = False,
+) -> None:
+    """Verify the local install with a daemonless first-run check."""
+    report = _build_smoke_report(config=config, endpoint=endpoint, demo_events=demo_events)
+    if output_json:
+        typer.echo(json.dumps(report, indent=2, sort_keys=True))
+    else:
+        typer.echo(_render_smoke_report(report))
+    if report["status"] != "pass":
+        raise typer.Exit(1)
+
+
+@app.command()
 def quickstart(
     config: Annotated[Path | None, typer.Option("--config", help="Config file to load.")] = None,
     endpoint: Annotated[
@@ -589,7 +776,7 @@ def quickstart(
         typer.Option("--no-tui", help="Print plain-text output instead of launching the TUI."),
     ] = False,
 ) -> None:
-    """Guide the first local DevCD activation without mutating configuration."""
+    """Interactive walkthrough for the onboard Action Packet workflow."""
     report = _build_quickstart_report(config=config, endpoint=endpoint, demo_events=demo_events)
     if output_json:
         typer.echo(json.dumps(report, indent=2, sort_keys=True))
@@ -671,6 +858,8 @@ def capture(
     config: Annotated[Path | None, typer.Option("--config", help="Config file to load.")] = None,
 ) -> None:
     """Capture safe continuity metadata into the configured local ledger."""
+    settings = DevCDSettings.load(config)
+    ledger = EventLedger(settings.ledger_path)
     event = _build_capture_event(
         kind=kind,
         summary=summary,
@@ -683,15 +872,81 @@ def capture(
         session=session,
         fingerprint=fingerprint,
     )
-    settings = DevCDSettings.load(config)
-    ledger = EventLedger(settings.ledger_path)
     if fingerprint is not None and any(
         existing.event_id == fingerprint for existing, _decision in ledger.read_records()
     ):
         typer.echo(f"Skipped duplicate capture {fingerprint}")
         return
 
+    storage_reason = _append_allowed_capture_event(
+        event=event,
+        settings=settings,
+        ledger=ledger,
+    )
+    typer.echo(f"Captured {kind} to {settings.ledger_path} ({storage_reason})")
+
+
+@app.command()
+def handoff(
+    goal: Annotated[str, typer.Option("--goal", help="Current goal for the next agent.")],
+    next_action: Annotated[
+        str,
+        typer.Option("--next-action", help="Safe next action for the next agent."),
+    ],
+    failure: Annotated[
+        str | None,
+        typer.Option("--failure", help="Latest failure or blocker metadata."),
+    ] = None,
+    agent: Annotated[str, typer.Option("--agent", help="Capturing agent name.")] = "unknown-agent",
+    session: Annotated[
+        str | None,
+        typer.Option("--session", help="Optional local session identifier."),
+    ] = None,
+    basis: Annotated[
+        str,
+        typer.Option("--basis", help="user_message, tool_result, file_metadata, agent_inference."),
+    ] = "agent_inference",
+    confidence: Annotated[
+        str,
+        typer.Option("--confidence", help="observed, inferred, or uncertain."),
+    ] = "inferred",
+    config: Annotated[Path | None, typer.Option("--config", help="Config file to load.")] = None,
+) -> None:
+    """Capture a compact next-agent handoff without starting the daemon."""
+    settings = DevCDSettings.load(config)
+    ledger = EventLedger(settings.ledger_path)
+    capture_specs: list[tuple[str, str, str | None]] = [("goal", goal, None)]
+    if failure is not None:
+        capture_specs.append(("failure", failure, next_action))
+    capture_specs.append(("next_action", next_action, next_action))
+
+    captured_kinds: list[str] = []
+    for capture_kind, capture_summary, capture_next_action in capture_specs:
+        event = _build_capture_event(
+            kind=capture_kind,
+            summary=capture_summary,
+            basis=basis,
+            confidence=confidence,
+            outcome=None,
+            next_action=capture_next_action,
+            artifact=None,
+            agent=agent,
+            session=session,
+            fingerprint=None,
+        )
+        _append_allowed_capture_event(event=event, settings=settings, ledger=ledger)
+        captured_kinds.append(capture_kind)
+
+    typer.echo(f"Captured handoff for next agent: {', '.join(captured_kinds)}")
+    typer.echo(f"Ledger: {settings.ledger_path}")
+    typer.echo("Next agent starts with: devcd agentic action-packet")
+
+
+def _append_allowed_capture_event(
+    *, event: DevEvent, settings: DevCDSettings, ledger: EventLedger
+) -> str:
     policy_engine = PolicyEngine.from_settings(settings)
+
     observation_decision = policy_engine.decide_observation(event)
     if not observation_decision.allowed:
         typer.echo(f"Capture denied: {observation_decision.reason}", err=True)
@@ -702,7 +957,7 @@ def capture(
         raise typer.Exit(1)
 
     ledger.append(event=event, decision=storage_decision)
-    typer.echo(f"Captured {kind} to {settings.ledger_path} ({storage_decision.reason})")
+    return storage_decision.reason
 
 
 @app.command("git-snapshot")
@@ -984,7 +1239,7 @@ def context_handoff_demo(
         bool, typer.Option("--json", help="Emit JSON contract instead of Markdown.")
     ] = False,
 ) -> None:
-    """Generate a read-only agent handoff brief from local JSONL events."""
+    """Generate a read-only compatibility handoff brief from local JSONL events."""
     pack_id = _context_pack_id(pack)
     with TemporaryDirectory() as temporary_directory:
         service, state_engine = _build_demo_context_service(Path(temporary_directory))
@@ -1031,7 +1286,7 @@ def context_passport(
         typer.Option("--json", help="Emit JSON ContinuityPacket instead of Markdown."),
     ] = False,
 ) -> None:
-    """Generate a live policy-filtered Agent Passport from the configured local ledger."""
+    """Generate the broader live continuity view from the configured local ledger."""
     service = _build_local_context_service(config)
     packet = service.create_continuity_packet(
         AgentContextSurface(
@@ -1080,6 +1335,35 @@ def context_control(
         render_context_control_report_json(report)
         if output_json
         else render_context_control_report_text(report)
+    )
+
+
+@context_app.command("budget")
+def context_budget(
+    config: Annotated[Path | None, typer.Option("--config", help="Config file to load.")] = None,
+    surface: Annotated[
+        str,
+        typer.Option("--surface", help="Context surface kind."),
+    ] = "coding-agent",
+    pack: Annotated[str, typer.Option("--pack", help="Context pack renderer id.")] = "developer",
+    output_json: Annotated[
+        bool,
+        typer.Option("--json", help="Emit JSON ContextBudgetReport instead of text."),
+    ] = False,
+) -> None:
+    """Print local context budget and loading guidance for an agent surface."""
+    service = _build_local_context_service(config)
+    report = service.create_context_budget_report(
+        AgentContextSurface(
+            kind=_surface_kind(surface),
+            name="devcd-cli-budget",
+        ),
+        context_pack=_context_pack_id(pack),
+    )
+    typer.echo(
+        render_context_budget_report_json(report)
+        if output_json
+        else render_context_budget_report_text(report)
     )
 
 
@@ -1204,7 +1488,7 @@ def agentic_action_packet_demo(
         typer.Option("--json", help="Print machine-readable JSON output."),
     ] = False,
 ) -> None:
-    """Generate a read-only Action Packet from local JSONL events."""
+    """Generate the shortest read-only warm-start Action Packet proof from local JSONL events."""
     with TemporaryDirectory() as temporary_directory:
         service, state_engine = _build_demo_agentic_context_service(Path(temporary_directory))
         for event in _read_jsonl_events(events):
@@ -1813,6 +2097,7 @@ def _build_quickstart_report(
     settings = DevCDSettings.load(config)
     status_report = _build_status_report(config=config, endpoint=endpoint, token=None)
     doctor_report = _build_doctor_report(config=config, endpoint=endpoint)
+    action_packet = _build_live_action_packet(config)
     live_packet = _build_live_continuity_packet(config)
     events_count = int(status_report["events_count"])
     daemon = status_report["daemon"]
@@ -1820,12 +2105,10 @@ def _build_quickstart_report(
     token_source = str(status_report["token_source"])
     config_exists = bool(status_report["config_exists"])
     live_context_empty = events_count == 0
-    init_command = "devcd status" if config_exists else "devcd init"
+    workspace_command = "devcd status" if config_exists else "devcd init"
     daemon_command = "devcd status" if daemon_reachable else "devcd run"
-    first_event_command = (
-        "devcd context passport"
-        if not live_context_empty
-        else 'devcd capture --kind goal --summary "Try DevCD live continuity"'
+    capture_command = (
+        'devcd handoff --goal "<current goal>" --next-action "<safe next step>"'
     )
     steps = [
         _quickstart_step(
@@ -1834,60 +2117,84 @@ def _build_quickstart_report(
             'python -m pip install -e ".[dev]"',
             "The devcd CLI becomes available from this checkout.",
             "devcd --help lists quickstart, status, doctor, context, mcp, and integrations.",
-            init_command,
+            workspace_command,
             "Confirm Python 3.11+ is active, then rerun the editable install.",
             "manual",
         ),
         _quickstart_step(
-            "init",
-            "Initialize local config",
-            init_command,
-            "Existing devcd.toml is kept; missing config can be created explicitly.",
+            "workspace",
+            "Prepare local workspace",
+            workspace_command,
+            (
+                "Existing devcd.toml is kept; missing config can be created "
+                "explicitly without leaving the primary flow."
+            ),
             "devcd.toml exists with loopback, local storage, and policy defaults.",
-            "devcd doctor",
+            "devcd agentic action-packet",
             "If config exists but looks wrong, run devcd doctor before choosing any reset.",
             "present" if config_exists else "missing",
         ),
         _quickstart_step(
-            "readiness",
-            "Check readiness",
-            "devcd status; devcd doctor",
-            "Status summarizes local state; doctor gives remediation without config mutation.",
-            "Config, token, daemon, ledger, policy, docs, and MCP checks are understandable.",
-            daemon_command,
-            "Follow the first non-pass doctor next step.",
-            str(doctor_report["summary"]["status"]),
+            "action_packet",
+            "Open the Action Packet",
+            "devcd agentic action-packet",
+            "DevCD shows the next-agent handoff before asking you to restate the work.",
+            (
+                "The Action Packet shows the current goal, latest blocker, "
+                "do-not-repeat guidance, and one next action when continuity "
+                "is present."
+            ),
+            capture_command,
+            "If the packet is thin or empty, capture one safe handoff and rerun the command.",
+            "ready" if action_packet.ready_for_agent else "needs continuity",
         ),
         _quickstart_step(
-            "daemon",
-            "Start live daemon path",
-            daemon_command,
-            "The local API listens on loopback when you choose to start it.",
-            "devcd status reports the daemon as reachable and shows the token source.",
-            first_event_command,
-            "Daemon unreachable is not fatal for reading the local passport; "
-            "use devcd doctor for live remediation.",
-            "reachable" if daemon_reachable else "not running",
-        ),
-        _quickstart_step(
-            "first_event",
-            "Send first event",
-            first_event_command,
-            "A policy-checked observation is added to the local ledger.",
-            "devcd status reports at least one event and an active goal.",
+            "capture",
+            "Capture a compact handoff",
+            capture_command,
+            (
+                "Agents with shell access capture continuity metadata "
+                "themselves so the next session does not start cold."
+            ),
+            (
+                "The next agent can resume from the goal, latest failure, "
+                "and next action without a pasted recap."
+            ),
             "devcd context passport",
-            "If rejected, inspect the policy reason and token source from devcd status.",
-            "already has events" if not live_context_empty else "empty ledger",
+            (
+                "Keep captures metadata-only and inspect devcd context control "
+                "if policy withholds details."
+            ),
+            "already has continuity" if not live_context_empty else "recommended",
         ),
         _quickstart_step(
             "passport",
-            "Get context brief / passport",
+            "Inspect the broader continuity view",
             "devcd context passport",
-            "DevCD rebuilds live local state from the configured ledger.",
-            "The Agent Passport shows what is known, unknown, suggested, and withheld.",
+            (
+                "DevCD rebuilds the broader continuity view from the "
+                "configured ledger around the Action Packet."
+            ),
+            (
+                "The passport shows what is known, unknown, suggested, and "
+                "withheld beyond the primary handoff."
+            ),
             "devcd context control",
-            "If it says no goal is visible, send a goal_update event or import a recipe first.",
+            "If it says no goal is visible, capture one compact handoff first.",
             "ready" if not live_context_empty else "empty guidance available",
+        ),
+        _quickstart_step(
+            "daemon",
+            "Optional live daemon path",
+            daemon_command,
+            "The local API listens on loopback when you explicitly choose live ingestion.",
+            "devcd status reports the daemon as reachable and shows the token source.",
+            "devcd status",
+            (
+                "Daemon unreachable is not fatal for Action Packet and "
+                "passport reads; use devcd doctor for live remediation."
+            ),
+            "reachable" if daemon_reachable else "not running",
         ),
         _quickstart_step(
             "mcp",
@@ -1902,9 +2209,24 @@ def _build_quickstart_report(
     ]
     report = {
         "value_proposition": (
-            "DevCD lets a new agent continue from local, policy-filtered context without "
+            "DevCD lets a new agent continue from a local, policy-filtered Action Packet without "
             "asking you to recap."
         ),
+        "action_packet_first": {
+            "daemon_required": False,
+            "command": "devcd agentic action-packet",
+            "broader_view_command": "devcd context passport",
+            "policy_command": "devcd context control",
+            "success_looks_like": [
+                "current goal is visible when one has been recorded",
+                "latest blocker or failure is visible when present",
+                "do-not-repeat guidance is visible when failed attempts exist",
+                "suggested next action is visible",
+                "withheld context summary is visible when policy denies raw context",
+            ],
+            "packet": action_packet.model_dump(mode="json"),
+            "packet_markdown": _render_action_packet(action_packet),
+        },
         "live_first": {
             "daemon_required": False,
             "command": "devcd context passport",
@@ -1917,6 +2239,22 @@ def _build_quickstart_report(
             ],
             "packet": json.loads(render_continuity_packet_json(live_packet)),
             "packet_markdown": render_continuity_packet_markdown(live_packet),
+        },
+        "repeat_use": {
+            "trigger": "Switch to a fresh agent after capturing at least one goal or failure.",
+            "return_command": "devcd agentic action-packet",
+            "capture_command": (
+                'devcd handoff --goal "<current goal>" --next-action "<safe next step>"'
+            ),
+            "why_it_matters": (
+                "The next agent should be able to continue from goal, latest failure, and "
+                "next action without asking for a recap."
+            ),
+            "success_looks_like": [
+                "the new agent starts from the current goal instead of asking what you are doing",
+                "the latest failure or blocker is visible without pasting logs again",
+                "the next safe action is already named for the handoff",
+            ],
         },
         "local_state": {
             "config_path": status_report["config_path"],
@@ -1961,7 +2299,8 @@ def _build_quickstart_report(
         "steps": steps,
         "next_paths": {
             "continue_live": "devcd run",
-            "send_first_event": first_event_command,
+            "get_action_packet": "devcd agentic action-packet",
+            "capture_handoff": capture_command,
             "get_passport": "devcd context passport",
             "connect_agent": "devcd integrations openclaw --smoke-test",
             "inspect_policy": "devcd context control",
@@ -1977,6 +2316,70 @@ def _build_quickstart_report(
             "packet_markdown": render_continuity_packet_markdown(demo_packet),
         }
     return report
+
+
+def _build_smoke_report(
+    *, config: Path | None, endpoint: str, demo_events: Path
+) -> dict[str, Any]:
+    checks: list[dict[str, Any]] = []
+
+    checks.append({"id": "cli_help", "label": "devcd --help", "status": "pass"})
+
+    packs = list_context_packs()
+    pack_ids = {item.id for item in packs}
+    missing_packs = sorted({"developer", "research"} - pack_ids)
+    checks.append(
+        {
+            "id": "context_packs",
+            "label": "devcd context packs",
+            "status": "pass" if not missing_packs else "fail",
+            "missing_packs": missing_packs,
+        }
+    )
+
+    quickstart_report = _build_quickstart_report(
+        config=config,
+        endpoint=endpoint,
+        demo_events=demo_events,
+    )
+    required_keys = {"defaults", "live_first", "privacy", "steps", "value_proposition"}
+    missing_quickstart_keys = sorted(required_keys - set(quickstart_report))
+    quickstart_errors: list[str] = []
+    if missing_quickstart_keys:
+        quickstart_errors.append(
+            f"missing keys: {', '.join(missing_quickstart_keys)}"
+        )
+    if quickstart_report.get("privacy", {}).get("remote_export_enabled_by_default") is not False:
+        quickstart_errors.append("remote export must stay disabled by default")
+    checks.append(
+        {
+            "id": "quickstart",
+            "label": "devcd quickstart",
+            "status": "pass" if not quickstart_errors else "fail",
+            "demo_events": str(demo_events),
+            "errors": quickstart_errors,
+        }
+    )
+
+    status = "pass" if all(item["status"] == "pass" for item in checks) else "fail"
+    return {
+        "status": status,
+        "checks": checks,
+    }
+
+
+def _render_smoke_report(report: dict[str, Any]) -> str:
+    lines = ["DevCD smoke", f"- status: {report['status']}"]
+    for check in cast(list[dict[str, Any]], report["checks"]):
+        display_status = "ok" if check["status"] == "pass" else str(check["status"])
+        lines.append(f"- {check['label']}: {display_status}")
+        if check["status"] != "pass":
+            for error in cast(list[str], check.get("errors", [])):
+                lines.append(f"  error: {error}")
+            missing_packs = cast(list[str], check.get("missing_packs", []))
+            if missing_packs:
+                lines.append(f"  missing packs: {', '.join(missing_packs)}")
+    return "\n".join(lines)
 
 
 def _quickstart_step(
@@ -2026,6 +2429,13 @@ def _build_live_continuity_packet(config: Path | None) -> ContinuityPacket:
         ),
         context_pack="developer",
         include_empty_guidance=True,
+    )
+
+
+def _build_live_action_packet(config: Path | None) -> ActionPacket:
+    return _build_local_agentic_context_service(config).create_action_packet(
+        surface="coding-agent",
+        context_pack="developer",
     )
 
 
@@ -2318,9 +2728,11 @@ def _render_doctor_report(report: dict[str, Any]) -> str:
 
 
 def _render_quickstart_report(report: dict[str, Any]) -> str:
+    action_packet_first = report["action_packet_first"]
     local_state = report["local_state"]
     defaults = report["defaults"]
     privacy = report["privacy"]
+    repeat_use = report["repeat_use"]
     steps = list(report["steps"])
     config_status = "present" if local_state["config_exists"] else "missing"
     daemon_status = "reachable" if local_state["daemon_reachable"] else "not reachable"
@@ -2329,6 +2741,12 @@ def _render_quickstart_report(report: dict[str, Any]) -> str:
         "DevCD quickstart",
         "",
         str(report["value_proposition"]),
+        "",
+        "Happy path",
+        "- 1. Prepare workspace: devcd onboard",
+        "- 2. Warm-start the next agent: devcd agentic action-packet",
+        "- 3. Open the follow-up report: devcd quickstart",
+        "- 4. Broader continuity only if needed: devcd context passport",
         "",
         "Local-first defaults",
         f"- loopback: {defaults['host']}",
@@ -2356,17 +2774,42 @@ def _render_quickstart_report(report: dict[str, Any]) -> str:
         f"- Live context: {live_context_status} ({local_state['events_count']} events)",
         f"- Doctor: {local_state['doctor_status']}",
         "",
+        "Primary workflow",
+        f"- Start with: {action_packet_first['command']}",
+        f"- Broader continuity view: {action_packet_first['broader_view_command']}",
+        f"- Policy receipts: {action_packet_first['policy_command']}",
+        "",
     ]
     visible_before_passport = 3
     lines.extend(_render_quickstart_steps(steps[:visible_before_passport], start_index=1))
     lines.extend(
         [
             "",
-            "Live Agent Passport",
-            str(report["live_first"]["packet_markdown"]).rstrip(),
+            "Action Packet first",
+            str(action_packet_first["packet_markdown"]).rstrip(),
             "",
         ]
     )
+    if not bool(action_packet_first["packet"].get("ready_for_agent", False)):
+        lines.extend(
+            [
+                "- No current goal is visible yet.",
+                "- Capture one compact handoff, then rerun the Action Packet.",
+                "",
+            ]
+        )
+    lines.extend(
+        [
+            "Repeat-use moment",
+            f"- Trigger: {repeat_use['trigger']}",
+            f"- Capture handoff: {repeat_use['capture_command']}",
+            f"- Come back with: {repeat_use['return_command']}",
+            f"- Why return: {repeat_use['why_it_matters']}",
+        ]
+    )
+    for item in cast(list[str], repeat_use.get("success_looks_like", [])):
+        lines.append(f"- Success looks like: {item}")
+    lines.append("")
     lines.extend(
         _render_quickstart_steps(
             steps[visible_before_passport:], start_index=visible_before_passport + 1
@@ -2386,8 +2829,9 @@ def _render_quickstart_report(report: dict[str, Any]) -> str:
         [
             "",
             "Next paths",
+            f"- Get Action Packet: {next_paths['get_action_packet']}",
+            f"- Capture handoff: {next_paths['capture_handoff']}",
             f"- Continue live: {next_paths['continue_live']}",
-            f"- Send first event: {next_paths['send_first_event']}",
             f"- Get passport: {next_paths['get_passport']}",
             f"- Connect an agent: {next_paths['connect_agent']}",
             f"- Inspect policy: {next_paths['inspect_policy']}",

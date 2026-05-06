@@ -504,6 +504,38 @@ def test_mcp_server_action_packet_contains_ready_agent_context(tmp_path) -> None
     assert "PRIVATE_NOTE_PAYLOAD" not in json.dumps(body)
 
 
+def test_mcp_server_reads_session_contract_resource(tmp_path) -> None:
+    server, state_engine = build_mcp_server(tmp_path)
+    state_engine.accept_event(
+        DevEvent(
+            source=EventSource.TASK,
+            type="goal_update",
+            timestamp=datetime(2026, 5, 5, 10, 0, tzinfo=UTC),
+            payload={"current_goal": "Expose session contract through MCP"},
+        )
+    )
+    state_engine.accept_event(
+        DevEvent(
+            source=EventSource.TASK,
+            type="test_failure",
+            timestamp=datetime(2026, 5, 5, 10, 1, tzinfo=UTC),
+            payload={
+                "reason": "session contract resource missing",
+                "suggested_next_action": "Add read-only MCP session-contract resource",
+            },
+        )
+    )
+
+    body = read_resource(server, "devcd://context/session-contract")
+
+    assert body["session_contract"]["next_action"] == (
+        "Add read-only MCP session-contract resource"
+    )
+    assert body["session_contract"]["verification_command"] == "make check"
+    assert body["context_budget"]["reference_count"] == len(body["context_references"])
+    assert body["policy_summary"]
+
+
 def test_mcp_server_action_packet_listed_in_resources(tmp_path) -> None:
     server, _state_engine = build_mcp_server(tmp_path)
 

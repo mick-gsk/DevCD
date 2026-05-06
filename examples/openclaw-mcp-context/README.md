@@ -4,6 +4,9 @@ This note shows how [OpenClaw](https://github.com/openclaw/openclaw) could use
 DevCD as a **read-only MCP context source** so a new agent session starts with
 structured developer context instead of asking the user to recap everything.
 
+The important claim is product-level, not protocol-level: OpenClaw is good at
+acting. DevCD helps it start warm.
+
 DevCD is not an OpenClaw-only tool. The same `devcd mcp serve` stdio endpoint
 works with any MCP-capable client (Claude Code, Cursor, Codex CLI, etc.). This
 note only uses OpenClaw as one example consumer.
@@ -14,13 +17,35 @@ note only uses OpenClaw as one example consumer.
 
 ```bash
 python -m pip install -e ".[dev]"   # install DevCD from this repo
-devcd init                           # create devcd.toml with local defaults
-devcd run &                          # start the daemon on 127.0.0.1:8765
+devcd onboard --agents openclaw      # prepare the workspace-first warm-start path
+devcd handoff --goal "Resume the current task" --next-action "Read the Action Packet first"
+```
+
+Optional shortest proof before wiring MCP at all:
+
+```bash
+devcd agentic action-packet-demo --events examples/agentic-action-packet/sample-events.jsonl
 ```
 
 ---
 
-## Step 1 — Verify the MCP server starts
+## Step 1 — Verify the warm-start surface first
+
+Before thinking about MCP wiring, verify the handoff surface DevCD wants
+OpenClaw to read:
+
+```bash
+devcd agentic action-packet
+devcd context budget
+```
+
+The Action Packet is the first-turn handoff. The budget report explains how
+much context is included and what should stay as references instead of a pasted
+recap.
+
+---
+
+## Step 2 — Verify the MCP server starts
 
 `devcd mcp serve` speaks the MCP protocol over stdio (JSON-RPC 2.0,
 protocol version `2024-11-05`). The following manual probe was run locally to
@@ -46,6 +71,8 @@ $list = '{"jsonrpc":"2.0","id":2,"method":"resources/list","params":{}}'
       { "name": "recent_events",        "uri": "devcd://context/recent-events" },
       { "name": "policy_decisions",     "uri": "devcd://context/policy-decisions" },
       { "name": "withheld_context",     "uri": "devcd://context/withheld-context" },
+      { "name": "action_packet",        "uri": "devcd://context/action-packet" },
+      { "name": "session_contract",     "uri": "devcd://context/session-contract" },
       { "name": "agent_handoff_packet", "uri": "devcd://context/agent-handoff-packet" },
       { "name": "continuity_packet",    "uri": "devcd://context/continuity-packet" },
       { "name": "recent_timeline",      "uri": "devcd://context/recent-timeline" },
@@ -60,27 +87,27 @@ no write surface.
 
 ---
 
-## Step 2 — Retrieve a context brief directly
+## Step 3 — Retrieve the same warm-start proof directly
 
-Without OpenClaw running, you can retrieve the same contract the MCP server
-would expose by running:
+Without OpenClaw running, you can retrieve the same first-turn contract the MCP
+server would expose by running:
 
 ```bash
-# Verified locally — produces JSON matching the agent-handoff-packet resource
-devcd context handoff-demo \
-  --events examples/agent-resurrection/sample-events.jsonl \
+# Verified locally — produces JSON matching the action-packet resource
+devcd agentic action-packet-demo \
+  --events examples/agentic-action-packet/sample-events.jsonl \
   --json
 ```
 
-The output includes: `goal`, `last_attempt`, `last_failure`, `do_not_repeat`,
-`blockers`, `suggested_next_action`, `policy_summary`, and
-`withheld_context_summary`. See
-[`examples/agent-resurrection/handoff-packet.json`](../agent-resurrection/handoff-packet.json)
-for a checked-in fixture of this contract.
+The output includes the current goal, recent evidence, blockers,
+`do_not_repeat`, context budget, session contract, policy summary, and
+withheld-context notes. See
+[`examples/agentic-action-packet/action-packet.md`](../agentic-action-packet/action-packet.md)
+for a checked-in human-readable proof of this contract.
 
 ---
 
-## Step 3 — OpenClaw MCP configuration (draft)
+## Step 4 — OpenClaw MCP configuration (draft)
 
 > **Status: draft** — The MCP config format below is taken verbatim from the
 > [OpenClaw configuration reference](https://docs.openclaw.ai/gateway/configuration-reference#mcp)
@@ -113,6 +140,8 @@ tool mechanism. The agent can then read:
 
 | Resource URI                            | What the agent learns                          |
 |-----------------------------------------|------------------------------------------------|
+| `devcd://context/action-packet`         | First-turn goal, blocker, do-not-repeat, next action |
+| `devcd://context/session-contract`      | Verification command, clean-state requirement, context loading hints |
 | `devcd://context/brief`                 | Policy-filtered context brief                  |
 | `devcd://context/continuity-packet`     | Domain-neutral Continuity Packet               |
 | `devcd://context/agent-handoff-packet`  | Goal, blockers, resurrection context           |
@@ -135,9 +164,9 @@ usually the user re-explaining:
 - What was tried and why it failed
 - What the agent should not repeat
 
-With DevCD, the `agent-handoff-packet` resource encodes all of that as a
-typed, policy-filtered JSON object. The agent reads it at turn 0, before the
-user types anything, and can start from:
+With DevCD, the `action-packet` resource encodes the first-turn version of that
+handoff as a typed, policy-filtered JSON object. The agent reads it at turn 0,
+before the user types anything, and can start from:
 
 ```
 goal              → "Continue the resurrection demo after Agent A lost chat context"
@@ -156,11 +185,12 @@ with safe summaries so the agent knows *that* context exists without seeing it.
 
 - `devcd mcp serve` is a standards-compliant stdio MCP server (JSON-RPC 2.0,
   protocol `2024-11-05`).
-- It exposes 9 read-only resources, no tools, no write surface.
+- It exposes read-only resources for Action Packet, Session Contract, and the
+  deeper continuity views, with no tools and no write surface.
 - The OpenClaw `mcp.servers` stdio config format (from the official docs) is
   the correct configuration path for wiring DevCD into OpenClaw.
-- `devcd context handoff-demo --json` produces the same JSON contract as
-  `devcd://context/agent-handoff-packet` over MCP.
+- `devcd agentic action-packet-demo --json` produces the same first-turn JSON
+  contract as `devcd://context/action-packet` over MCP.
 - The policy layer withholds sensitive payloads and replaces them with safe
   summaries, so no secret or user-private content leaks through the MCP
   surface.
@@ -175,9 +205,7 @@ with safe summaries so the agent knows *that* context exists without seeing it.
   *how* to read DevCD resources, but none exists yet.
 - DevCD does not push context proactively into OpenClaw. The agent must
   request the resource explicitly (or the skill must instruct it to).
-- The `devcd run` daemon must be running before `devcd mcp serve` can read
-  live events. The stdio server reads from the local event ledger at
-  `~/.devcd/` — no daemon means empty context, not an error.
+- DevCD does not automatically edit OpenClaw configuration.
 - Multi-agent routing (e.g. dispatching different DevCD surfaces to different
   OpenClaw agents) is not demonstrated here.
 

@@ -14,20 +14,19 @@
   <a href="https://github.com/sponsors/mick-gsk"><img src="https://img.shields.io/badge/Sponsor-GitHub%20Sponsors-ea4aaa?style=for-the-badge" alt="GitHub Sponsors"></a>
 </p>
 
-**DevCD** is a local continuity layer for AI-assisted work. It records structured
-work metadata, applies an explicit policy layer, and gives the next agent a
-policy-filtered **Agent Passport** or **Action Packet** before it asks you to
-recap the task.
+**DevCD** is a local continuity layer for mixed AI-agent setups. It gives a
+fresh Copilot, Claude, Codex, OpenClaw, or MCP-capable session a
+policy-filtered **Action Packet** before it asks you to recap the task.
+
+That packet gives the next agent the current goal, latest failure or blocker,
+do-not-repeat guidance, one suggested next action, and a clear note when
+context was withheld by policy. DevCD is the warm-start layer for your agent
+stack, not another agent runtime to manage.
 
 It is not a model, chat app, remote service, or task runner. DevCD is the local
 state and policy layer between your workspace and the agents that help you.
 
-Use it with Copilot, Claude, Codex, OpenClaw, or any MCP-capable runtime that can
-read local context. The strongest first proof is simple: close one agent session,
-start another, and let the new one read what matters, what failed, what not to
-repeat, and what was withheld by policy.
-
-[Getting Started](docs/getting-started.md) | [Agent Resurrection](docs/superpowers/agent-resurrection.md) | [OpenClaw Integration](docs/devcd/openclaw-integration.md) | [Context Packs](docs/devcd/context-packs.md) | [Security](SECURITY.md) | [Release Readiness](docs/devcd/release-readiness.md) | [Publishing](docs/devcd/publishing.md) | [Brand System](docs/devcd/brand-system.md) | [Architecture](docs/devcd/architecture.md) | [Contributing](CONTRIBUTING.md)
+[Getting Started](docs/getting-started.md) | [Examples](examples/README.md) | [Agent Resurrection](docs/superpowers/agent-resurrection.md) | [OpenClaw Integration](docs/devcd/openclaw-integration.md) | [Context Packs](docs/devcd/context-packs.md) | [Security](SECURITY.md) | [Release Readiness](docs/devcd/release-readiness.md) | [Publishing](docs/devcd/publishing.md) | [Brand System](docs/devcd/brand-system.md) | [Architecture](docs/devcd/architecture.md) | [Contributing](CONTRIBUTING.md)
 
 ## Status
 
@@ -55,34 +54,82 @@ DevCD currently installs from a local checkout:
 ```bash
 git clone https://github.com/mick-gsk/DevCD.git
 cd DevCD
-python -m pip install -e ".[dev]"
-make smoke
+python -m pip install .
+devcd smoke
 ```
 
-`make smoke` is intentionally small. It checks the CLI, built-in Context Packs,
+`devcd smoke` is intentionally small. It checks the CLI, built-in Context Packs,
 and a daemonless quickstart report using checked-in demo events instead of your
 local ledger.
 
-## Quick Start
-
-Make the current workspace agent-ready:
+If you prefer an isolated local tool install from the same checkout, these work
+too:
 
 ```bash
-devcd onboard --agents copilot,claude,codex,openclaw
+pipx install .
+uv tool install .
 ```
 
-Inspect the local Agent Passport:
+Use `python -m pip install -e ".[dev]"` only when you want contributor tooling
+such as pytest, Ruff, and mypy in the same environment.
+
+## Primary Path
+
+DevCD now has one primary first-run path for real workspaces:
+
+1. Run `devcd onboard` to prepare the workspace without starting a daemon.
+2. Read `devcd agentic action-packet` before a fresh agent asks for a recap.
+3. Seed safe metadata only if the local ledger is still empty.
+4. Use `devcd quickstart` as the interactive follow-up report around that same Action Packet workflow.
+
+Need proof before touching a real workspace?
 
 ```bash
-devcd context passport
+devcd agentic action-packet-demo --events examples/agentic-action-packet/sample-events.jsonl
 ```
 
-Capture safe continuity metadata during work:
+That demo is the shortest honest proof: a fresh agent gets a useful handoff,
+including withheld-context notes, without a daemon, remote service, or pasted
+chat recap.
+
+When you are ready for the real workspace, start here:
+
+Make the current workspace agent-ready without starting a daemon or mutating
+external agent config:
 
 ```bash
+devcd onboard
+```
+
+That default prepares the common local agent targets for this workspace. Use
+`--agents` only when you want a narrower target list.
+
+Start from the handoff surface the next agent should read first:
+
+```bash
+devcd agentic action-packet
+```
+
+If the local ledger is still empty, seed safe metadata instead of pasting raw
+logs, transcripts, or file contents:
+
+```bash
+devcd handoff --goal "Ship the failing release gate" --failure "make check failed on policy tests" --next-action "Inspect the failing policy assertion"
 devcd capture --kind goal --summary "Ship the failing release gate"
 devcd capture --kind failure --summary "make check failed on policy tests" --next-action "Inspect the failing policy assertion"
 ```
+
+Use `devcd handoff` at the end of a session or before switching agents. Use
+`devcd capture` when you want to record one granular continuity fact during
+work.
+
+Then inspect the broader interactive activation report:
+
+```bash
+devcd quickstart
+```
+
+Use `devcd context passport` when you want the broader policy-filtered passport directly.
 
 Connect an MCP-capable runtime such as OpenClaw:
 
@@ -109,8 +156,8 @@ Suggested next action: inspect the failing policy assertion
 Withheld context: raw logs or sensitive notes were not included by policy
 ```
 
-That packet is derived from local structured events and metadata. It is not model
-memory, not telemetry, and not remote sync.
+That packet is derived from local structured events and metadata. It is not
+model memory, not telemetry, and not remote sync.
 
 ## Why DevCD Exists
 
@@ -122,23 +169,29 @@ DevCD gives agents a local, typed, policy-filtered continuity layer:
 
 - **Agent resurrection** - new sessions can continue from the previous goal,
   failure, stale attempts, blockers, and next action.
+- **Warm-start handoff** - the next agent gets a concrete starting point before
+  it asks for a recap.
 - **Local-first context** - data stays on your machine unless a future explicit
   policy says otherwise.
 - **Policy visibility** - every observation, storage decision, export, or action
   has an explainable policy reason.
-- **Metadata over raw text** - captures are designed for structured continuity,
-  not raw logs, transcripts, file contents, or secrets.
+- **Structured continuity instead of pasted recap** - captures are designed for
+  compact metadata, not raw logs, transcripts, file contents, or secrets.
 - **Runtime-neutral consumption** - CLI, localhost API, and read-only MCP expose
   the same policy-filtered state to different agent surfaces.
 
 ## Highlights
 
 - `devcd onboard` - first-run wrapper for config, selected agent instruction
-  files, and the Agent Passport path.
+  files, and the primary Action Packet workflow entry point.
+- `devcd handoff` - one-command goal, failure, and next-action capture before
+  switching to a fresh agent.
 - `devcd capture` - daemonless, policy-gated continuity metadata capture.
-- `devcd context passport` - live Agent Passport from the configured local
-  ledger.
 - `devcd agentic action-packet` - next-action packet for the next local agent.
+- `devcd quickstart` - interactive activation report that expands on the same
+  Action Packet workflow after onboarding.
+- `devcd context passport` - broader live continuity view from the configured
+  local ledger.
 - `devcd context control` - visibility report for included and withheld context.
 - `devcd mcp serve` - read-only local MCP stdio resources.
 - `devcd integrations openclaw --smoke-test` - verifies the local MCP shape
@@ -148,6 +201,22 @@ DevCD gives agents a local, typed, policy-filtered continuity layer:
 - `make distribution` - builds and verifies wheel/sdist artifacts and installed
   CLI behavior.
 - `make smoke` - quick daemonless confidence check for evaluators.
+
+## Local Agent Skills
+
+This repo also carries local agent skills for repeatable engineering workflows
+under `.github/skills/`.
+
+- `agent-ops-observability` - diagnose instruction drift, weak handoffs, tool
+  misuse, and missing verification in agent-driven work.
+- `devils-advocate` - stress-test plans, ADRs, policy changes, and rollout
+  ideas before implementation.
+- `deep-interview`, `brainstorming`, `systematic-debugging`, and
+  `verification-before-completion` cover clarification, design, debugging, and
+  evidence discipline.
+
+These are repository workflow assets, not DevCD product features. They exist to
+make agent work in this repo more reliable and reviewable.
 
 ## Security Defaults
 
@@ -252,8 +321,8 @@ here until that surface actually exists.
 
 ## Operator Quick Refs
 
-- First run: `devcd onboard --agents copilot,claude,codex,openclaw`
-- Quick health check: `make smoke`
+- First run: `devcd onboard`
+- Quick health check: `devcd smoke`
 - Full local verification: `make check`
 - Distribution verification: `make distribution`
 - Local daemon: `devcd run`

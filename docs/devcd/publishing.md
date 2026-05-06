@@ -4,6 +4,17 @@ DevCD is not automatically published to PyPI yet. The repository contains the
 release machinery needed for a safe alpha, but external publication should only
 be enabled after project ownership and Trusted Publishing are configured.
 
+## Public Install Story
+
+The first normal-consumption milestone is narrow on purpose:
+
+- `pip install devcd`
+- `pipx install devcd`
+- optional `uvx devcd --help` guidance when that path is verified
+
+Until that package exists on PyPI, the repository should describe checkout
+installs as a temporary evaluation path, not as the final public story.
+
 ## Local Distribution Gate
 
 Build and validate release artifacts locally:
@@ -12,8 +23,14 @@ Build and validate release artifacts locally:
 make distribution
 ```
 
-For a faster local CLI sanity check without a running daemon or local ledger
-output:
+For a user-facing sanity check after installation from a checkout or public
+artifact:
+
+```bash
+devcd smoke
+```
+
+For the repo-root maintainer shortcut that runs the same install-proof script:
 
 ```bash
 make smoke
@@ -44,6 +61,10 @@ git push origin v0.1.0
 The release workflow runs checks, builds artifacts, verifies metadata,
 smoke-tests the wheel, and attaches the artifacts to a GitHub Release.
 
+GitHub Releases should be treated as the public evidence page for each version:
+artifact files, changelog section, and verification notes should all agree with
+the install commands shown in the README.
+
 ## PyPI Publishing
 
 PyPI publication is manual and OIDC-based through `.github/workflows/publish-pypi.yml`.
@@ -60,6 +81,21 @@ Before running it:
 The workflow checks out the requested ref, installs dev dependencies, runs
 `make check`, runs `make distribution`, and publishes the verified artifacts to
 PyPI using PyPI's trusted publisher exchange.
+
+After the first public package release, verify the public consumption path in a
+clean environment exactly as users will run it:
+
+```bash
+pip install devcd
+devcd smoke
+```
+
+Also verify the isolated CLI path:
+
+```bash
+pipx install devcd
+devcd smoke
+```
 
 ## Container Image
 

@@ -10,6 +10,8 @@ Short version: Initial local-first context daemon foundation with context qualit
 
 ### Added
 
+- Public-consumption docs for release readiness and publishing now distinguish the future PyPI path from checkout installs and point first-time evaluators at a curated examples index plus `devcd smoke` as the install check.
+- Context budget and session contract surfaces for Agent Passports, Action Packets, `devcd context budget`, and the read-only `devcd://context/session-contract` MCP resource.
 - `ActionPacketBlocker` and `ActionPacketWithheldContext` models on `ActionPacket` for structured blocker and withheld-context surfaces.
 - `devcd agentic action-packet-demo --events <file.jsonl>` daemonless CLI command that replays raw DevEvents into an in-memory service and renders the Action Packet contract via `--json` or human-readable markdown.
 - `_render_action_packet` helper that renders the full Action Packet (start brief, evidence, blockers, do-not-repeat, withheld context, policy summary) as human-readable markdown.

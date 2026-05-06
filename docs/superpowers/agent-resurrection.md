@@ -14,9 +14,13 @@ rediscover it from the repository — if the information exists anywhere at all.
 
 ## DevCD Capability
 
-DevCD derives a policy-filtered **handoff packet** from locally recorded events.
-The packet is produced by `AmbientContextService` from the local event ledger —
-no remote call, no model inference.
+DevCD derives a policy-filtered continuity handoff from locally recorded events.
+For the shortest proof, that starts as an Action Packet; the broader handoff and
+passport layers remain available when an agent needs more context than the first
+warm-start surface.
+
+The packet is produced from the local event ledger with no remote call and no
+model inference.
 
 It includes:
 
@@ -34,7 +38,14 @@ The next agent starts from this packet instead of from zero.
 
 ## Demo Command
 
-Run the resurrection demo against the checked-in fixture:
+Run the shortest resurrection-style proof against the checked-in fixture:
+
+```bash
+devcd agentic action-packet-demo --events examples/agentic-action-packet/sample-events.jsonl
+devcd agentic action-packet-demo --events examples/agentic-action-packet/sample-events.jsonl --json
+```
+
+Run the broader compatibility handoff demo against the resurrection fixture:
 
 ```bash
 devcd context handoff-demo --events examples/agent-resurrection/sample-events.jsonl
@@ -58,7 +69,7 @@ packet is checked in at `examples/agent-resurrection/handoff-packet.json` and
 documented by `schemas/devcd-agent-handoff-packet.schema.json`.
 
 **Before/after comparison** — shows what a fresh agent knows without DevCD versus
-with a policy-filtered handoff packet:
+with a policy-filtered handoff:
 
 ```bash
 # With DevCD
@@ -77,7 +88,8 @@ devcd context handoff-demo --events examples/agent-switch/sample-events.jsonl --
 
 ## Handoff Packet Structure
 
-The packet is rendered as Markdown by the CLI. The resurrection section looks like:
+The broader compatibility packet is rendered as Markdown by the CLI. The
+resurrection section looks like:
 
 ```text
 ## Last attempt

@@ -241,6 +241,73 @@ def test_feedback_adjusts_next_passport_confidence_and_actions(tmp_path) -> None
     assert "## context_quality_notes" in markdown
 
 
+def test_continuity_packet_includes_context_budget_and_session_contract(tmp_path) -> None:
+    service, state_engine = build_ambient_context_service(tmp_path)
+    state_engine.accept_event(
+        DevEvent(
+            source=EventSource.TASK,
+            type="goal_update",
+            timestamp=datetime(2026, 5, 5, 10, 0, tzinfo=UTC),
+            payload={"current_goal": "Ship curated context budgets"},
+        )
+    )
+    state_engine.accept_event(
+        DevEvent(
+            source=EventSource.IDE,
+            type="file_focus",
+            timestamp=datetime(2026, 5, 5, 10, 1, tzinfo=UTC),
+            payload={"path": "packages/devcd-core/src/devcd/slices/ambient_context/service.py"},
+        )
+    )
+    state_engine.accept_event(
+        DevEvent(
+            source=EventSource.TASK,
+            type="test_failure",
+            timestamp=datetime(2026, 5, 5, 10, 2, tzinfo=UTC),
+            payload={
+                "reason": "budget report missing from passport",
+                "suggested_next_action": "Add the context budget fields first",
+            },
+        )
+    )
+    state_engine.accept_event(
+        DevEvent(
+            source=EventSource.NOTES,
+            type="note_update",
+            timestamp=datetime(2026, 5, 5, 10, 3, tzinfo=UTC),
+            payload={"title": "PRIVATE_NOTE_PAYLOAD"},
+            sensitivity="sensitive",
+        )
+    )
+
+    packet = service.create_continuity_packet(
+        AgentContextSurface(kind="coding-agent", name="copilot"),
+        include_empty_guidance=True,
+    )
+    body = json.loads(render_continuity_packet_json(packet))
+
+    assert body["session_contract"] == {
+        "next_action": "Add the context budget fields first",
+        "definition_of_done": "Run make check and leave the workspace in a clean state.",
+        "verification_command": "make check",
+        "clean_state_required": True,
+    }
+    assert body["context_budget"]["reference_count"] == len(body["context_references"])
+    assert body["context_budget"]["withheld_context_count"] == 1
+    assert body["context_budget"]["estimated_tokens"] > 0
+    assert {reference["kind"] for reference in body["context_references"]} >= {
+        "intent",
+        "artifact",
+        "blocker",
+    }
+    assert all(reference["include_reason"] for reference in body["context_references"])
+    assert all(
+        reference["load_hint"] != "inline_raw_payload"
+        for reference in body["context_references"]
+    )
+    assert "PRIVATE_NOTE_PAYLOAD" not in json.dumps(body)
+
+
 def test_all_feedback_categories_surface_safe_packet_quality_notes(tmp_path) -> None:
     service, state_engine = build_ambient_context_service(tmp_path)
     state_engine.accept_event(

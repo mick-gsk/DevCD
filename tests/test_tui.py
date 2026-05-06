@@ -15,9 +15,35 @@ from devcd.slices.ambient_context.tui import (
 def _minimal_report() -> dict[str, Any]:
     """Minimal report dict matching the shape produced by _build_quickstart_report."""
     return {
-        "value_proposition": "DevCD lets a new agent continue from local, policy-filtered context.",
-        "demo_first": {
-            "packet_markdown": "# Agent Passport\n\n## Goal\nTest goal\n",
+        "value_proposition": (
+            "DevCD lets a new agent continue from a local, policy-filtered Action Packet."
+        ),
+        "demo_preview": {
+            "command": (
+                "devcd agentic action-packet-demo --events "
+                "examples/agentic-action-packet/sample-events.jsonl"
+            ),
+            "daemon_required": False,
+            "packet_markdown": "# DevCD Action Packet\n\n## Current Goal\nTest goal\n",
+        },
+        "action_packet_first": {
+            "command": "devcd agentic action-packet",
+            "broader_view_command": "devcd context passport",
+            "policy_command": "devcd context control",
+            "packet_markdown": "# DevCD Action Packet\n\n## Current Goal\nTest goal\n",
+        },
+        "repeat_use": {
+            "trigger": "Switch to a fresh agent after capturing at least one goal or failure.",
+            "return_command": "devcd agentic action-packet",
+            "capture_command": (
+                'devcd handoff --goal "<current goal>" '
+                '--next-action "<safe next step>"'
+            ),
+            "why_it_matters": "The next agent should be able to continue without a recap.",
+            "success_looks_like": [
+                "the new agent starts from the current goal",
+                "the next safe action is already named for the handoff",
+            ],
         },
         "local_state": {
             "config_exists": False,
@@ -43,54 +69,63 @@ def _minimal_report() -> dict[str, Any]:
                 "status": "manual",
             },
             {
-                "id": "init",
-                "title": "Initialize local config",
+                "id": "workspace",
+                "title": "Prepare local workspace",
                 "command": "devcd init",
                 "what_happened": "Creates devcd.toml.",
                 "success_looks_like": "devcd.toml exists.",
-                "next": "devcd doctor",
+                "next": "devcd agentic action-packet",
                 "if_fails": "Run devcd doctor.",
                 "status": "missing",
             },
             {
-                "id": "readiness",
-                "title": "Check readiness",
-                "command": "devcd status; devcd doctor",
-                "what_happened": "Status and doctor.",
-                "success_looks_like": "All checks pass.",
-                "next": "devcd run",
-                "if_fails": "Follow doctor next step.",
-                "status": "attention",
+                "id": "action_packet",
+                "title": "Open the Action Packet",
+                "command": "devcd agentic action-packet",
+                "what_happened": "Shows the next-agent handoff first.",
+                "success_looks_like": (
+                    "The next agent starts from visible continuity instead "
+                    "of a recap."
+                ),
+                "next": (
+                    'devcd handoff --goal "<current goal>" '
+                    '--next-action "<safe next step>"'
+                ),
+                "if_fails": "Capture a goal or failure, then rerun the Action Packet.",
+                "status": "needs continuity",
             },
             {
-                "id": "daemon",
-                "title": "Start live daemon",
-                "command": "devcd run",
-                "what_happened": "API on 127.0.0.1:8765.",
-                "success_looks_like": "Daemon reachable.",
-                "next": "devcd event task goal_update",
-                "if_fails": "Run devcd doctor.",
-                "status": "not running",
-            },
-            {
-                "id": "first_event",
-                "title": "Send first event",
-                "command": "devcd context passport",
-                "what_happened": "Event added to ledger.",
-                "success_looks_like": "Passport shows goal.",
+                "id": "capture",
+                "title": "Capture a compact handoff",
+                "command": (
+                    'devcd handoff --goal "<current goal>" '
+                    '--next-action "<safe next step>"'
+                ),
+                "what_happened": "Stores compact continuity metadata for the next agent.",
+                "success_looks_like": "The Action Packet names the goal, failure, and next action.",
                 "next": "devcd context passport",
-                "if_fails": "Check policy reason.",
-                "status": "empty ledger",
+                "if_fails": "Keep the capture metadata-only and retry.",
+                "status": "recommended",
             },
             {
                 "id": "passport",
-                "title": "Get context brief / passport",
+                "title": "Inspect the broader continuity view",
                 "command": "devcd context passport",
                 "what_happened": "Rebuilds live state.",
                 "success_looks_like": "Passport shows goal.",
                 "next": "devcd context control",
                 "if_fails": "Send goal_update event.",
                 "status": "empty guidance available",
+            },
+            {
+                "id": "daemon",
+                "title": "Optional live daemon path",
+                "command": "devcd run",
+                "what_happened": "API on 127.0.0.1:8765.",
+                "success_looks_like": "Daemon reachable.",
+                "next": "devcd status",
+                "if_fails": "Run devcd doctor.",
+                "status": "not running",
             },
             {
                 "id": "mcp",
@@ -105,7 +140,11 @@ def _minimal_report() -> dict[str, Any]:
         ],
         "next_paths": {
             "continue_live": "devcd run",
-            "send_first_event": "devcd context passport",
+            "get_action_packet": "devcd agentic action-packet",
+            "capture_handoff": (
+                'devcd handoff --goal "<current goal>" '
+                '--next-action "<safe next step>"'
+            ),
             "get_passport": "devcd context passport",
             "connect_agent": "devcd integrations openclaw --smoke-test",
             "inspect_policy": "devcd context control",
@@ -149,9 +188,9 @@ async def test_quickstart_app_renders_path_buttons() -> None:
     app = QuickstartApp(_minimal_report())
     async with app.run_test(headless=True) as pilot:
         await pilot.pause()
-        assert pilot.app.query_one("#path-demo", Button)
-        assert pilot.app.query_one("#path-live", Button)
-        assert pilot.app.query_one("#path-mcp", Button)
+        assert "Proof in one minute" in str(pilot.app.query_one("#path-demo", Button).label)
+        assert "Action Packet workflow" in str(pilot.app.query_one("#path-live", Button).label)
+        assert "Optional MCP follow-up" in str(pilot.app.query_one("#path-mcp", Button).label)
 
 
 @pytest.mark.asyncio
@@ -182,7 +221,7 @@ async def test_demo_screen_renders_markdown() -> None:
 
 @pytest.mark.asyncio
 async def test_live_setup_screen_renders_steps() -> None:
-    from textual.widgets import Collapsible
+    from textual.widgets import Collapsible, Markdown
 
     report = _minimal_report()
     app = QuickstartApp(report)
@@ -191,8 +230,9 @@ async def test_live_setup_screen_renders_steps() -> None:
         await pilot.click("#path-live")
         for _ in range(3):
             await pilot.pause()
+        assert pilot.app.screen.query_one(Markdown)
         collapsibles = pilot.app.screen.query(Collapsible)
-        # Live path shows init, readiness, daemon, first_event, passport → 5 collapsibles
+        # Action Packet follow-up still exposes guided operational steps beneath the packet.
         assert len(collapsibles) >= 1
 
 

@@ -7,6 +7,25 @@ The release goal for the first public alpha is not to look production-sized. It
 is to make the first continuity proof installable, inspectable, policy-safe, and
 easy to share.
 
+The first public proof is not “the whole platform works.” The first public proof
+is narrower and more important: a fresh agent can read a useful Action Packet in
+minutes, without remote services or recap-heavy setup.
+
+## What Works Today
+
+- Checkout install from this repository works.
+- `devcd onboard` prepares a local workspace without starting the daemon.
+- `devcd handoff` and `devcd capture` can seed metadata-only continuity.
+- `devcd agentic action-packet` gives the next agent a first handoff surface.
+- `devcd quickstart` and `devcd context passport` provide the broader follow-up view.
+- `devcd smoke`, `make check`, and `make distribution` provide local verification paths.
+
+## What Still Blocks Normal Consumption
+
+- PyPI ownership and Trusted Publishing still need maintainer setup outside the repo.
+- No public package release exists yet, so README and docs must not over-claim `pip install devcd`.
+- Secondary channels such as Homebrew and a public container registry are still follow-on work, not the alpha blocker.
+
 ## Current Status
 
 | Area | Status | Notes |
@@ -17,11 +36,11 @@ easy to share.
 | PyPI publishing | Prepared | Manual OIDC workflow exists, but publication remains blocked until PyPI Trusted Publishing is configured. |
 | Container sandbox | Present | Dockerfile and CI container workflow build and smoke-test an isolated local sandbox image. |
 | Public package release | Not published | PyPI, pipx, uvx, and Homebrew instructions should wait until a release exists. |
-| Local install path | Present | Editable install from checkout is documented today. |
+| Local install path | Present | Checkout install from source is documented today. |
 | Local-first defaults | Present | Loopback, local storage, deny actions, and no remote export are the default posture. |
-| Core continuity demo | Present | Agent Passport and continuity fixtures are documented. |
+| Core continuity demo | Present | Action Packet and continuity fixtures are documented. |
 | Extension surface | Present | Context Packs and event recipes provide the current metadata-only extension path. |
-| Agent-ready setup | Present | `devcd onboard` prepares local config, selected workspace instruction files, and the Agent Passport path without external config mutation. |
+| Agent-ready setup | Present | `devcd onboard` prepares local config, selected workspace instruction files, and the Action Packet workflow without external config mutation. |
 | MCP integration | Present | Read-only local MCP resources and smoke-test commands are documented. |
 | OpenClaw integration | Present | Local DevCD MCP shape and snippet are verified; full OpenClaw gateway E2E remains explicitly unclaimed. |
 | Security policy | Present | Security defaults, data classes, and threat model are documented. |
@@ -36,11 +55,15 @@ The first public alpha should be considered ready when all of these are true:
 - `pipx install devcd` works for CLI-first users.
 - `uvx devcd --help` or equivalent uv guidance is documented if supported.
 - `devcd onboard` gives a useful first-run path without requiring a running daemon.
+- `devcd handoff` or equivalent metadata capture gives the next agent a useful
+  warm-start packet without raw recap text.
 - `devcd init` creates local configuration without surprising side effects.
-- `make smoke` validates the installed CLI without requiring a running daemon.
+- `devcd smoke` validates the installed CLI without requiring a running daemon.
 - `devcd quickstart` gives a useful local-first activation report.
-- `devcd context passport` renders an honest Agent Passport from the configured
-  local ledger.
+- `devcd agentic action-packet` renders a useful first handoff from the
+  configured local ledger.
+- `devcd context passport` renders the broader continuity view from the
+  configured local ledger.
 - `devcd integrations openclaw --smoke-test` verifies the read-only MCP shape
   without installing or mutating OpenClaw.
 - `make check` passes on the release commit.
@@ -71,6 +94,7 @@ the default operating mode.
 ## Trust Signals To Keep Current
 
 - README first viewport: one clear value proposition and one short proof path.
+- Getting started: one dominant first-run path ending at Action Packet.
 - `SECURITY.md`: concrete defaults, data classes, threat model, and reporting.
 - `CHANGELOG.md`: dated releases once public releases begin.
 - CI badge: green on the default branch.
@@ -90,15 +114,24 @@ the default operating mode.
 - No write-capable MCP tools.
 - No hosted deployment story by design for the first alpha.
 
+These are maturity constraints, not contradictions to the core proof. The local
+warm-start workflow is already the thing being validated.
+
 ## Release Checklist
 
 Before cutting a public alpha release:
 
 ```bash
 make check
-make smoke
 python -m mkdocs build --strict --site-dir "$TEMP/devcd-mkdocs-check"
 make distribution
+```
+
+After publication, prove the public install path in a clean environment with:
+
+```bash
+pip install devcd
+devcd smoke
 ```
 
 On PowerShell, replace the MkDocs site directory with a valid temporary path,
