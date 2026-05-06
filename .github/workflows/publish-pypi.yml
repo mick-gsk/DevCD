@@ -1,6 +1,10 @@
 name: Publish PyPI
 
 "on":
+  # Triggered automatically by Release Please when it creates a GitHub Release.
+  release:
+    types: [published]
+  # Manual fallback: specify an exact tag such as v0.2.0 to publish.
   workflow_dispatch:
     inputs:
       ref:
@@ -19,7 +23,9 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
-          ref: "${{ inputs.ref }}"
+          # On release events use the tag that triggered the release;
+          # on manual dispatch use the explicitly provided ref.
+          ref: "${{ github.event_name == 'release' && github.event.release.tag_name || inputs.ref }}"
 
       - uses: actions/setup-python@v5
         with:
