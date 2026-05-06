@@ -1,5 +1,5 @@
 site_name: DevCD
-site_description: Local-first Developer Context Daemon
+site_description: Local-first context layer that warm-starts every AI agent session with a policy-filtered Action Packet — no recap requests, no context loss.
 site_url: https://mick-gsk.github.io/DevCD/
 repo_url: https://github.com/mick-gsk/DevCD
 repo_name: mick-gsk/DevCD
@@ -33,6 +33,7 @@ theme:
     - content.action.edit
 
 extra_css:
+  - assets/devcd-brand-tokens.css
   - assets/brand.css
 
 markdown_extensions:

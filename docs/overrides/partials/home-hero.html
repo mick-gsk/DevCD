@@ -1,47 +1,65 @@
 <section class="devcd-hero">
   <div class="md-grid devcd-hero__inner">
-    <div>
-      <div class="devcd-hero__eyebrow">Tactical Continuity OS for AI power users</div>
-      <img class="devcd-hero__wordmark" src="{{ 'assets/devcd-wordmark.svg' | url }}" alt="DevCD">
+    <div class="devcd-hero__content">
+      <div class="devcd-hero__eyebrow">
+        <span class="devcd-eyebrow__pulse"></span>
+        Local-first context layer for AI developers
+      </div>
+      <h1 class="devcd-hero__headline">
+        Stop re-explaining<br>
+        your work<br>
+        <span class="devcd-hero__headline-em">to every new agent.</span>
+      </h1>
       <p class="devcd-hero__lede">
-        Stop re-explaining your work to every new agent session. DevCD makes the
-        next session start from a local, policy-filtered Action Packet instead of
-        a blank prompt and a recap request.
+        DevCD keeps a local, policy-filtered context record so the next Claude,
+        Copilot, or Codex session starts with the right context—not a blank
+        prompt and a recap request.
       </p>
       <div class="devcd-hero__actions">
-        <a class="devcd-cta devcd-cta--primary" href="{{ 'getting-started/' | url }}">Start the real workspace path</a>
-        <a class="devcd-cta devcd-cta--secondary" href="{{ 'use-cases/' | url }}">See what works today</a>
-        <a class="devcd-cta devcd-cta--ghost" href="{{ 'devcd/architecture/' | url }}">Inspect the design</a>
+        <a class="devcd-cta devcd-cta--primary" href="{{ 'getting-started/' | url }}">Get Started →</a>
+        <a class="devcd-cta devcd-cta--secondary"
+           href="https://github.com/mick-gsk/DevCD"
+           target="_blank" rel="noopener noreferrer">View on GitHub</a>
       </div>
-      <p class="devcd-hero__microcopy">
-        Start with devcd onboard, read devcd agentic action-packet first, then
-        open the broader passport only when the next agent needs more context.
-      </p>
-      <div class="devcd-hero__rail">
-        <span>1. onboard</span>
-        <span>2. action-packet</span>
-        <span>3. quickstart</span>
+      <div class="devcd-hero__install">
+        <span class="devcd-hero__install-prompt">$</span>
+        <code class="devcd-hero__install-cmd">pip install devcd</code>
+        <button
+          class="devcd-hero__install-copy"
+          onclick="navigator.clipboard.writeText('pip install devcd');this.textContent='✓';setTimeout(()=>{this.textContent='⎘'},1600)"
+          title="Copy to clipboard"
+          aria-label="Copy install command"
+        >⎘</button>
+      </div>
+      <div class="devcd-hero__badges">
+        <span class="devcd-badge">Open Source</span>
+        <span class="devcd-badge">Local-First</span>
+        <span class="devcd-badge">No Telemetry</span>
+        <span class="devcd-badge">Python 3.11+</span>
       </div>
     </div>
-    <div class="devcd-hero__stack">
-      <section class="devcd-hero__panel devcd-callout--checkpoint">
-        <h2>Primary path</h2>
-        <p>Use the real workspace path when you want the next agent to resume, not restart.</p>
-        <code class="devcd-hero__command">devcd onboard --agents copilot,claude,codex,openclaw</code>
-        <code class="devcd-hero__command">devcd agentic action-packet</code>
-      </section>
-      <section class="devcd-hero__panel devcd-callout--trust">
-        <h3>Trust boundary</h3>
-        <p>No remote export by default. Sensitive or raw context stays withheld by policy, but the withholding stays visible.</p>
-      </section>
-      <section class="devcd-hero__panel devcd-callout--safe-share">
-        <h3>Safe to share</h3>
-        <p>Compact metadata, latest blocker, do-not-repeat guidance, and one next action.</p>
-      </section>
-      <section class="devcd-hero__panel devcd-callout--risk">
-        <h3>What stays out</h3>
-        <p>Raw logs, secrets, full transcripts, and private notes do not get promoted into the default handoff.</p>
-      </section>
+    <div class="devcd-hero__visual">
+      <div class="devcd-terminal">
+        <div class="devcd-terminal__bar">
+          <span class="devcd-terminal__dot devcd-terminal__dot--red"></span>
+          <span class="devcd-terminal__dot devcd-terminal__dot--yellow"></span>
+          <span class="devcd-terminal__dot devcd-terminal__dot--green"></span>
+          <span class="devcd-terminal__title">Terminal — devcd agentic action-packet</span>
+        </div>
+        <pre class="devcd-terminal__body"><span class="devcd-t-prompt">$</span> <span class="devcd-t-cmd">devcd agentic action-packet</span>
+
+<span class="devcd-t-amber">▸ DevCD Action Packet</span>  <span class="devcd-t-muted">v0.2 · local</span>
+<span class="devcd-t-muted">──────────────────────────────────────</span>
+<span class="devcd-t-label">Goal          </span><span class="devcd-t-value">Implement memory TTL slice</span>
+<span class="devcd-t-label">Last blocker  </span><span class="devcd-t-ok">test_ttl_expiry — fixed ✓</span>
+<span class="devcd-t-label">Next action   </span><span class="devcd-t-signal">devcd context passport</span>
+<span class="devcd-t-label">Do-not-repeat </span><span class="devcd-t-value">SliceService pattern</span>
+<span class="devcd-t-muted">──────────────────────────────────────</span>
+<span class="devcd-t-muted">Withheld · 12 raw log lines</span>
+<span class="devcd-t-muted">Policy   · deny-raw-output</span>
+
+<span class="devcd-t-ok">✓</span> <span class="devcd-t-muted">Paste into your next agent session.</span></pre>
+      </div>
     </div>
   </div>
 </section>
