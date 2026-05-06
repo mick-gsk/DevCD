@@ -52,6 +52,20 @@ state engine, memory store, and event ledger. It does not replace
 `ambient_context`; it uses continuity data as input and produces the action-ready
 layer above it.
 
+The Action Packet is the agent-facing start contract above the Continuity Packet.
+It should carry the minimum first-class fields a fresh agent needs before asking
+the user to recap: current goal, next action, recommended mode, evidence,
+blockers, `do_not_repeat`, policy-safe withheld-context summaries, and a policy
+summary. These fields are derived from policy-filtered Continuity Packet data;
+they must not include raw withheld payloads, raw logs, full file contents, or
+private notes.
+
+For public proof and regression testing, `devcd agentic action-packet-demo --events
+<jsonl>` may render the same Action Packet from a checked-in local fixture
+without reading the user's live ledger, starting a daemon, starting a runner, or
+mutating workspace state. The demo path is read-only over input events and is not
+a runner execution path.
+
 ## Non-Goals
 
 - Do not make DevCD a general task runner.
@@ -105,6 +119,9 @@ Implementation must be covered by tests that verify:
   third-party agent runtime.
 - Agent-ready instructions prefer the Action Packet path and do not ask the user
   to perform DevCD bookkeeping.
+- Action Packets include first-class blockers, `do_not_repeat`, and
+  policy-safe withheld-context summaries while JSON and MCP outputs continue to
+  omit raw withheld payloads.
 
 Run:
 

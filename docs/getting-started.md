@@ -86,6 +86,7 @@ devcd quickstart --json
 Optional preview commands are still available when you want to inspect the shape before recording real context:
 
 ```bash
+devcd agentic action-packet-demo --events examples/agentic-action-packet/sample-events.jsonl
 devcd quickstart --demo-events examples/agent-resurrection/sample-events.jsonl
 devcd context handoff-demo --events examples/before-after-agent-continuity/sample-events.jsonl
 devcd context handoff-demo --events examples/agent-resurrection/sample-events.jsonl --json

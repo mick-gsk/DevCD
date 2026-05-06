@@ -94,6 +94,15 @@ capture.
 
 ## Demo handoff preview
 
+Run the checked-in Action Packet proof from the repository root:
+
+```bash
+devcd agentic action-packet-demo --events examples/agentic-action-packet/sample-events.jsonl
+devcd agentic action-packet-demo --events examples/agentic-action-packet/sample-events.jsonl --json
+```
+
+Read the Markdown expected shape in `examples/agentic-action-packet/action-packet.md`. The fixture includes a sensitive note event; the output reports withheld context and policy reasoning without exposing the private payload.
+
 Run the checked-in continuity demo from the repository root:
 
 ```bash

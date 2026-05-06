@@ -50,6 +50,7 @@ nav:
       - Memory Model: devcd/memory.md
       - Policy Layer: devcd/policy.md
       - Agent Consumption: devcd/agent-consumption.md
+      - Agent Landscape: devcd/agent-landscape.md
       - OpenClaw Integration: devcd/openclaw-integration.md
       - Context Packs: devcd/context-packs.md
       - Brand System: devcd/brand-system.md
