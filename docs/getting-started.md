@@ -2,23 +2,23 @@
 
 DevCD lets a new agent continue from local, policy-filtered context without asking you to recap. The first success point is a warm-started agent workspace, not a running daemon and not a demo fixture. The goal is: Stop re-explaining yourself to AI agents.
 
-Use this guide when you want DevCD to solve the real frustration: a new agent starts cold and asks you to re-explain the work. The path below gets from a fresh checkout to a local Action Packet in 2 to 5 minutes, then leaves live daemon ingestion and MCP integration as explicit follow-up paths. The primary entry point is `devcd onboard`; `devcd quickstart` is the interactive follow-up report around that same Action Packet workflow.
+Use this guide when you want DevCD to solve the real frustration: a new agent starts cold and asks you to re-explain the work. The path below gets from a fresh checkout to a local Action Packet in 2 to 5 minutes, then leaves live daemon ingestion and MCP integration as explicit follow-up paths. The primary entry point is `devcd welcome`, followed by `devcd onboard --preview`; `devcd quickstart` is the interactive follow-up report around that same Action Packet workflow.
 
 <div class="devcd-happy-path">
 	<div class="devcd-happy-path__step devcd-callout--checkpoint">
-		<strong>1. Prepare the workspace</strong>
-		<p>Run onboard first so the repo becomes agent-ready without starting the daemon.</p>
-		<code>devcd onboard</code>
+		<strong>1. See the path</strong>
+		<p>Run welcome first to inspect the zero-write success chain.</p>
+		<code>devcd welcome</code>
 	</div>
 	<div class="devcd-happy-path__step devcd-callout--trust">
-		<strong>2. Read the Action Packet</strong>
-		<p>Make the next agent start from current continuity instead of a recap request.</p>
-		<code>devcd agentic action-packet</code>
+		<strong>2. Prepare the workspace</strong>
+		<p>Preview, then apply the local agent layer without starting the daemon.</p>
+		<code>devcd onboard --preview</code>
 	</div>
 	<div class="devcd-happy-path__step devcd-callout--safe-share">
-		<strong>3. Open the follow-up report</strong>
-		<p>Use quickstart after onboarding when you want the broader guided activation view.</p>
-		<code>devcd quickstart</code>
+		<strong>3. Read the Action Packet</strong>
+		<p>Make the next agent start from current continuity instead of a recap request.</p>
+		<code>devcd agentic action-packet</code>
 	</div>
 </div>
 
@@ -52,10 +52,12 @@ Success checkpoint after Step 2:
 ```bash
 pip install devcd
 devcd smoke
+devcd welcome
 ```
 
 What happened: the `devcd` CLI is now available. `devcd smoke` confirms the CLI,
-Context Packs, and quickstart path are working.
+Context Packs, and quickstart path are working. `devcd welcome` shows the
+zero-write path you can inspect before writing any workspace files.
 
 **Alternatively** with pipx or uvx:
 
@@ -76,7 +78,7 @@ If you prefer an isolated local tool install and already use one of these
 tooling paths, you can install from the same checkout with `pipx install .` or
 `uv tool install .` instead.
 
-Success looks like: `devcd smoke` reports `devcd --help: ok`, `devcd context packs: ok`, and `devcd quickstart: ok`.
+Success looks like: `devcd smoke` reports `devcd --help: ok`, `devcd context packs: ok`, `devcd quickstart: ok`, and `Next: devcd onboard --preview`.
 
 Next: initialize local config for this workspace.
 
