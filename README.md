@@ -7,6 +7,7 @@
 </p>
 
 <p align="center">
+  <a href="https://pypi.org/project/devcd/"><img src="https://img.shields.io/pypi/v/devcd?style=for-the-badge" alt="PyPI version"></a>
   <a href="https://github.com/mick-gsk/DevCD/actions/workflows/ci.yml?branch=main"><img src="https://img.shields.io/github/actions/workflow/status/mick-gsk/DevCD/ci.yml?branch=main&style=for-the-badge" alt="CI status"></a>
   <a href="LICENSE"><img src="https://img.shields.io/badge/License-MIT-blue.svg?style=for-the-badge" alt="MIT License"></a>
   <a href="docs/devcd/release-readiness.md"><img src="https://img.shields.io/badge/status-pre--alpha-orange?style=for-the-badge" alt="Pre-alpha"></a>
@@ -30,31 +31,26 @@ state and policy layer between your workspace and the agents that help you.
 
 ## Status
 
-DevCD is **pre-alpha**. The core local continuity loop is implemented and tested,
-but the package is not published to PyPI yet.
+DevCD is **pre-alpha**. The core local continuity loop is implemented and tested.
 
 | Surface | Status |
 | --- | --- |
-| Local checkout install | Working |
+| PyPI install (`pip install devcd`) | Working |
 | `devcd onboard` first-run path | Working |
 | Agent Passport / Continuity Packet | Working |
 | Action Packet for the next agent | Working |
 | Read-only MCP resources | Working |
 | OpenClaw MCP shape check | Working on the DevCD side |
 | Context Packs | Developer and research packs built in |
-| PyPI release | Prepared, not published |
+| PyPI release | Published — `devcd 0.1.0` |
 | Hosted/cloud mode | Not planned for alpha |
 
 See [Release Readiness](docs/devcd/release-readiness.md) for the full alpha bar.
 
-## Install From Source
-
-DevCD currently installs from a local checkout:
+## Install
 
 ```bash
-git clone https://github.com/mick-gsk/DevCD.git
-cd DevCD
-python -m pip install .
+pip install devcd
 devcd smoke
 ```
 
@@ -62,25 +58,30 @@ devcd smoke
 and a daemonless quickstart report using checked-in demo events instead of your
 local ledger.
 
-If you prefer an isolated local tool install from the same checkout, these work
-too:
+`pipx` and `uvx` work too:
 
 ```bash
-pipx install .
-uv tool install .
+pipx install devcd
+uvx devcd smoke
 ```
 
-Use `python -m pip install -e ".[dev]"` only when you want contributor tooling
-such as pytest, Ruff, and mypy in the same environment.
+**From source (contributors only):**
+
+```bash
+git clone https://github.com/mick-gsk/DevCD.git
+cd DevCD
+python -m pip install -e ".[dev]"
+```
 
 ## Primary Path
 
 DevCD now has one primary first-run path for real workspaces:
 
-1. Run `devcd onboard` to prepare the workspace without starting a daemon.
-2. Read `devcd agentic action-packet` before a fresh agent asks for a recap.
-3. Seed safe metadata only if the local ledger is still empty.
-4. Use `devcd quickstart` as the interactive follow-up report around that same Action Packet workflow.
+1. Run `devcd onboard --preview` to inspect the proposed personal agent layer.
+2. Run `devcd onboard --yes` to prepare the workspace without starting a daemon.
+3. Read `devcd agentic action-packet` before a fresh agent asks for a recap.
+4. Seed safe metadata only if the local ledger is still empty.
+5. Use `devcd quickstart` as the interactive follow-up report around that same Action Packet workflow.
 
 Need proof before touching a real workspace?
 
@@ -98,11 +99,15 @@ Make the current workspace agent-ready without starting a daemon or mutating
 external agent config:
 
 ```bash
-devcd onboard
+devcd onboard --preview
+devcd onboard --yes
 ```
 
-That default prepares the common local agent targets for this workspace. Use
-`--agents` only when you want a narrower target list.
+The preview detects local metadata such as languages and test tools, proposes an
+agent archetype, and does not write files. `--yes` applies the profile under the
+local storage policy and writes `.devcd/agent-layer-profile.json` alongside the
+managed agent instructions. Use `--agents` only when you want a narrower target
+list.
 
 Start from the handoff surface the next agent should read first:
 
@@ -183,13 +188,16 @@ DevCD gives agents a local, typed, policy-filtered continuity layer:
 ## Highlights
 
 - `devcd onboard` - first-run wrapper for config, selected agent instruction
-  files, and the primary Action Packet workflow entry point.
+  files, `.devcd/agent-layer-profile.json`, and the primary Action Packet
+  workflow entry point.
 - `devcd handoff` - one-command goal, failure, and next-action capture before
   switching to a fresh agent.
 - `devcd capture` - daemonless, policy-gated continuity metadata capture.
 - `devcd agentic action-packet` - next-action packet for the next local agent.
 - `devcd quickstart` - interactive activation report that expands on the same
-  Action Packet workflow after onboarding.
+  Action Packet workflow after onboarding, including an Agent Layer console.
+- `devcd context workspace-analysis` and `devcd context profile` - read-only
+  inspectors for the detected workspace layer and persisted profile.
 - `devcd context passport` - broader live continuity view from the configured
   local ledger.
 - `devcd context control` - visibility report for included and withheld context.

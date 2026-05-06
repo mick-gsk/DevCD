@@ -4,12 +4,13 @@ All notable changes to DevCD will be documented in this file.
 
 The project follows Conventional Commits and Semantic Versioning once public releases begin.
 
-## 0.1.0 - Unreleased
+## 0.1.0 - 2026-05-06
 
 Short version: Initial local-first context daemon foundation with context quality scoring, control-plane report, research-session recipe, live Agent Passport, MCP integration snippets, and daemonless Action Packet demo.
 
 ### Added
 
+- Agent-Layer onboarding for `devcd onboard --preview` and `devcd onboard --yes`, including metadata-only workspace detection, persisted `.devcd/agent-layer-profile.json`, Quickstart Agent Layer console, read-only workspace/profile inspectors, and Smoke/Doctor readiness checks.
 - Public-consumption docs for release readiness and publishing now distinguish the future PyPI path from checkout installs and point first-time evaluators at a curated examples index plus `devcd smoke` as the install check.
 - Context budget and session contract surfaces for Agent Passports, Action Packets, `devcd context budget`, and the read-only `devcd://context/session-contract` MCP resource.
 - `ActionPacketBlocker` and `ActionPacketWithheldContext` models on `ActionPacket` for structured blocker and withheld-context surfaces.

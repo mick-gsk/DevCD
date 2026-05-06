@@ -35,7 +35,6 @@ own workspace. Then come back here for the real path.
 
 - Python 3.11+
 - A local shell on Windows, macOS, or Linux
-- A local checkout of this repository
 
 ## Warm-start path: make the real workspace useful
 
@@ -48,16 +47,30 @@ Success checkpoint after Step 2:
 - A fresh agent in this workspace should start from `devcd agentic action-packet`.
 - No daemon was started and no external agent config was mutated.
 
-### Step 1: Install from checkout
+### Step 1: Install
+
+```bash
+pip install devcd
+devcd smoke
+```
+
+What happened: the `devcd` CLI is now available. `devcd smoke` confirms the CLI,
+Context Packs, and quickstart path are working.
+
+**Alternatively** with pipx or uvx:
+
+```bash
+pipx install devcd
+# or: uvx devcd smoke
+```
+
+**From source (contributors):**
 
 ```bash
 git clone https://github.com/mick-gsk/DevCD.git
 cd DevCD
-python -m pip install .
-devcd smoke
+python -m pip install -e ".[dev]"
 ```
-
-What happened: the `devcd` CLI becomes available from this checkout.
 
 If you prefer an isolated local tool install and already use one of these
 tooling paths, you can install from the same checkout with `pipx install .` or
@@ -72,10 +85,11 @@ If it fails: confirm Python 3.11+ is active, then rerun the install. Use `python
 ### Step 2: Onboard the workspace
 
 ```bash
-devcd onboard
+devcd onboard --preview
+devcd onboard --yes
 ```
 
-What happened: DevCD creates `devcd.toml` if it is missing, keeps it if it already exists, prepares the common local agent runtime files by default, and prints the local Agent Passport path without starting the daemon.
+What happened: the preview detects metadata-only workspace signals, proposes an agent archetype and target set, and writes nothing. The `--yes` run creates `devcd.toml` if it is missing, keeps it if it already exists, writes `.devcd/agent-layer-profile.json` through the local storage policy, prepares the selected local agent runtime files, and prints the local Agent Passport path without starting the daemon.
 
 Success looks like: `devcd.toml` exists with loopback, local storage, and policy defaults. Selected agent files contain a managed DevCD continuity block with a small capture routine:
 
@@ -85,6 +99,15 @@ Success looks like: `devcd.toml` exists with loopback, local storage, and policy
 - OpenClaw: `.devcd/openclaw-mcp.json`
 
 If you want a narrower target list, pass `--agents` with a comma-separated subset.
+Use `--archetype builder`, `reviewer`, `researcher`, or `orchestrator` when you
+want to override the recommendation explicitly.
+
+For read-only inspection without changing the workspace, use:
+
+```bash
+devcd context workspace-analysis
+devcd context profile
+```
 
 If you only want the lower-level config primitive, use `init` directly. Most
 users should stay on `devcd onboard`:
@@ -134,7 +157,7 @@ devcd handoff --goal "Try DevCD live continuity" --failure "Example check failed
 devcd quickstart
 ```
 
-What happened: DevCD reads the configured local ledger and prints the interactive activation report for the onboard flow. If no events are visible yet, the report says what is missing; agent-ready instructions tell capable agents how to capture continuity metadata themselves during work.
+What happened: DevCD reads the configured local ledger and prints the interactive activation report for the onboard flow. The report now includes an Agent Layer console with profile status, chosen archetype, target agents, detected tools, and the next safe command. If no events are visible yet, the report says what is missing; agent-ready instructions tell capable agents how to capture continuity metadata themselves during work.
 
 The handoff-oriented surface remains the Action Packet, and the passport is the
 broader continuity view around it:
@@ -146,7 +169,7 @@ devcd agentic tasks
 
 Success looks like: the output is honest about the current workspace. With an empty ledger, it should not pretend a demo solved the problem or ask you to do bookkeeping; it should point at agent-led capture and make it obvious how to return to the Action Packet.
 
-Next: run `devcd quickstart --json` if another local tool needs the same activation report.
+Next: run `devcd quickstart --json` if another local tool needs the same activation report, including the `agent_layer` contract checked by `devcd smoke`.
 
 If it fails: run `devcd doctor`; it validates local config, policy, ledger, docs, and MCP readiness.
 
@@ -246,6 +269,19 @@ Success looks like: `devcd status` reports at least one event and an active goal
 Next: ask DevCD for a live Agent Passport.
 
 If it fails: inspect the policy reason and token source from `devcd status`.
+
+---
+
+## Set Your North Star
+
+Give every future agent session a persistent orientation — initialize a North Star once:
+
+```bash
+devcd vision init --guided
+```
+
+Agents receive it automatically in every Action Packet and Continuity Packet.
+See [Agent Vision](devcd/agent-vision.md) for the full reference.
 
 To add richer continuity, send a failure with a suggested next action:
 

@@ -37,7 +37,8 @@ Policy boundaries:
 - Feedback notes are treated as full-text local input and withheld from quality output by policy.
 
 Verified commands:
-- `python -m pip install -e ".[dev]"`
+- `pip install devcd` (PyPI, primary install path)
+- `python -m pip install -e ".[dev]"` (contributor/dev install from checkout)
 - `devcd init`
 - `devcd run`
 - `devcd event ide file_focus --payload '{"path":"src/app.py","duration_seconds":30}'`

@@ -33,9 +33,9 @@ minutes, without remote services or recap-heavy setup.
 | Package metadata | Present | `pyproject.toml` defines the `devcd` package and CLI entry point. |
 | Typed package marker | Present | The wheel includes `devcd/py.typed` to match the typed classifier. |
 | Distribution check | Present | `make distribution` builds, checks metadata, verifies wheel contents, and smoke-tests the installed CLI. |
-| PyPI publishing | Prepared | Manual OIDC workflow exists, but publication remains blocked until PyPI Trusted Publishing is configured. |
+| PyPI publishing | Published | `devcd 0.1.0` is live on PyPI via OIDC Trusted Publishing. |
 | Container sandbox | Present | Dockerfile and CI container workflow build and smoke-test an isolated local sandbox image. |
-| Public package release | Not published | PyPI, pipx, uvx, and Homebrew instructions should wait until a release exists. |
+| Public package release | Published | `pip install devcd`, `pipx install devcd`, and `uvx devcd` all work. |
 | Local install path | Present | Checkout install from source is documented today. |
 | Local-first defaults | Present | Loopback, local storage, deny actions, and no remote export are the default posture. |
 | Core continuity demo | Present | Action Packet and continuity fixtures are documented. |
