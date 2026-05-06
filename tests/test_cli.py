@@ -374,11 +374,11 @@ def test_capture_rejects_full_text_and_sensitive_payload_keys(
     )
 
     assert full_text.exit_code != 0
-    assert "summary looks like full text or a log dump" in full_text.output
+    assert "summary looks like full text or a log dump" in plain_help(full_text.output)
     assert sensitive_key.exit_code != 0
-    assert "sensitive payload key is not allowed" in sensitive_key.output
+    assert "sensitive payload key is not allowed" in plain_help(sensitive_key.output)
     assert exact_sensitive_key.exit_code != 0
-    assert "sensitive payload key is not allowed" in exact_sensitive_key.output
+    assert "sensitive payload key is not allowed" in plain_help(exact_sensitive_key.output)
     assert not (tmp_path / "runtime" / "events.jsonl").exists()
 
 
