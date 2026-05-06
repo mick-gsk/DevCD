@@ -64,6 +64,7 @@ nav:
       - Publishing: devcd/publishing.md
       - Container Sandbox: devcd/container.md
       - Event Source Recipes: devcd/event-source-recipes.md
+      - Agent Vision: devcd/agent-vision.md
   - Decisions:
       - ADR-001 Vertical Slice Architecture: decisions/ADR-001-vertical-slice-architecture.md
       - ADR-012 Public Alpha Agent Passport Surface: decisions/ADR-012-public-alpha-agent-passport-surface.md
