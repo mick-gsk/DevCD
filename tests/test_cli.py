@@ -305,6 +305,9 @@ def test_onboard_preview_reports_agent_layer_without_writing(
     assert "recommended: builder" in result.output
     assert "agents: codex" in result.output
     assert "would write: .devcd/agent-layer-profile.json" in result.output
+    assert "Agent-ready workspace" in result.output
+    assert "planned by agent layer preview" in result.output
+    assert "Agent-ready workspace\n- skipped" not in result.output
     assert not (tmp_path / "devcd.toml").exists()
     assert not (tmp_path / ".devcd" / "agent-layer-profile.json").exists()
 
@@ -666,11 +669,44 @@ def test_cli_exposes_context_group() -> None:
     output = plain_help(result.output)
     assert "DevCD terminal-first continuity for AI power users" in output
     assert "Start with 'devcd" in output
-    assert "onboard'" in output
+    assert "welcome'" in output
     assert "context" in result.output
     assert "agentic" in result.output
     assert "mcp" in result.output
     assert "policy" in result.output
+
+
+def test_welcome_command_prints_first_run_success_chain() -> None:
+    runner = CliRunner()
+
+    result = runner.invoke(app, ["welcome"])
+
+    assert result.exit_code == 0
+    assert "DevCD welcome" in result.output
+    assert "Install proof: devcd smoke" in result.output
+    assert "1. Inspect: devcd onboard --preview" in result.output
+    assert "2. Apply: devcd onboard --yes" in result.output
+    assert "3. Warm-start: devcd agentic action-packet" in result.output
+    assert "Local-first" in result.output
+    assert "No daemon starts until devcd run" in result.output
+
+
+def test_welcome_json_contract_is_stable() -> None:
+    runner = CliRunner()
+
+    result = runner.invoke(app, ["welcome", "--json"])
+
+    assert result.exit_code == 0
+    body = json.loads(result.output)
+    assert body["status"] == "ready"
+    assert body["install_proof"]["command"] == "devcd smoke"
+    assert body["next_command"] == "devcd onboard --preview"
+    assert [step["command"] for step in body["success_chain"]][:3] == [
+        "devcd onboard --preview",
+        "devcd onboard --yes",
+        "devcd agentic action-packet",
+    ]
+    assert body["trust"]["remote_export_enabled_by_default"] is False
 
 
 def test_context_workspace_analysis_reports_detection_without_writes(
@@ -784,6 +820,7 @@ def test_smoke_command_verifies_local_first_run() -> None:
     assert "devcd --help: ok" in result.output
     assert "devcd context packs: ok" in result.output
     assert "devcd quickstart: ok" in result.output
+    assert "Next: devcd onboard --preview" in result.output
 
 
 def test_smoke_json_verifies_agent_layer_quickstart_contract() -> None:

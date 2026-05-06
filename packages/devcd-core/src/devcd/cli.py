@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 import os
+import platform
 import shutil
 import sys
 import urllib.error
@@ -74,7 +75,7 @@ if TYPE_CHECKING:
 app = typer.Typer(
     help=(
         "DevCD terminal-first continuity for AI power users. "
-        "Start with 'devcd onboard'."
+        "Start with 'devcd welcome'."
     )
 )
 context_app = typer.Typer(help="Inspect the broader local continuity view and policy receipts.")
@@ -127,6 +128,101 @@ _CAPTURE_SENSITIVE_KEYS = {
     "token",
     "password",
 }
+
+
+@app.command()
+def welcome(
+    output_json: Annotated[
+        bool,
+        typer.Option("--json", help="Print machine-readable JSON output."),
+    ] = False,
+) -> None:
+    """Show the zero-write first-run path for a better DevCD start."""
+    report = _build_welcome_report()
+    if output_json:
+        typer.echo(json.dumps(report, indent=2, sort_keys=True))
+        return
+    typer.echo(_render_welcome_report(report))
+
+
+def _build_welcome_report() -> dict[str, Any]:
+    return {
+        "status": "ready",
+        "next_command": "devcd onboard --preview",
+        "install_proof": {
+            "command": "devcd smoke",
+            "success": "CLI, Context Packs, and daemonless Quickstart contract pass.",
+        },
+        "success_chain": [
+            {
+                "label": "Inspect",
+                "command": "devcd onboard --preview",
+                "success": "See the proposed agent layer without writing files.",
+            },
+            {
+                "label": "Apply",
+                "command": "devcd onboard --yes",
+                "success": "Write local config, profile, and managed instruction blocks.",
+            },
+            {
+                "label": "Warm-start",
+                "command": "devcd agentic action-packet",
+                "success": "Give the next agent the current goal and next action first.",
+            },
+            {
+                "label": "Diagnose",
+                "command": "devcd doctor",
+                "success": "Get concrete local remediation without remote side effects.",
+            },
+        ],
+        "trust": {
+            "remote_export_enabled_by_default": False,
+            "starts_daemon": False,
+            "mutates_external_config": False,
+            "policy": "observations allowed, actions denied by default",
+        },
+        "platform": {
+            "os": platform.system() or sys.platform,
+            "python": platform.python_version(),
+            "windows_note": (
+                "Native Windows is supported; use PowerShell and UTF-8 files for repo edits."
+                if platform.system().lower() == "windows"
+                else None
+            ),
+        },
+        "docs": "docs/getting-started.md",
+    }
+
+
+def _render_welcome_report(report: dict[str, Any]) -> str:
+    lines = [
+        "DevCD welcome",
+        "- A local-first continuity layer for fresh AI agent sessions.",
+        f"- Install proof: {report['install_proof']['command']}",
+        f"- Next: {report['next_command']}",
+        "",
+        "First 5 minutes",
+    ]
+    for index, step in enumerate(cast(list[dict[str, str]], report["success_chain"]), start=1):
+        lines.append(f"- {index}. {step['label']}: {step['command']}")
+        lines.append(f"  success: {step['success']}")
+    trust = cast(dict[str, Any], report["trust"])
+    lines.extend(
+        [
+            "",
+            "Local-first",
+            "- No daemon starts until devcd run",
+            "- No external agent config is mutated by default",
+            "- Remote export is disabled by default",
+            f"- Policy: {trust['policy']}",
+        ]
+    )
+    platform_info = cast(dict[str, Any], report["platform"])
+    windows_note = platform_info.get("windows_note")
+    if isinstance(windows_note, str):
+        lines.extend(["", "Platform", f"- {windows_note}"])
+    lines.extend(["", f"Docs: {report['docs']}"])
+    return "\n".join(lines)
 
 
 @app.command()
@@ -754,12 +850,14 @@ def _render_onboard_report(report: dict[str, Any], *, no_tui: bool) -> str:
         "- starts daemon: no",
         "- mutates external config: no",
     ]
+    agent_layer = report.get("agent_layer")
     agent_ready = report.get("agent_ready")
     if isinstance(agent_ready, list) and agent_ready:
         lines.append(_render_agent_ready_report(cast(list[dict[str, str]], agent_ready)))
+    elif isinstance(agent_layer, dict) and agent_layer.get("preview") is True:
+        lines.extend(["", "Agent-ready workspace", "- planned by agent layer preview"])
     else:
         lines.extend(["", "Agent-ready workspace", "- skipped"])
-    agent_layer = report.get("agent_layer")
     if isinstance(agent_layer, dict):
         lines.extend(["", _render_onboard_agent_layer(agent_layer)])
     lines.extend(
@@ -2682,6 +2780,7 @@ def _build_smoke_report(
     status = "pass" if all(item["status"] == "pass" for item in checks) else "fail"
     return {
         "status": status,
+        "next_command": "devcd onboard --preview",
         "checks": checks,
     }
 
@@ -2697,6 +2796,8 @@ def _render_smoke_report(report: dict[str, Any]) -> str:
             missing_packs = cast(list[str], check.get("missing_packs", []))
             if missing_packs:
                 lines.append(f"  missing packs: {', '.join(missing_packs)}")
+    if report["status"] == "pass":
+        lines.append(f"Next: {report['next_command']}")
     return "\n".join(lines)
 
 
