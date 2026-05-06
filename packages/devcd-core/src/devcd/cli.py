@@ -77,7 +77,7 @@ if TYPE_CHECKING:
 app = typer.Typer(
     help=(
         "DevCD terminal-first continuity for AI power users. "
-        "Start with 'devcd onboard'."
+        "Start with 'devcd setup'."
     )
 )
 context_app = typer.Typer(help="Inspect the broader local continuity view and policy receipts.")
@@ -156,6 +156,8 @@ _SMOKE_LOGO_LINES = (
     "█   ██     █ █ █    █   █",
     "████ █████  █   ████████ ",
 )
+_SETUP_DEFAULT_GOAL = "Activate DevCD continuity for this workspace"
+_SETUP_DEFAULT_NEXT_ACTION = "Read the Action Packet and continue from suggested next action"
 
 
 @app.command()
@@ -258,6 +260,220 @@ def _print_welcome_report(report: dict[str, Any]) -> None:
         console.print(f"  {windows_note}", style="dim")
     console.print()
     console.print(f"Docs: {report['docs']}", style="dim")
+
+
+@app.command()
+def setup(
+    projects: Annotated[
+        str | None,
+        typer.Option(
+            "--projects",
+            help="Comma-separated project paths to configure. Defaults to an interactive prompt.",
+        ),
+    ] = None,
+    agents: Annotated[
+        str | None,
+        typer.Option(
+            "--agents",
+            help="Comma-separated targets: copilot, claude, codex, openclaw.",
+        ),
+    ] = None,
+    archetype: Annotated[
+        str,
+        typer.Option(
+            "--archetype",
+            help="Agent layer archetype: auto, builder, reviewer, researcher, or orchestrator.",
+        ),
+    ] = "auto",
+    goal: Annotated[
+        str | None,
+        typer.Option("--goal", help="Initial goal seeded for the next agent handoff."),
+    ] = None,
+    next_action: Annotated[
+        str | None,
+        typer.Option("--next-action", help="Initial suggested next action for the next agent."),
+    ] = None,
+    force: Annotated[
+        bool,
+        typer.Option("--force", help="Overwrite an existing config file when needed."),
+    ] = False,
+    endpoint: Annotated[
+        str,
+        typer.Option("--endpoint", help="DevCD daemon state endpoint for readiness checks."),
+    ] = "http://127.0.0.1:8765/state",
+    output_json: Annotated[
+        bool,
+        typer.Option("--json", help="Print machine-readable JSON output."),
+    ] = False,
+) -> None:
+    """Install-time setup wizard: configure projects and seed handoff continuity."""
+    project_paths = _setup_project_paths(projects)
+    agent_targets = _setup_agent_targets(agents)
+    setup_goal = _setup_capture_value(
+        goal,
+        prompt_label="Initial goal",
+        default=_SETUP_DEFAULT_GOAL,
+    )
+    setup_next_action = _setup_capture_value(
+        next_action,
+        prompt_label="Initial next action",
+        default=_SETUP_DEFAULT_NEXT_ACTION,
+    )
+
+    results: list[dict[str, Any]] = []
+    for project_path in project_paths:
+        if not project_path.exists() or not project_path.is_dir():
+            results.append(
+                {
+                    "project": str(project_path),
+                    "status": "failed",
+                    "reason": "project path is missing or not a directory",
+                }
+            )
+            continue
+
+        config_path = project_path / "devcd.toml"
+        try:
+            onboard_report = _build_onboard_report(
+                config=config_path,
+                force=force,
+                agent_ready=True,
+                agents=",".join(agent_targets),
+                archetype=archetype,
+                preview=False,
+                yes=True,
+                endpoint=endpoint,
+                workspace_root=project_path,
+            )
+            _seed_setup_handoff(
+                config=config_path,
+                goal=setup_goal,
+                next_action=setup_next_action,
+            )
+        except (PermissionError, typer.Exit, typer.BadParameter, OSError, ValueError) as error:
+            results.append(
+                {
+                    "project": str(project_path),
+                    "status": "failed",
+                    "reason": str(error),
+                }
+            )
+            continue
+
+        results.append(
+            {
+                "project": str(project_path),
+                "status": "configured",
+                "config": str(config_path),
+                "agent_targets": [item["target"] for item in onboard_report["agent_ready"]],
+                "return_command": "devcd agentic action-packet",
+            }
+        )
+
+    configured = sum(1 for item in results if item["status"] == "configured")
+    failed = len(results) - configured
+    report = {
+        "summary": {
+            "configured": configured,
+            "failed": failed,
+            "projects": len(results),
+            "agent_targets": list(agent_targets),
+            "goal_seeded": setup_goal,
+            "next_action_seeded": setup_next_action,
+        },
+        "results": results,
+    }
+
+    if output_json:
+        typer.echo(json.dumps(report, indent=2, sort_keys=True))
+        return
+
+    typer.echo("DevCD setup")
+    typer.echo("Setup summary")
+    typer.echo(f"- configured: {configured}")
+    typer.echo(f"- failed: {failed}")
+    typer.echo(f"- projects: {len(results)}")
+    typer.echo("")
+    for item in results:
+        status = cast(str, item["status"])
+        if status == "configured":
+            typer.echo(f"[configured] {item['project']}")
+            typer.echo(f"  agents: {', '.join(cast(list[str], item['agent_targets']))}")
+            typer.echo(f"  next: {item['return_command']}")
+        else:
+            typer.echo(f"[failed] {item['project']}")
+            typer.echo(f"  reason: {item['reason']}")
+
+
+def _setup_project_paths(raw_projects: str | None) -> list[Path]:
+    value = raw_projects
+    if value is None:
+        value = typer.prompt(
+            "Projects to configure (comma-separated paths)",
+            default=".",
+        )
+
+    raw_items = [item.strip() for item in value.split(",") if item.strip()]
+    if not raw_items:
+        raise typer.BadParameter("At least one project path is required")
+
+    resolved: list[Path] = []
+    for item in raw_items:
+        path = Path(item).expanduser()
+        if not path.is_absolute():
+            path = (Path.cwd() / path).resolve()
+        resolved.append(path)
+    return resolved
+
+
+def _setup_agent_targets(raw_agents: str | None) -> tuple[str, ...]:
+    value = raw_agents
+    if value is None:
+        value = typer.prompt(
+            "Choose agents (copilot, claude, codex, openclaw)",
+            default="copilot,claude,codex,openclaw",
+        )
+    return _parse_agent_ready_targets(value)
+
+
+def _setup_capture_value(value: str | None, *, prompt_label: str, default: str) -> str:
+    if value is not None:
+        trimmed = value.strip()
+        if not trimmed:
+            raise typer.BadParameter(f"{prompt_label.lower()} cannot be empty")
+        return trimmed
+    captured_raw = cast(str, typer.prompt(prompt_label, default=default))
+    captured = captured_raw.strip()
+    if not captured:
+        raise typer.BadParameter(f"{prompt_label.lower()} cannot be empty")
+    return captured
+
+
+def _seed_setup_handoff(*, config: Path, goal: str, next_action: str) -> None:
+    settings = DevCDSettings.load(config if config.exists() else None)
+    ledger = EventLedger(settings.ledger_path)
+    captured = [
+        ("goal", goal, None),
+        ("next_action", next_action, next_action),
+    ]
+    for kind, summary, capture_next_action in captured:
+        event = _build_capture_event(
+            kind=kind,
+            summary=summary,
+            basis="agent_inference",
+            confidence="observed",
+            outcome=None,
+            next_action=capture_next_action,
+            artifact=None,
+            agent="devcd-setup",
+            session="setup-wizard",
+            fingerprint=None,
+        )
+        _append_allowed_capture_event(
+            event=event,
+            settings=settings,
+            ledger=ledger,
+        )
 
 
 @app.command()
@@ -639,9 +855,10 @@ def _build_onboard_report(
     preview: bool,
     yes: bool,
     endpoint: str,
+    workspace_root: Path | None = None,
 ) -> dict[str, Any]:
-    workspace_root = Path.cwd()
-    detection = detect_workspace_agent_layer(workspace_root)
+    resolved_workspace = workspace_root or Path.cwd()
+    detection = detect_workspace_agent_layer(resolved_workspace)
     requested_archetype = _agent_layer_archetype_override(archetype)
     requested_agents = _agent_layer_requested_agents(agent_ready=agent_ready, agents=agents)
     proposal = build_agent_layer_proposal(
@@ -658,7 +875,7 @@ def _build_onboard_report(
         try:
             applied = apply_agent_layer_profile(
                 proposal,
-                workspace_root=workspace_root,
+                workspace_root=resolved_workspace,
                 config_path=config,
                 force=force,
                 settings=DevCDSettings.load(config if config.exists() else None),
@@ -669,7 +886,7 @@ def _build_onboard_report(
         config_status = _agent_layer_config_status(config_existed=config_existed, force=force)
         agent_report = _agent_report_from_layer_profile(
             applied.profile.agent_targets,
-            workspace_root=workspace_root,
+            workspace_root=resolved_workspace,
         )
         apply_result = applied.model_dump(mode="json")
     else:
@@ -680,7 +897,7 @@ def _build_onboard_report(
             proposal=proposal,
         )
         agent_report = (
-            _write_agent_ready_workspace(agent_targets, workspace_root=workspace_root)
+            _write_agent_ready_workspace(agent_targets, workspace_root=resolved_workspace)
             if agent_targets
             else []
         )
@@ -2616,6 +2833,7 @@ def _build_doctor_report(
         ),
         _agent_layer_profile_check(),
         _policy_sensitive_denial_check(settings),
+        _ledger_integrity_check(settings),
         _sample_events_valid_check(),
         _handoff_demo_check(),
         _docs_commands_check(),
@@ -3234,6 +3452,51 @@ def _policy_sensitive_denial_check(settings: DevCDSettings) -> dict[str, Any]:
         "Review allowed_data_classes and sensitivity policy"
         if decision.allowed
         else "devcd policy simulate --surface coding-agent --event <file>",
+    )
+
+
+def _ledger_integrity_check(settings: DevCDSettings) -> dict[str, Any]:
+    ledger_path = settings.ledger_path
+    if ledger_path is None or not ledger_path.exists():
+        return _doctor_check(
+            "ledger_integrity",
+            "warn",
+            "Local event ledger not found",
+            {"path": str(ledger_path) if ledger_path else "not configured"},
+            "devcd handoff --goal \"<current goal>\" --next-action \"<safe next step>\"",
+        )
+    try:
+        raw_lines = ledger_path.read_text(encoding="utf-8").splitlines()
+    except OSError as error:
+        return _doctor_check(
+            "ledger_integrity",
+            "fail",
+            "Local event ledger could not be read",
+            {"path": str(ledger_path), "error": str(error)},
+            "Check file permissions on the ledger path",
+        )
+    non_empty_lines = [line for line in raw_lines if line.strip()]
+    parse_errors = 0
+    for line in non_empty_lines:
+        try:
+            json.loads(line)
+        except ValueError:
+            parse_errors += 1
+    event_count = len(non_empty_lines) - parse_errors
+    if parse_errors > 0:
+        return _doctor_check(
+            "ledger_integrity",
+            "warn",
+            f"Local event ledger has {parse_errors} malformed line(s)",
+            {"path": str(ledger_path), "events": event_count, "parse_errors": parse_errors},
+            "Back up and remove the malformed lines from the ledger file",
+        )
+    return _doctor_check(
+        "ledger_integrity",
+        "pass",
+        f"Local event ledger is valid ({event_count} event(s))",
+        {"path": str(ledger_path), "events": event_count, "parse_errors": 0},
+        "devcd handoff --goal \"<current goal>\" --next-action \"<safe next step>\"",
     )
 
 

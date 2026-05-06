@@ -370,6 +370,78 @@ def test_onboard_json_includes_agent_layer_proposal_and_receipts(
     assert "requested archetype override: researcher" in body["agent_layer"]["trust_receipts"]
 
 
+def test_setup_interactive_configures_multiple_projects_and_seeds_handoff(
+    tmp_path: Path,
+) -> None:
+    project_alpha = tmp_path / "project-alpha"
+    project_beta = tmp_path / "project-beta"
+    project_alpha.mkdir()
+    project_beta.mkdir()
+    runner = CliRunner()
+
+    result = runner.invoke(
+        app,
+        ["setup"],
+        input=(
+            f"{project_alpha},{project_beta}\n"
+            "copilot,codex\n"
+            "Ship DevCD setup automation\n"
+            "Open the Action Packet and continue from next action\n"
+        ),
+    )
+
+    assert result.exit_code == 0
+    assert "Setup summary" in result.output
+    assert "configured: 2" in result.output
+    assert "failed: 0" in result.output
+    for project in (project_alpha, project_beta):
+        config_path = project / "devcd.toml"
+        assert config_path.exists()
+        assert (project / ".github" / "copilot-instructions.md").exists()
+        assert (project / "AGENTS.md").exists()
+        packet = runner.invoke(
+            app,
+            [
+                "agentic",
+                "action-packet",
+                "--config",
+                str(config_path),
+                "--json",
+            ],
+        )
+        assert packet.exit_code == 0
+        packet_body = json.loads(packet.output)
+        assert packet_body["ready_for_agent"] is True
+
+
+def test_setup_continues_when_a_project_path_is_missing(tmp_path: Path) -> None:
+    project_ok = tmp_path / "project-ok"
+    project_ok.mkdir()
+    missing_project = tmp_path / "missing-project"
+    runner = CliRunner()
+
+    result = runner.invoke(
+        app,
+        [
+            "setup",
+            "--projects",
+            f"{project_ok},{missing_project}",
+            "--agents",
+            "copilot",
+            "--goal",
+            "Prepare workspace continuity",
+            "--next-action",
+            "Continue with the first Action Packet",
+        ],
+    )
+
+    assert result.exit_code == 0
+    assert "configured: 1" in result.output
+    assert "failed: 1" in result.output
+    assert "missing-project" in result.output
+    assert (project_ok / "devcd.toml").exists()
+
+
 def test_capture_goal_writes_allowed_event_to_configured_ledger(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
@@ -667,7 +739,7 @@ def test_cli_exposes_context_group() -> None:
     output = plain_help(result.output)
     assert "DevCD terminal-first continuity for AI power users" in output
     assert "Start with 'devcd" in output
-    assert "onboard'" in output
+    assert "setup'" in output
     assert "context" in result.output
     assert "agentic" in result.output
     assert "mcp" in result.output
@@ -815,6 +887,20 @@ def test_onboard_help_positions_it_as_primary_entry() -> None:
     assert "--yes" in output
     assert "--archetype" in output
     assert "--no-tui" in output
+
+
+def test_setup_help_positions_it_as_install_time_wizard() -> None:
+    runner = CliRunner()
+
+    result = runner.invoke(app, ["setup", "--help"])
+
+    assert result.exit_code == 0
+    output = plain_help(result.output)
+    assert "Install-time setup wizard" in output
+    assert "--projects" in output
+    assert "--agents" in output
+    assert "--goal" in output
+    assert "--next-action" in output
 
 
 def test_smoke_command_verifies_local_first_run() -> None:
@@ -2969,6 +3055,59 @@ def test_doctor_validates_handoff_demo() -> None:
     assert "sample_events_valid: pass" in result.output
     assert "handoff_demo: pass" in result.output
     assert "docs_commands: pass" in result.output
+
+
+def test_doctor_ledger_integrity_passes_when_ledger_has_valid_events(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.chdir(tmp_path)
+    import json as _json
+
+    devcd_dir = tmp_path / ".devcd"
+    devcd_dir.mkdir()
+    ledger_path = devcd_dir / "events.jsonl"
+    record = {
+        "event": {
+            "source": "task",
+            "type": "goal_update",
+            "payload": {"current_goal": "test goal"},
+            "sensitivity": "normal",
+            "data_class": "metadata",
+            "timestamp": "2026-01-01T00:00:00+00:00",
+            "event_id": "test-id-1",
+        },
+        "policy_decision": {
+            "kind": "allow",
+            "operation": "store",
+            "reason": "allowed by policy",
+            "allowed": True,
+        },
+    }
+    ledger_path.write_text(_json.dumps(record) + "\n", encoding="utf-8")
+    runner = CliRunner()
+
+    result = runner.invoke(app, ["doctor", "--json"])
+
+    assert result.exit_code == 0
+    body = _json.loads(result.output)
+    check = next(c for c in body["checks"] if c["id"] == "ledger_integrity")
+    assert check["status"] == "pass"
+    assert check["details"]["events"] == 1
+    assert check["details"]["parse_errors"] == 0
+
+
+def test_doctor_ledger_integrity_warns_when_ledger_missing(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.chdir(tmp_path)
+    runner = CliRunner()
+
+    result = runner.invoke(app, ["doctor", "--json"])
+
+    assert result.exit_code == 0
+    body = json.loads(result.output)
+    check = next(c for c in body["checks"] if c["id"] == "ledger_integrity")
+    assert check["status"] == "warn"
 
 
 def test_quickstart_prioritizes_action_packet_and_reports_next_steps(
