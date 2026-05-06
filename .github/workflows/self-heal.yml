@@ -2,7 +2,7 @@ name: Self-Heal via Copilot
 
 # Self-healing loop powered by the GitHub Copilot coding agent:
 #
-#   push → CI/Deploy Docs fails
+#   push → CI/Deploy Docs/Release Please fails
 #     → this workflow collects the failure logs
 #     → creates a GitHub Issue with full context
 #     → assigns Copilot to the issue
@@ -17,7 +17,7 @@ name: Self-Heal via Copilot
 
 on:
   workflow_run:
-    workflows: [CI, Deploy Docs]
+    workflows: [CI, Deploy Docs, Release Please]
     types: [completed]
 
 permissions:
