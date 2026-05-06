@@ -1,4 +1,4 @@
-# DevCD + OpenClaw: Zero re-explanation across coding sessions
+# DevCD + OpenClaw: Turn-0 continuity across coding sessions
 
 > **Draft status**: DevCD MCP server is locally verified.
 > The end-to-end OpenClaw gateway flow (OpenClaw loading DevCD resources) is a
@@ -31,15 +31,15 @@ Daemon. It observes IDE events, Git activity, and task results, applies an
 explicit policy layer, and exposes the result through a read-only MCP server.
 
 When DevCD is registered as an MCP server in OpenClaw, a new agent session
-can read the `agent-handoff-packet` resource at turn 0 and learn:
+can read the `action-packet` resource at turn 0 and learn:
 
 | Field | Example value |
 |---|---|
-| `goal` | `"Continue the resurrection demo after Agent A lost chat context"` |
-| `last_failure` | `"make check still fails: do_not_repeat is absent"` |
-| `do_not_repeat` | `["Do not repeat the last attempted fix unchanged: ..."]` |
-| `suggested_next_action` | `"Add a first-class resurrection context before rendering"` |
-| `withheld_context_summary` | Safe metadata for denied events (no raw content) |
+| `current_goal` | `"Resume the failing release gate after Agent A lost context"` |
+| `next_action` | `"Inspect the policy assertion before editing again"` |
+| `blockers` | `"make check failed on policy assertions"` |
+| `do_not_repeat` | `["Do not rerun the renderer-only patch unchanged"]` |
+| `withheld_context` | Safe metadata for denied events (no raw content) |
 
 No re-narration by the developer is required. Sensitive data (file contents,
 notes flagged `sensitivity=sensitive`, browser history) is withheld by policy
@@ -50,7 +50,7 @@ without receiving the raw payload.
 
 | Resource URI | What the agent learns |
 |---|---|
-| `devcd://context/agent-handoff-packet` | Goal, blockers, resurrection context, do-not-repeat list |
+| `devcd://context/action-packet` | Goal, next action, blockers, do-not-repeat list, withheld-context policy notes |
 | `devcd://context/continuity-packet` | Domain-neutral Continuity Packet, developer pack by default |
 | `devcd://context/brief` | Policy-filtered context brief for the current session |
 | `devcd://context/recent-timeline` | Chronological narrative of recent events |
@@ -92,16 +92,14 @@ $list = '{"jsonrpc":"2.0","id":2,"method":"resources/list","params":{}}'
 Expected: a `resources/list` response listing the current read-only DevCD MCP resources.
 Full verified output: [`examples/openclaw-mcp-context/README.md`](https://github.com/mick-gsk/DevCD/blob/main/examples/openclaw-mcp-context/README.md).
 
-### 4. Inspect a handoff packet without OpenClaw
+### 4. Inspect the Action Packet without OpenClaw
 
 ```bash
-# Verified locally — produces JSON matching the agent-handoff-packet resource
-devcd context handoff-demo \
-  --events examples/agent-resurrection/sample-events.jsonl \
-  --json
+# Verified locally — prints the same start contract OpenClaw agents should read
+devcd agentic action-packet --json
 ```
 
-Checked-in fixture: [`examples/agent-resurrection/handoff-packet.json`](https://github.com/mick-gsk/DevCD/blob/main/examples/agent-resurrection/handoff-packet.json).
+The OpenClaw-facing resource is `devcd://context/action-packet`.
 
 ---
 
@@ -143,17 +141,17 @@ it reads DevCD context before asking the developer anything:
 
 ```
 At the start of every session:
-1. Read devcd://context/agent-handoff-packet
-2. If `last_failure` is set, acknowledge it and avoid repeating the listed
-   `do_not_repeat` items.
-3. State the active goal from `goal` and confirm it with the developer in one line.
+1. Read devcd://context/action-packet
+2. If `blockers` are present, acknowledge them and avoid repeating the listed
+  `do_not_repeat` items.
+3. State the active goal from `current_goal` and the next action from `next_action`.
 4. Read devcd://context/policy-summary to understand what context is withheld
    and why before asking the developer to provide it manually.
 ```
 
-This instruction can be placed in the agent's system prompt or as an OpenClaw
-Skill instruction file once an end-to-end verified Skill is ready
-(see [openclaw-packaging-spike.md](openclaw-packaging-spike.md)).
+The draft Skill lives at `skills/devcd-continuity/SKILL.md`. It is intentionally
+small: it teaches the first move without installing DevCD, mutating OpenClaw
+configuration, or claiming registry availability.
 
 ---
 
@@ -163,9 +161,10 @@ A session that previously required 3–5 re-explanation turns is reduced to a
 single confirmation:
 
 ```
-Agent:    Goal: "Continue the resurrection demo after Agent A lost chat context".
-          Last failure: "make check still fails: do_not_repeat is absent".
-          I will not repeat the fix that added only a Last failure section to the renderer.
+Agent:    Goal: "Resume the failing release gate after Agent A lost context".
+          Next: "Inspect the policy assertion before editing again".
+          Blocker: "make check failed on policy assertions".
+          I will not rerun the renderer-only patch unchanged.
           Ready to proceed — confirm or redirect?
 Developer: Proceed.
 ```
@@ -208,7 +207,7 @@ policy-filtered state that DevCD maintains automatically in the background.
    pushed to it (IDE plugin, Git hooks, CLI calls). It does not hook into the
    IDE automatically without additional event-source setup.
 4. **Context window cost**: Reading every resource at session start adds
-   tokens. In practice only `agent-handoff-packet` and `policy-summary` are
+  tokens. In practice only `action-packet` and `policy-summary` are
    needed for continuity; the others are available on demand.
 5. **Not on ClawHub**: DevCD has not been submitted to or published on ClawHub.
   Installation is manual from a local checkout until a package is published.
@@ -220,7 +219,7 @@ policy-filtered state that DevCD maintains automatically in the background.
 | Step | Status | Evidence |
 |---|---|---|
 | `devcd mcp serve` starts and lists resources | Verified locally | [`examples/openclaw-mcp-context/README.md`](https://github.com/mick-gsk/DevCD/blob/main/examples/openclaw-mcp-context/README.md) |
-| `devcd context handoff-demo --json` produces valid packet | Verified locally | [`examples/agent-resurrection/handoff-packet.json`](https://github.com/mick-gsk/DevCD/blob/main/examples/agent-resurrection/handoff-packet.json) |
+| `devcd agentic action-packet --json` produces valid packet | Verified locally | `tests/test_cli.py` |
 | MCP resources are read-only (no tools registered) | Verified locally | `resources/list` response in README |
 | Policy withholds sensitive events correctly | Verified via tests | `make check` → `tests/test_policy_layer.py`, `tests/test_ambient_context.py` |
 | OpenClaw gateway loads DevCD resources end-to-end | **Not verified** | Requires full OpenClaw gateway install |

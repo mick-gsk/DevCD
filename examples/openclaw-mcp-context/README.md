@@ -1,12 +1,12 @@
-# OpenClaw + DevCD MCP Context — Proof Demo
+# OpenClaw + DevCD MCP Context — Proof Notes
 
-This example shows how [OpenClaw](https://github.com/openclaw/openclaw) could use
+This note shows how [OpenClaw](https://github.com/openclaw/openclaw) could use
 DevCD as a **read-only MCP context source** so a new agent session starts with
 structured developer context instead of asking the user to recap everything.
 
 DevCD is not an OpenClaw-only tool. The same `devcd mcp serve` stdio endpoint
 works with any MCP-capable client (Claude Code, Cursor, Codex CLI, etc.). This
-demo only uses OpenClaw as one example consumer.
+note only uses OpenClaw as one example consumer.
 
 ---
 

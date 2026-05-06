@@ -4,8 +4,10 @@ DevCD integrates with OpenClaw through the standard local MCP stdio boundary.
 It is not an OpenClaw plugin, does not mutate OpenClaw configuration, and does
 not require write-capable MCP tools.
 
-The intended role is narrow and useful: a fresh OpenClaw agent can read local,
-policy-filtered DevCD continuity before asking the developer to recap.
+The intended moment is Turn-0 continuity: a fresh OpenClaw agent reads local,
+policy-filtered DevCD continuity before asking the developer to recap. If the
+Action Packet is ready, the agent should start by naming the current goal, next
+action, blocker, stale attempt warning, and any withheld-context policy note.
 
 ## Verified DevCD Side
 
@@ -61,13 +63,27 @@ local runtime.
 At the start of a session, the agent should prefer:
 
 1. `devcd://context/action-packet` for next-action guidance.
-2. `devcd://context/continuity-packet` for domain-neutral continuity.
-3. `devcd://context/policy-summary` before asking for withheld context.
+2. `devcd://context/policy-summary` before asking for withheld context.
+3. `devcd://context/continuity-packet` for domain-neutral continuity if the
+  Action Packet is not ready.
 4. `devcd://context/withheld-context` to understand what was intentionally not
    included.
 
 If an older workflow still expects it, `devcd://context/agent-handoff-packet` is
 kept as a legacy developer handoff contract.
+
+## OpenClaw Skill Draft
+
+The first OpenClaw-native artifact is the small Skill draft at
+`skills/devcd-continuity/SKILL.md`. Its job is not to install DevCD or change
+OpenClaw config. Its job is to teach the agent the first move:
+
+1. Read `devcd://context/action-packet`.
+2. Read `devcd://context/policy-summary`.
+3. Start with the goal, next action, blockers, `do_not_repeat`, and policy note.
+4. Ask only for confirmation or correction.
+
+This is the intended OpenClaw moment: the agent begins warm.
 
 ## Current Limitation
 
@@ -83,9 +99,10 @@ Until that verification exists, DevCD should not be described as:
 - an OpenClaw-native runtime component;
 - an integration that automatically edits OpenClaw config.
 
-## Proof Artifacts
+## Artifacts
 
-- Runnable proof: `examples/openclaw-mcp-context/README.md`
+- OpenClaw Skill draft: `skills/devcd-continuity/SKILL.md`
+- MCP proof notes: `examples/openclaw-mcp-context/README.md`
 - Packaging analysis: `docs/devcd/openclaw-packaging-spike.md`
 - Draft use case: `docs/devcd/openclaw-usecase-draft.md`
 - Release readiness: `docs/devcd/release-readiness.md`

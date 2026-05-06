@@ -11,9 +11,9 @@ flow is tested end to end.
 
 Recommended first submission sequence:
 
-1. Keep `examples/openclaw-mcp-context/README.md` as the current proof artifact.
-2. Add an OpenClaw Skill later only if it teaches agents when and how to read
-   the configured DevCD MCP resources.
+1. Keep `skills/devcd-continuity/SKILL.md` as the small, reviewable Skill draft.
+2. Keep `examples/openclaw-mcp-context/README.md` only as MCP proof notes, not
+  as the center of the product story.
 3. Do not build a code plugin/package until DevCD needs OpenClaw-owned runtime
    behavior, tools, setup UI, or gateway integration beyond standard MCP client
    configuration.
@@ -72,12 +72,13 @@ A DevCD Skill can be useful, but only as a thin operating guide. It should not
 try to install DevCD, mutate `openclaw.json`, start background daemons without
 operator intent, or promise that DevCD is an OpenClaw-native runtime component.
 
-A correct first skill would tell an agent:
+A correct first skill tells an agent:
 
 - check whether the user has configured the `devcd` MCP server;
 - ask the operator to start `devcd run` if live daemon-backed context is needed;
-- read `devcd://context/agent-handoff-packet` first for continuity;
-- fall back to `devcd://context/brief`, `recent-timeline`, and `policy-summary`;
+- read `devcd://context/action-packet` first for Turn-0 continuity;
+- read `devcd://context/policy-summary` before asking about withheld context;
+- fall back to `devcd://context/continuity-packet` if the Action Packet is not ready;
 - respect withheld-context summaries and never ask for hidden payloads.
 
 The skill may mention `devcd mcp serve`, but it should frame it as the stdio MCP
@@ -107,8 +108,8 @@ The minimal first submission path is:
 
 1. Finish and verify the MCP use case locally with a real OpenClaw gateway.
 2. Keep the integration documentation in this repository.
-3. If a public OpenClaw artifact is wanted, submit a small ClawHub Skill named
-   something like `devcd-context` after the E2E test passes.
+3. If a public OpenClaw artifact is wanted, submit the small `devcd-continuity`
+  Skill after the E2E test passes.
 
 The Skill should contain no secrets, no bundled credentials, no remote endpoint,
 and no install script that changes OpenClaw config automatically. It should be a
@@ -126,7 +127,9 @@ DevCD already has:
 - read-only MCP resources;
 - no MCP tools or prompts;
 - an OpenClaw MCP draft example in `examples/openclaw-mcp-context/README.md`;
+- an OpenClaw Skill draft in `skills/devcd-continuity/SKILL.md`;
 - machine-readable agent handoff packet contract;
+- machine-readable Action Packet contract;
 - policy summaries and withheld-context summaries;
 - repo validation through `make check`.
 
@@ -134,8 +137,8 @@ DevCD still needs these artifacts before public OpenClaw submission:
 
 1. End-to-end OpenClaw verification note showing that OpenClaw can list/read the
    DevCD MCP resources from `mcp.servers.devcd`.
-2. A minimal `skills/devcd-context/SKILL.md` draft if the project chooses the
-   skill path.
+2. End-to-end validation that an OpenClaw runtime using the Skill reads
+  `devcd://context/action-packet` before asking for a recap.
 3. A short security note in the Skill or docs: local-first, read-only MCP,
    no tools, no prompts, no write surface, no remote export by default.
 4. A copy-paste config snippet that uses only `command: "devcd"` and
@@ -191,14 +194,13 @@ These claims are not allowed yet:
    `PATH`.
 2. Add the `mcp.servers.devcd` block to a test OpenClaw config.
 3. Use OpenClaw's MCP inspection/listing flow to confirm the `devcd` server is
-   visible and the resource list includes `devcd://context/agent-handoff-packet`.
-4. Read `devcd://context/agent-handoff-packet` from OpenClaw and capture a
-   sanitized transcript or command output for this repository's example docs.
+  visible and the resource list includes `devcd://context/action-packet`.
+4. Read `devcd://context/action-packet` from OpenClaw and capture a
+  sanitized transcript or command output for this repository's integration notes.
 5. Update `examples/openclaw-mcp-context/README.md` from draft to verified once
    the E2E run succeeds.
-6. Draft a minimal `SKILL.md` for `devcd-context` that instructs agents to read
-   the configured MCP resources and respect policy summaries.
-7. Validate the skill locally in an OpenClaw workspace.
+6. Validate `skills/devcd-continuity/SKILL.md` locally in an OpenClaw workspace.
+7. Capture the first OpenClaw response showing Turn-0 continuity from the Action Packet.
 8. Only after that, consider `clawhub skill publish` for the Skill.
 
 ## Go / No-Go List
@@ -208,8 +210,9 @@ These claims are not allowed yet:
 - Document DevCD as an OpenClaw MCP configuration use case.
 - Keep the integration local-first and read-only.
 - Use `mcp.servers.devcd.command = "devcd"` and `args = ["mcp", "serve"]`.
-- Tell agents to prefer `devcd://context/agent-handoff-packet` for continuity.
+- Tell agents to prefer `devcd://context/action-packet` for continuity.
 - State clearly that denied context must remain denied.
+- Keep `skills/devcd-continuity/SKILL.md` as a draft artifact until E2E validation.
 
 ### Go After E2E Verification
 
