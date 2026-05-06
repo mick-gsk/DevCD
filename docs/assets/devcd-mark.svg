@@ -1,9 +1,37 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="96" height="96" viewBox="0 0 96 96" role="img" aria-labelledby="title desc">
   <title id="title">DevCD mark</title>
   <desc id="desc">DevCD daemon mascot mark — local-first agent continuity.</desc>
+  <defs>
+    <radialGradient id="mark-body-shade" cx="42%" cy="26%" r="78%">
+      <stop offset="0%" stop-color="#fff0bf"/>
+      <stop offset="56%" stop-color="#f7c948"/>
+      <stop offset="100%" stop-color="#c97821"/>
+    </radialGradient>
+    <radialGradient id="mark-eye-core" cx="38%" cy="34%" r="70%">
+      <stop offset="0%" stop-color="#68ead8"/>
+      <stop offset="100%" stop-color="#18b7a6"/>
+    </radialGradient>
+    <filter id="mark-soft-shadow" x="-35%" y="-35%" width="170%" height="200%">
+      <feGaussianBlur in="SourceAlpha" stdDeviation="1.8" result="halo-blur"/>
+      <feFlood flood-color="#f7c948" flood-opacity="0.24" result="halo-color"/>
+      <feComposite in="halo-color" in2="halo-blur" operator="in" result="halo"/>
+      <feGaussianBlur in="SourceAlpha" stdDeviation="1.2" result="blur"/>
+      <feOffset dx="0" dy="1.6" result="offset"/>
+      <feFlood flood-color="#06080c" flood-opacity="0.34" result="color"/>
+      <feComposite in="color" in2="offset" operator="in" result="shadow"/>
+      <feMerge>
+        <feMergeNode in="halo"/>
+        <feMergeNode in="shadow"/>
+        <feMergeNode in="SourceGraphic"/>
+      </feMerge>
+    </filter>
+  </defs>
 
   <!-- Background rounded square -->
   <rect width="96" height="96" rx="18" fill="#080a0f"/>
+
+  <!-- Grounding shadow -->
+  <ellipse cx="48" cy="83.5" rx="22" ry="4.2" fill="#05070a" opacity="0.20"/>
 
   <!-- Daemon mascot, scaled to fill the mark.
        Local daemon coords: body x 60-240, y 55-258 (dome only, flat bottom).
@@ -12,22 +40,36 @@
        tx = (96-64.8)/2 - 60*0.36 = 15.6 - 21.6 = -6
        ty = 6 - 30*0.36 = 6 - 10.8 = -4.8
   -->
-  <g transform="translate(-6,-4.8) scale(0.36)">
+  <g transform="translate(-6,-4.8) scale(0.36)" filter="url(#mark-soft-shadow)">
     <!-- Shadow layer for depth -->
     <path d="M 60,258 L 60,170 C 60,90 90,55 150,55 C 210,55 240,90 240,170 L 240,258 Z"
-          fill="#6b3310" transform="translate(7 9)" opacity="0.55"/>
+          fill="#6b3310" transform="translate(7 9)" opacity="0.48"/>
     <!-- Body: amber dome -->
     <path d="M 60,258 L 60,170 C 60,90 90,55 150,55 C 210,55 240,90 240,170 L 240,258 Z"
-          fill="#f7c948"/>
+          fill="url(#mark-body-shade)"/>
     <!-- Horns -->
-    <path d="M 100,68 L 90,30 L 116,60" fill="#f7c948"/>
-    <path d="M 200,68 L 210,30 L 184,60" fill="#f7c948"/>
+    <path d="M 100,68 L 90,30 L 116,60" fill="url(#mark-body-shade)"/>
+    <path d="M 200,68 L 210,30 L 184,60" fill="url(#mark-body-shade)"/>
+    <!-- Top rim highlight -->
+    <path d="M 74,160 C 80,92 105,66 150,64 C 195,66 220,92 226,160"
+          fill="none" stroke="#ffe9a9" stroke-width="6" stroke-linecap="round" opacity="0.28"/>
+    <!-- Belly depth shadow -->
+    <path d="M 84,236 C 110,255 190,255 216,236 L 216,258 L 84,258 Z"
+          fill="#b46f1e" opacity="0.22"/>
     <!-- Left eye -->
     <circle cx="120" cy="182" r="21" fill="#080a0f"/>
-    <circle cx="128" cy="175" r="9"  fill="#18b7a6"/>
+    <circle cx="128" cy="175" r="9"  fill="url(#mark-eye-core)"/>
+    <circle cx="124" cy="170" r="2.8" fill="#d7fff6" opacity="0.86"/>
     <!-- Right eye -->
     <circle cx="180" cy="182" r="21" fill="#080a0f"/>
-    <circle cx="188" cy="175" r="9"  fill="#18b7a6"/>
+    <circle cx="188" cy="175" r="9"  fill="url(#mark-eye-core)"/>
+    <circle cx="184" cy="170" r="2.8" fill="#d7fff6" opacity="0.86"/>
+    <!-- Smirk -->
+    <path d="M 132,224 Q 151,242 168,222"
+          fill="none" stroke="#080a0f" stroke-width="6" stroke-linecap="round"/>
+    <!-- Smirk highlight -->
+    <path d="M 136,220 Q 150,232 164,220"
+          fill="none" stroke="#ffd66e" stroke-width="2.2" stroke-linecap="round" opacity="0.38"/>
   </g>
 
   <!-- Teal underline rail -->
