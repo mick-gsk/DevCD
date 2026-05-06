@@ -4,6 +4,8 @@ DevCD is not automatically published to PyPI yet. The repository contains the
 release machinery needed for a safe alpha, but external publication should only
 be enabled after project ownership and Trusted Publishing are configured.
 
+This page is the maintainer runbook for the first public package release.
+
 ## Public Install Story
 
 The first normal-consumption milestone is narrow on purpose:
@@ -14,6 +16,14 @@ The first normal-consumption milestone is narrow on purpose:
 
 Until that package exists on PyPI, the repository should describe checkout
 installs as a temporary evaluation path, not as the final public story.
+
+After publication, the primary public path should collapse to:
+
+```bash
+pip install devcd
+devcd onboard
+devcd agentic action-packet
+```
 
 ## Local Distribution Gate
 
@@ -49,6 +59,90 @@ devcd context packs --json
 devcd quickstart --no-tui --json
 ```
 
+## Maintainer Runbook
+
+Use this order for the first real publish. Do not skip the clean-environment
+install proof after upload.
+
+### 1. Confirm package ownership and index setup
+
+Before touching GitHub Actions:
+
+1. Confirm that the `devcd` project name on PyPI is available or already owned.
+2. Enable 2FA on both PyPI and TestPyPI maintainer accounts.
+3. Create the `devcd` project on TestPyPI first if it does not exist yet.
+4. Configure Trusted Publishing for this repository on both indexes.
+
+Use these values when creating the Trusted Publisher entry:
+
+- Owner: `mick-gsk`
+- Repository: `DevCD`
+- Production workflow: `.github/workflows/publish-pypi.yml`
+- Test workflow: `.github/workflows/publish-test-pypi.yml`
+
+### 2. Cut a release candidate from a clean repo state
+
+Run these commands from the repository root:
+
+```bash
+git status -sb
+make check
+python -m mkdocs build --strict --site-dir /tmp/devcd-mkdocs-check
+make distribution
+```
+
+On PowerShell, use:
+
+```powershell
+git status -sb
+make check
+python -m mkdocs build --strict --site-dir "$env:TEMP\devcd-mkdocs-check"
+make distribution
+```
+
+The release candidate should not proceed until all three gates pass.
+
+### 3. Publish to TestPyPI first
+
+Create and push a release-candidate tag, for example:
+
+```bash
+git tag v0.1.0rc1
+git push origin v0.1.0rc1
+```
+
+Then run the `Publish TestPyPI` workflow and pass the exact ref, for example
+`v0.1.0rc1`.
+
+After the workflow succeeds, verify installation in a clean environment.
+
+Bash:
+
+```bash
+python -m venv .tmp-testpypi
+. .tmp-testpypi/bin/activate
+python -m pip install --upgrade pip
+python -m pip install --index-url https://test.pypi.org/simple/ --extra-index-url https://pypi.org/simple devcd
+devcd smoke
+devcd onboard --help
+deactivate
+```
+
+PowerShell:
+
+```powershell
+python -m venv .tmp-testpypi
+.\.tmp-testpypi\Scripts\Activate.ps1
+python -m pip install --upgrade pip
+python -m pip install --index-url https://test.pypi.org/simple/ --extra-index-url https://pypi.org/simple devcd
+devcd smoke
+devcd onboard --help
+deactivate
+```
+
+If TestPyPI install or smoke fails, fix the release candidate and rerun TestPyPI
+before touching production PyPI.
+
 ## GitHub Release
 
 Pushing a semantic version tag such as `v0.1.0` runs the release workflow:
@@ -78,6 +172,14 @@ Before running it:
 4. Run the local `make distribution` gate.
 5. Trigger the `Publish PyPI` workflow with the exact tag ref, for example `v0.1.0`.
 
+Recommended production sequence:
+
+1. Merge the final release commit to the default branch.
+2. Update `CHANGELOG.md` so the target version section is the newest visible release block.
+3. Create and push the final tag, for example `v0.1.0`.
+4. Run the `Publish PyPI` workflow for that exact ref.
+5. Wait for the workflow to complete successfully before changing README install instructions.
+
 The workflow checks out the requested ref, installs dev dependencies, runs
 `make check`, runs `make distribution`, and publishes the verified artifacts to
 PyPI using PyPI's trusted publisher exchange.
@@ -96,6 +198,29 @@ Also verify the isolated CLI path:
 pipx install devcd
 devcd smoke
 ```
+
+For the first release, also verify the primary first-run path explicitly:
+
+```bash
+devcd onboard
+devcd agentic action-packet
+```
+
+On Windows PowerShell, the same post-release proof is:
+
+```powershell
+python -m venv .tmp-pypi
+.\.tmp-pypi\Scripts\Activate.ps1
+python -m pip install --upgrade pip
+python -m pip install devcd
+devcd smoke
+devcd onboard
+devcd agentic action-packet
+deactivate
+```
+
+Only after this proof passes should README and Getting Started switch the
+dominant install path from checkout install to `pip install devcd`.
 
 ## Container Image
 
