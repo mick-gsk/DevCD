@@ -1,37 +1,87 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="1200" height="630" viewBox="0 0 1200 630" role="img" aria-labelledby="title desc">
-  <title id="title">DevCD viral social card</title>
-  <desc id="desc">A high-contrast poster-style DevCD social card with a large pixel wordmark.</desc>
+  <title id="title">DevCD — Your AI Never Forgets</title>
+  <desc id="desc">DevCD mascot social card — local-first agent continuity daemon.</desc>
   <defs>
-    <rect id="px" width="12" height="12" rx="1.5" fill="currentColor"/>
-    <g id="devcd-pixels">
-      <use href="#px" x="0" y="0"/><use href="#px" x="14" y="0"/><use href="#px" x="28" y="0"/><use href="#px" x="42" y="0"/>
-      <use href="#px" x="0" y="14"/><use href="#px" x="56" y="14"/><use href="#px" x="0" y="28"/><use href="#px" x="56" y="28"/><use href="#px" x="0" y="42"/><use href="#px" x="56" y="42"/><use href="#px" x="0" y="56"/><use href="#px" x="56" y="56"/><use href="#px" x="0" y="70"/><use href="#px" x="56" y="70"/>
-      <use href="#px" x="0" y="84"/><use href="#px" x="14" y="84"/><use href="#px" x="28" y="84"/><use href="#px" x="42" y="84"/>
-      <use href="#px" x="88" y="0"/><use href="#px" x="102" y="0"/><use href="#px" x="116" y="0"/><use href="#px" x="130" y="0"/><use href="#px" x="144" y="0"/>
-      <use href="#px" x="88" y="14"/><use href="#px" x="88" y="28"/><use href="#px" x="88" y="42"/><use href="#px" x="102" y="42"/><use href="#px" x="116" y="42"/><use href="#px" x="130" y="42"/>
-      <use href="#px" x="88" y="56"/><use href="#px" x="88" y="70"/><use href="#px" x="88" y="84"/><use href="#px" x="102" y="84"/><use href="#px" x="116" y="84"/><use href="#px" x="130" y="84"/><use href="#px" x="144" y="84"/>
-      <use href="#px" x="176" y="0"/><use href="#px" x="232" y="0"/><use href="#px" x="176" y="14"/><use href="#px" x="232" y="14"/><use href="#px" x="176" y="28"/><use href="#px" x="232" y="28"/><use href="#px" x="176" y="42"/><use href="#px" x="232" y="42"/>
-      <use href="#px" x="190" y="56"/><use href="#px" x="218" y="56"/><use href="#px" x="190" y="70"/><use href="#px" x="218" y="70"/><use href="#px" x="204" y="84"/>
-      <use href="#px" x="276" y="0"/><use href="#px" x="290" y="0"/><use href="#px" x="304" y="0"/><use href="#px" x="318" y="0"/>
-      <use href="#px" x="262" y="14"/><use href="#px" x="262" y="28"/><use href="#px" x="262" y="42"/><use href="#px" x="262" y="56"/><use href="#px" x="262" y="70"/>
-      <use href="#px" x="276" y="84"/><use href="#px" x="290" y="84"/><use href="#px" x="304" y="84"/><use href="#px" x="318" y="84"/>
-      <use href="#px" x="348" y="0"/><use href="#px" x="362" y="0"/><use href="#px" x="376" y="0"/><use href="#px" x="390" y="0"/>
-      <use href="#px" x="348" y="14"/><use href="#px" x="404" y="14"/><use href="#px" x="348" y="28"/><use href="#px" x="404" y="28"/><use href="#px" x="348" y="42"/><use href="#px" x="404" y="42"/><use href="#px" x="348" y="56"/><use href="#px" x="404" y="56"/><use href="#px" x="348" y="70"/><use href="#px" x="404" y="70"/>
-      <use href="#px" x="348" y="84"/><use href="#px" x="362" y="84"/><use href="#px" x="376" y="84"/><use href="#px" x="390" y="84"/>
-    </g>
+    <!-- Amber halo glow around the daemon -->
+    <filter id="glow" x="-30%" y="-30%" width="160%" height="160%">
+      <feGaussianBlur in="SourceAlpha" stdDeviation="28" result="b"/>
+      <feFlood flood-color="#f7c948" flood-opacity="0.42" result="c"/>
+      <feComposite in="c" in2="b" operator="in" result="g"/>
+      <feMerge><feMergeNode in="g"/><feMergeNode in="SourceGraphic"/></feMerge>
+    </filter>
   </defs>
-  <rect width="1200" height="630" fill="#080a0f"/>
-  <path d="M0 106h1200" stroke="#18b7a6" stroke-width="18" opacity="0.95"/>
-  <path d="M0 526h1200" stroke="#18b7a6" stroke-width="18" opacity="0.95"/>
-  <path d="M962 0h110l-376 630H586z" fill="#18b7a6" opacity="0.18"/>
-  <path d="M1038 0h54L716 630h-54z" fill="#f2b84b" opacity="0.22"/>
-  <g transform="translate(122 174) scale(2.32)">
-    <use href="#devcd-pixels" color="#000000" transform="translate(12 15)" opacity="0.92"/>
-    <use href="#devcd-pixels" color="#9b5419" transform="translate(6 8)" opacity="1"/>
-    <use href="#devcd-pixels" color="#f7c948"/>
+
+  <!-- Background -->
+  <rect width="1200" height="630" fill="#0a0c12"/>
+
+  <!-- Soft ambient light around daemon position -->
+  <ellipse cx="252" cy="310" rx="290" ry="310" fill="#f7c948" opacity="0.03"/>
+
+  <!-- ── Daemon mascot (left panel, centered) ──
+       Ghost-daemon shape built from bezier curves.
+       Local bounding box: x 60–240 (180px), y 55–310 (255px)
+       Scaled 1.9×, translated so it is centered in the 505px left panel.
+       Center x = 180*1.9/2 + offset ≈ 252, center y ≈ 310.
+  -->
+  <g transform="translate(-33,-27) scale(1.9)" filter="url(#glow)">
+
+    <!-- Body: dome top + straight sides + 3 wavy bumps at bottom -->
+    <path d="
+      M 60,265
+      L 60,170
+      C 60,90 90,55 150,55
+      C 210,55 240,90 240,170
+      L 240,265
+      C 216,308 204,308 180,265
+      C 156,308 144,308 120,265
+      C  96,308  84,308  60,265
+      Z"
+      fill="#f7c948"/>
+
+    <!-- Left eye (dark oval with teal glow) -->
+    <circle cx="120" cy="182" r="21" fill="#0a0c12"/>
+    <circle cx="128" cy="175" r="9"  fill="#18b7a6"/>
+
+    <!-- Right eye -->
+    <circle cx="180" cy="182" r="21" fill="#0a0c12"/>
+    <circle cx="188" cy="175" r="9"  fill="#18b7a6"/>
+
+    <!-- Smirk — slight asymmetric personality -->
+    <path d="M 132,224 Q 151,242 168,222"
+          fill="none" stroke="#0a0c12" stroke-width="6" stroke-linecap="round"/>
+
+    <!-- Tiny horns — daemon identity marker -->
+    <path d="M 100,68 L 90,30 L 116,60"  fill="#f7c948"/>
+    <path d="M 200,68 L 210,30 L 184,60" fill="#f7c948"/>
   </g>
-  <path d="M130 430h940" stroke="#18b7a6" stroke-width="16" stroke-linecap="square"/>
-  <path d="M1094 430h42" stroke="#18b7a6" stroke-width="16" stroke-linecap="square" opacity="0.52"/>
-  <text x="130" y="514" font-family="Cascadia Mono, Consolas, Menlo, monospace" font-size="44" font-weight="900" letter-spacing="5" fill="#d9e2ec">LOCAL-FIRST AGENT CONTINUITY</text>
-  <text x="132" y="565" font-family="Cascadia Mono, Consolas, Menlo, monospace" font-size="25" font-weight="800" letter-spacing="2" fill="#8ea0b8">PASSPORT // ACTION PACKET // LOCAL ONLY</text>
+
+  <!-- Amber separator between panels -->
+  <rect x="502" y="24" width="3" height="582" fill="#f7c948" opacity="0.55"/>
+
+  <!-- ── Right panel: text ── -->
+  <!-- Product label -->
+  <text x="532" y="66"
+        font-family="Cascadia Mono, Consolas, Menlo, monospace"
+        font-size="15" letter-spacing="5" fill="#344054">devcd</text>
+
+  <!-- Three-line hero statement -->
+  <text x="532" y="258"
+        font-family="Cascadia Mono, Consolas, Menlo, monospace"
+        font-size="106" font-weight="900" letter-spacing="-2"
+        fill="#d9e2ec">YOUR AI</text>
+
+  <text x="532" y="382"
+        font-family="Cascadia Mono, Consolas, Menlo, monospace"
+        font-size="106" font-weight="900" letter-spacing="-2"
+        fill="#d9e2ec">NEVER</text>
+
+  <text x="532" y="506"
+        font-family="Cascadia Mono, Consolas, Menlo, monospace"
+        font-size="106" font-weight="900" letter-spacing="-2"
+        fill="#f7c948">FORGETS<tspan fill="#18b7a6">.</tspan></text>
+
+  <!-- Attribution -->
+  <text x="532" y="596"
+        font-family="Cascadia Mono, Consolas, Menlo, monospace"
+        font-size="14" letter-spacing="1" fill="#263142">github.com/mick-gsk/DevCD  ·  local-first  ·  open source</text>
 </svg>

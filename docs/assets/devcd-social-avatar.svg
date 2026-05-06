@@ -1,29 +1,60 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="1024" height="1024" viewBox="0 0 1024 1024" role="img" aria-labelledby="title desc">
-  <title id="title">DevCD social avatar</title>
-  <desc id="desc">A square high-contrast DevCD pixel sticker mark for social avatars.</desc>
+  <title id="title">DevCD — daemon mascot avatar</title>
+  <desc id="desc">DevCD ghost-daemon mascot for social avatars.</desc>
   <defs>
-    <rect id="px" width="86" height="86" rx="10" fill="currentColor"/>
-    <g id="d-pixels">
-      <use href="#px" x="0" y="0"/><use href="#px" x="100" y="0"/><use href="#px" x="200" y="0"/><use href="#px" x="300" y="0"/>
-      <use href="#px" x="0" y="100"/><use href="#px" x="400" y="100"/>
-      <use href="#px" x="0" y="200"/><use href="#px" x="400" y="200"/>
-      <use href="#px" x="0" y="300"/><use href="#px" x="400" y="300"/>
-      <use href="#px" x="0" y="400"/><use href="#px" x="400" y="400"/>
-      <use href="#px" x="0" y="500"/><use href="#px" x="400" y="500"/>
-      <use href="#px" x="0" y="600"/><use href="#px" x="100" y="600"/><use href="#px" x="200" y="600"/><use href="#px" x="300" y="600"/>
-    </g>
+    <!-- Large amber halo for impact at small avatar sizes -->
+    <filter id="halo" x="-35%" y="-35%" width="170%" height="170%">
+      <feGaussianBlur in="SourceAlpha" stdDeviation="55" result="b"/>
+      <feFlood flood-color="#f7c948" flood-opacity="0.52" result="c"/>
+      <feComposite in="c" in2="b" operator="in" result="g"/>
+      <feMerge><feMergeNode in="g"/><feMergeNode in="SourceGraphic"/></feMerge>
+    </filter>
   </defs>
-  <rect width="1024" height="1024" rx="196" fill="#080a0f"/>
-  <path d="M96 236h832" stroke="#18b7a6" stroke-width="32" opacity="0.94"/>
-  <path d="M96 796h832" stroke="#18b7a6" stroke-width="32" opacity="0.94"/>
-  <path d="M786 0h108L360 1024H252z" fill="#18b7a6" opacity="0.17"/>
-  <path d="M882 0h54L402 1024h-54z" fill="#f2b84b" opacity="0.22"/>
-  <g transform="translate(270 198) scale(0.92)">
-    <use href="#d-pixels" color="#000000" transform="translate(34 42)" opacity="0.92"/>
-    <use href="#d-pixels" color="#9b5419" transform="translate(18 24)" opacity="1"/>
-    <use href="#d-pixels" color="#f7c948"/>
+
+  <!-- Background -->
+  <rect width="1024" height="1024" rx="200" fill="#080a0f"/>
+
+  <!-- Daemon mascot:
+       Local bbox x 60–240 (180px), y 30–310 (280px including horns).
+       Scale 2.5 → 450×700px. Centered: x=(1024-450)/2=287, y=(1024-700)/2=162.
+       translate: (287 - 60*2.5, 162 - 30*2.5) = (287-150, 162-75) = (137, 87)
+  -->
+  <g transform="translate(137,87) scale(2.5)" filter="url(#halo)">
+
+    <!-- Body -->
+    <path d="
+      M 60,265
+      L 60,170
+      C 60,90 90,55 150,55
+      C 210,55 240,90 240,170
+      L 240,265
+      C 216,308 204,308 180,265
+      C 156,308 144,308 120,265
+      C  96,308  84,308  60,265
+      Z"
+      fill="#f7c948"/>
+
+    <!-- Left eye -->
+    <circle cx="120" cy="182" r="21" fill="#080a0f"/>
+    <circle cx="128" cy="175" r="9"  fill="#18b7a6"/>
+
+    <!-- Right eye -->
+    <circle cx="180" cy="182" r="21" fill="#080a0f"/>
+    <circle cx="188" cy="175" r="9"  fill="#18b7a6"/>
+
+    <!-- Smirk -->
+    <path d="M 132,224 Q 151,242 168,222"
+          fill="none" stroke="#080a0f" stroke-width="6" stroke-linecap="round"/>
+
+    <!-- Daemon horns -->
+    <path d="M 100,68 L 90,30 L 116,60"  fill="#f7c948"/>
+    <path d="M 200,68 L 210,30 L 184,60" fill="#f7c948"/>
   </g>
-  <path d="M268 854h386" stroke="#18b7a6" stroke-width="32" stroke-linecap="square"/>
-  <path d="M690 854h72" stroke="#18b7a6" stroke-width="32" stroke-linecap="square" opacity="0.52"/>
-  <rect x="52" y="52" width="920" height="920" rx="148" fill="none" stroke="#263142" stroke-width="14"/>
+
+  <!-- "devcd" label at bottom -->
+  <text x="512" y="960"
+        text-anchor="middle"
+        font-family="Cascadia Mono, Consolas, Menlo, monospace"
+        font-size="38" letter-spacing="10" font-weight="700"
+        fill="#f7c948" opacity="0.65">devcd</text>
 </svg>
