@@ -239,7 +239,15 @@ class StateEngine:
         self._state.next_best_actions = []
 
     def _summarize_event(self, event_type: str, payload: dict[str, Any]) -> str:
-        target = payload.get("path") or payload.get("branch") or payload.get("ticket_id")
+        target = (
+            payload.get("path")
+            or payload.get("branch")
+            or payload.get("ticket_id")
+            or payload.get("current_goal")
+            or payload.get("summary")
+            or payload.get("reason")
+            or payload.get("suggested_next_action")
+        )
         if isinstance(target, str) and target:
             return f"{event_type}: {target}"
         return event_type

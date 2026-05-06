@@ -16,9 +16,9 @@ Continue the resurrection demo after Agent A lost chat context
 - latest_commit_summary: unknown
 
 ## recent_attempts
-- failure: test_failure (task/test_failure)
-- unknown: fix_attempt (task/fix_attempt)
-- failure: test_failure (task/test_failure)
+- failure: test_failure: make check still fails: do_not_repeat is absent (task/test_failure)
+- unknown: fix_attempt: Added only a Last failure section to the markdown renderer (task/fix_attempt)
+- failure: test_failure: make check failed: handoff markdown lacks resurrection fields (task/test_failure)
 - unknown: branch_change: main (git/branch_change)
 - unknown: file_focus: tests/test_ambient_context.py (ide/file_focus)
 

@@ -17,9 +17,9 @@ Ship the agent-switch review handoff demo
 - latest_commit_summary: add surface-specific handoff fixtures
 
 ## recent_attempts
-- failure: test_failure (task/test_failure)
-- unknown: fix_attempt (task/fix_attempt)
-- failure: test_failure (task/test_failure)
+- failure: test_failure: review-agent expected handoff still missing review artifacts (task/test_failure)
+- unknown: fix_attempt: Created a coding-agent-only handoff and skipped review-agent output (task/fix_attempt)
+- failure: test_failure: review-agent handoff lacks expected fixture comparison (task/test_failure)
 - unknown: commit (git/commit)
 - unknown: branch_change: agent-switch-demo (git/branch_change)
 
