@@ -127,28 +127,15 @@ def test_onboard_creates_config_and_agent_ready_workspace(
 
     assert result.exit_code == 0
     assert "DevCD onboard" in result.output
-    assert "config: created devcd.toml" in result.output
-    assert "Agent-ready workspace" in result.output
-    assert "Copilot" in result.output
-    assert "OpenClaw" in result.output
-    assert "Action Packet workflow" in result.output
-    assert "- 1. Read first: devcd agentic action-packet" in result.output
-    assert "- 2. Broader view only if needed: devcd context passport" in result.output
-    assert "devcd context passport" in result.output
-    assert (
-        "Primary outcome: A fresh agent reads the local Action Packet before asking "
-        "you to recap."
-    ) in result.output
-    assert "Next agent starts with: devcd agentic action-packet" in result.output
-    assert (
-        "Success looks like: the new agent starts from the current goal instead of "
-        "asking what you are doing"
-        in result.output
-    )
-    assert "No daemon started" in result.output
-    assert "No external agent config mutated" in result.output
-    assert "Seed visible continuity: devcd handoff --goal" in result.output
-    assert "Granular goal capture: devcd capture --kind goal" in result.output
+    assert "One-command success chain" in result.output
+    assert "Primary outcome: A fresh agent starts from the current Action Packet" in result.output
+    assert "Success chain" in result.output
+    assert "1. Verify [ok]" in result.output
+    assert "2. Prepare [ok]" in result.output
+    assert "3. Seed [attention]" in result.output
+    assert "4. Prove [attention]" in result.output
+    assert "5. Continue [ok]" in result.output
+    assert "Return command: devcd onboard" in result.output
     assert (tmp_path / "devcd.toml").exists()
     assert "DEVCD AGENT CONTINUITY START" in (
         tmp_path / ".github" / "copilot-instructions.md"
@@ -192,7 +179,8 @@ def test_onboard_preserves_existing_config_without_force(
     result = runner.invoke(app, ["onboard", "--agents", "codex", "--no-tui"])
 
     assert result.exit_code == 0
-    assert "config: kept devcd.toml" in result.output
+    assert "Verify [ok]" in result.output
+    assert "kept devcd.toml" in result.output
     assert config_path.read_text(encoding="utf-8") == '[devcd]\nruntime_dir = "custom-runtime"\n'
     assert "DEVCD AGENT CONTINUITY START" in (tmp_path / "AGENTS.md").read_text(encoding="utf-8")
 
@@ -279,11 +267,21 @@ def test_onboard_json_contract_is_stable(tmp_path: Path, monkeypatch: pytest.Mon
         ],
     }
     assert body["quickstart"]["live_first"]["daemon_required"] is False
-    assert body["next_commands"] == [
+    assert body["primary_outcome"].startswith("A fresh agent starts from the current Action Packet")
+    assert body["return_command"] == "devcd onboard"
+    assert body["next_commands"] == ["devcd onboard"]
+    assert body["advanced_commands"] == [
         "devcd agentic action-packet",
         "devcd context passport",
         "devcd context control",
         "devcd integrations openclaw --smoke-test",
+    ]
+    assert [stage["id"] for stage in body["stages"]] == [
+        "verify",
+        "prepare",
+        "seed",
+        "prove",
+        "continue",
     ]
 
 
@@ -305,9 +303,8 @@ def test_onboard_preview_reports_agent_layer_without_writing(
     assert "recommended: builder" in result.output
     assert "agents: codex" in result.output
     assert "would write: .devcd/agent-layer-profile.json" in result.output
-    assert "Agent-ready workspace" in result.output
-    assert "planned by agent layer preview" in result.output
-    assert "Agent-ready workspace\n- skipped" not in result.output
+    assert "Prepare [attention]" in result.output
+    assert "next: devcd onboard --yes" in result.output
     assert not (tmp_path / "devcd.toml").exists()
     assert not (tmp_path / ".devcd" / "agent-layer-profile.json").exists()
 
@@ -669,7 +666,7 @@ def test_cli_exposes_context_group() -> None:
     output = plain_help(result.output)
     assert "DevCD terminal-first continuity for AI power users" in output
     assert "Start with 'devcd" in output
-    assert "welcome'" in output
+    assert "onboard'" in output
     assert "context" in result.output
     assert "agentic" in result.output
     assert "mcp" in result.output
@@ -684,9 +681,9 @@ def test_welcome_command_prints_first_run_success_chain() -> None:
     assert result.exit_code == 0
     assert "DevCD welcome" in result.output
     assert "Install proof: devcd smoke" in result.output
-    assert "1. Inspect: devcd onboard --preview" in result.output
-    assert "2. Apply: devcd onboard --yes" in result.output
-    assert "3. Warm-start: devcd agentic action-packet" in result.output
+    assert "1. Start: devcd onboard" in result.output
+    assert "2. Prove: devcd agentic action-packet" in result.output
+    assert "3. Repair: devcd doctor" in result.output
     assert "Local-first" in result.output
     assert "No daemon starts until devcd run" in result.output
 
@@ -700,11 +697,11 @@ def test_welcome_json_contract_is_stable() -> None:
     body = json.loads(result.output)
     assert body["status"] == "ready"
     assert body["install_proof"]["command"] == "devcd smoke"
-    assert body["next_command"] == "devcd onboard --preview"
+    assert body["next_command"] == "devcd onboard"
     assert [step["command"] for step in body["success_chain"]][:3] == [
-        "devcd onboard --preview",
-        "devcd onboard --yes",
+        "devcd onboard",
         "devcd agentic action-packet",
+        "devcd doctor",
     ]
     assert body["trust"]["remote_export_enabled_by_default"] is False
 
@@ -802,7 +799,7 @@ def test_onboard_help_positions_it_as_primary_entry() -> None:
 
     assert result.exit_code == 0
     output = plain_help(result.output)
-    assert "Primary guided setup for the Action Packet workflow" in output
+    assert "Primary guided setup for the one-command Action Packet success chain" in output
     assert "Defaults to preparing the common local agent targets" in output
     assert "--preview" in output
     assert "--yes" in output
@@ -816,11 +813,12 @@ def test_smoke_command_verifies_local_first_run() -> None:
     result = runner.invoke(app, ["smoke"])
 
     assert result.exit_code == 0
-    assert "DevCD smoke" in result.output
+    assert "██████  ███████ ██    ██  ██████ ██████ " in result.output
+    assert "DevCD install check" in result.output
     assert "devcd --help: ok" in result.output
     assert "devcd context packs: ok" in result.output
     assert "devcd quickstart: ok" in result.output
-    assert "Next: devcd onboard --preview" in result.output
+    assert "Next: devcd onboard" in result.output
 
 
 def test_smoke_json_verifies_agent_layer_quickstart_contract() -> None:
@@ -2852,6 +2850,60 @@ def test_doctor_reports_missing_token_and_config(tmp_path, monkeypatch) -> None:
     assert "token_exists: warn" in result.output
     assert "Next steps" in result.output
     assert "devcd init" in result.output
+
+
+def test_doctor_fix_creates_missing_config_with_policy_receipt(tmp_path, monkeypatch) -> None:
+    monkeypatch.chdir(tmp_path)
+    runner = CliRunner()
+
+    result = runner.invoke(app, ["doctor", "--fix", "--json"])
+
+    assert result.exit_code == 0
+    body = json.loads(result.output)
+    assert (tmp_path / "devcd.toml").exists()
+    repair = next(item for item in body["repairs"] if item["id"] == "config_exists")
+    assert repair["status"] == "applied"
+    assert repair["path"] == "devcd.toml"
+    assert repair["policy_decision"]["kind"] == "allow"
+    assert repair["policy_decision"]["operation"] == "store"
+
+
+def test_doctor_fix_applies_missing_agent_layer_profile(tmp_path, monkeypatch) -> None:
+    monkeypatch.chdir(tmp_path)
+    (tmp_path / "pyproject.toml").write_text(
+        "[project]\nname = \"demo\"\n[tool.pytest.ini_options]\n",
+        encoding="utf-8",
+    )
+    runner = CliRunner()
+
+    result = runner.invoke(app, ["doctor", "--fix", "--json"])
+
+    assert result.exit_code == 0
+    body = json.loads(result.output)
+    profile_path = tmp_path / ".devcd" / "agent-layer-profile.json"
+    assert profile_path.exists()
+    repair = next(item for item in body["repairs"] if item["id"] == "agent_layer_profile")
+    assert repair["status"] == "applied"
+    assert repair["path"] == ".devcd/agent-layer-profile.json"
+    assert repair["policy_decision"]["kind"] == "allow"
+
+
+def test_doctor_fix_respects_local_storage_policy(tmp_path, monkeypatch) -> None:
+    monkeypatch.chdir(tmp_path)
+    (tmp_path / "devcd.toml").write_text(
+        "[devcd]\nallow_local_storage = false\n",
+        encoding="utf-8",
+    )
+    runner = CliRunner()
+
+    result = runner.invoke(app, ["doctor", "--fix", "--json"])
+
+    assert result.exit_code == 0
+    body = json.loads(result.output)
+    repair = next(item for item in body["repairs"] if item["id"] == "agent_layer_profile")
+    assert repair["status"] == "denied"
+    assert repair["policy_decision"]["kind"] == "deny"
+    assert not (tmp_path / ".devcd" / "agent-layer-profile.json").exists()
 
 
 def test_doctor_profile_check_is_warn_not_fail_when_missing(tmp_path, monkeypatch) -> None:
