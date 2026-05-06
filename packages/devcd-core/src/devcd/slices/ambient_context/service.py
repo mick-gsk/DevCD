@@ -739,9 +739,7 @@ class AmbientContextService:
             packet = _with_empty_passport_guidance(packet)
         if self._vision_service is not None:
             surface_label = surface.kind.value if surface is not None else "agent"
-            vision_block = self._vision_service.get_block(
-                self.policy_engine, surface=surface_label
-            )
+            vision_block = self._vision_service.get_block(self.policy_engine, surface=surface_label)
             packet = packet.model_copy(update={"vision": vision_block})
         return packet
 
@@ -2696,48 +2694,48 @@ def continuity_packet_from_context_brief(
 
     return _with_context_contracts(
         ContinuityPacket(
-        schema_version=brief.schema_version,
-        id=brief.id,
-        context_pack=context_pack,
-        surface=brief.surface.kind.value,
-        intent=intent,
-        artifacts=[
-            ContinuityArtifact(
-                kind=artifact.kind,
-                identifier=artifact.identifier,
-                summary=artifact.summary,
-                source=artifact.source,
-                relevance=artifact.relevance,
-                last_seen_at=artifact.last_seen_at,
-                policy_reason=artifact.policy_reason,
-            )
-            for artifact in brief.relevant_artifacts
-        ],
-        attempts=attempts,
-        blockers=blockers,
-        do_not_repeat=brief.resurrection.do_not_repeat,
-        suggested_next_steps=_dedupe_strings(
-            [
-                *(
-                    [brief.resurrection.suggested_next_action]
-                    if brief.resurrection.suggested_next_action is not None
-                    else []
-                ),
-                *[suggestion.summary for suggestion in brief.suggested_next_steps],
-            ]
-        ),
-        unknowns=brief.resurrection.unknowns,
-        context_quality_notes=brief.context_quality_notes,
-        withheld_context=brief.withheld_context,
-        policy_decision=brief.policy_decision,
-        provenance=list(brief.surface.allowed_state_areas),
-        pack_metadata={
-            "brief_id": brief.id,
-            "git_context": brief.git_context.model_dump(mode="json"),
-            "resurrection": brief.resurrection.model_dump(mode="json"),
-        },
-        confidence=brief.confidence,
-        generated_at=brief.generated_at,
+            schema_version=brief.schema_version,
+            id=brief.id,
+            context_pack=context_pack,
+            surface=brief.surface.kind.value,
+            intent=intent,
+            artifacts=[
+                ContinuityArtifact(
+                    kind=artifact.kind,
+                    identifier=artifact.identifier,
+                    summary=artifact.summary,
+                    source=artifact.source,
+                    relevance=artifact.relevance,
+                    last_seen_at=artifact.last_seen_at,
+                    policy_reason=artifact.policy_reason,
+                )
+                for artifact in brief.relevant_artifacts
+            ],
+            attempts=attempts,
+            blockers=blockers,
+            do_not_repeat=brief.resurrection.do_not_repeat,
+            suggested_next_steps=_dedupe_strings(
+                [
+                    *(
+                        [brief.resurrection.suggested_next_action]
+                        if brief.resurrection.suggested_next_action is not None
+                        else []
+                    ),
+                    *[suggestion.summary for suggestion in brief.suggested_next_steps],
+                ]
+            ),
+            unknowns=brief.resurrection.unknowns,
+            context_quality_notes=brief.context_quality_notes,
+            withheld_context=brief.withheld_context,
+            policy_decision=brief.policy_decision,
+            provenance=list(brief.surface.allowed_state_areas),
+            pack_metadata={
+                "brief_id": brief.id,
+                "git_context": brief.git_context.model_dump(mode="json"),
+                "resurrection": brief.resurrection.model_dump(mode="json"),
+            },
+            confidence=brief.confidence,
+            generated_at=brief.generated_at,
         )
     )
 

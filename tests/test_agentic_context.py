@@ -248,9 +248,7 @@ def test_service_maps_resume_signals_into_action_packet(tmp_path) -> None:
     body = packet.model_dump(mode="json")
 
     assert body["blockers"][0]["summary"] == "make check failed on policy assertions"
-    assert body["do_not_repeat"] == [
-        "Do not tweak the renderer without checking the contract"
-    ]
+    assert body["do_not_repeat"] == ["Do not tweak the renderer without checking the contract"]
     assert body["withheld_context"][0]["category"] == "sensitivity"
     assert "sensitive events" in body["withheld_context"][0]["policy_reason"]
     assert "PRIVATE_NOTE_PAYLOAD" not in json.dumps(body)

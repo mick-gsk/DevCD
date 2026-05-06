@@ -458,9 +458,7 @@ def _next_commands(definition: AgentLayerArchetypeDefinition) -> list[str]:
 def _detection_summary(detection: WorkspaceDetectionResult) -> list[str]:
     summary: list[str] = []
     if detection.agents:
-        summary.append(
-            "agents: " + ", ".join(agent.target.value for agent in detection.agents)
-        )
+        summary.append("agents: " + ", ".join(agent.target.value for agent in detection.agents))
     if detection.languages:
         summary.append("languages: " + ", ".join(tool.name for tool in detection.languages))
     if detection.test_tools:

@@ -33,13 +33,9 @@ class VisionService:
         if not self._vision_path.exists():
             return None
         try:
-            return VisionRecord.model_validate_json(
-                self._vision_path.read_text(encoding="utf-8")
-            )
+            return VisionRecord.model_validate_json(self._vision_path.read_text(encoding="utf-8"))
         except (json.JSONDecodeError, ValueError) as exc:
-            raise ValueError(
-                f"vision record at {self._vision_path} is corrupted: {exc}"
-            ) from exc
+            raise ValueError(f"vision record at {self._vision_path} is corrupted: {exc}") from exc
 
     def save(self, record: VisionRecord) -> None:
         self._runtime_dir.mkdir(parents=True, exist_ok=True)
@@ -79,8 +75,7 @@ class VisionService:
         existing = self.load()
         if existing is None:
             raise FileNotFoundError(
-                f"No vision record found at {self._vision_path}. "
-                "Run 'devcd vision init' first."
+                f"No vision record found at {self._vision_path}. Run 'devcd vision init' first."
             )
         now = datetime.now(UTC)
         history_entry = NorthStarVersion(

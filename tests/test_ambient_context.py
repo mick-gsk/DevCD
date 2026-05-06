@@ -302,8 +302,7 @@ def test_continuity_packet_includes_context_budget_and_session_contract(tmp_path
     }
     assert all(reference["include_reason"] for reference in body["context_references"])
     assert all(
-        reference["load_hint"] != "inline_raw_payload"
-        for reference in body["context_references"]
+        reference["load_hint"] != "inline_raw_payload" for reference in body["context_references"]
     )
     assert "PRIVATE_NOTE_PAYLOAD" not in json.dumps(body)
 
