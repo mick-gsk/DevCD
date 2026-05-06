@@ -2,6 +2,10 @@
 title: DevCD Docs
 ---
 
+<p align="center">
+  <img src="assets/devcd-wordmark.svg" alt="DevCD" width="480" style="max-width:100%">
+</p>
+
 # DevCD Documentation
 
 DevCD is the current working name for a local-first continuity layer for people

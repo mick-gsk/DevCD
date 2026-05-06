@@ -1,18 +1,35 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="96" height="96" viewBox="0 0 96 96" role="img" aria-labelledby="title desc">
   <title id="title">DevCD mark</title>
-  <desc id="desc">A compact pixel-built DevCD terminal mark.</desc>
-  <defs>
-    <rect id="px" width="7" height="7" rx="1" fill="currentColor"/>
-    <g id="d-pixels">
-      <use href="#px" x="0" y="0"/><use href="#px" x="8" y="0"/><use href="#px" x="16" y="0"/>
-      <use href="#px" x="0" y="8"/><use href="#px" x="24" y="8"/><use href="#px" x="0" y="16"/><use href="#px" x="24" y="16"/><use href="#px" x="0" y="24"/><use href="#px" x="24" y="24"/><use href="#px" x="0" y="32"/><use href="#px" x="24" y="32"/>
-      <use href="#px" x="0" y="40"/><use href="#px" x="8" y="40"/><use href="#px" x="16" y="40"/>
-    </g>
-  </defs>
+  <desc id="desc">DevCD daemon mascot mark — local-first agent continuity.</desc>
+
+  <!-- Background rounded square -->
   <rect width="96" height="96" rx="18" fill="#080a0f"/>
-  <rect x="9" y="9" width="78" height="78" rx="12" fill="none" stroke="#263142" stroke-width="2"/>
-  <use href="#d-pixels" x="24" y="25" color="#080a0f" transform="translate(4 5)" opacity="0.95"/>
-  <use href="#d-pixels" x="24" y="25" color="#9b5419" transform="translate(2 3)" opacity="0.95"/>
-  <use href="#d-pixels" x="24" y="25" color="#f7c948"/>
-  <path d="M24 73h48" stroke="#18b7a6" stroke-width="5" stroke-linecap="square"/>
+
+  <!-- Daemon mascot, scaled to fill the mark.
+       Local daemon coords: body x 60-240, y 55-258 (dome only, flat bottom).
+       With horns: y tops at ~30. Total: 180×228.
+       Scale 0.36 → 64.8×82.1. Centered in 96×96 with 8px margins.
+       tx = (96-64.8)/2 - 60*0.36 = 15.6 - 21.6 = -6
+       ty = 6 - 30*0.36 = 6 - 10.8 = -4.8
+  -->
+  <g transform="translate(-6,-4.8) scale(0.36)">
+    <!-- Shadow layer for depth -->
+    <path d="M 60,258 L 60,170 C 60,90 90,55 150,55 C 210,55 240,90 240,170 L 240,258 Z"
+          fill="#6b3310" transform="translate(7 9)" opacity="0.55"/>
+    <!-- Body: amber dome -->
+    <path d="M 60,258 L 60,170 C 60,90 90,55 150,55 C 210,55 240,90 240,170 L 240,258 Z"
+          fill="#f7c948"/>
+    <!-- Horns -->
+    <path d="M 100,68 L 90,30 L 116,60" fill="#f7c948"/>
+    <path d="M 200,68 L 210,30 L 184,60" fill="#f7c948"/>
+    <!-- Left eye -->
+    <circle cx="120" cy="182" r="21" fill="#080a0f"/>
+    <circle cx="128" cy="175" r="9"  fill="#18b7a6"/>
+    <!-- Right eye -->
+    <circle cx="180" cy="182" r="21" fill="#080a0f"/>
+    <circle cx="188" cy="175" r="9"  fill="#18b7a6"/>
+  </g>
+
+  <!-- Teal underline rail -->
+  <path d="M22 90h52" stroke="#18b7a6" stroke-width="5" stroke-linecap="square"/>
 </svg>

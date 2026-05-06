@@ -1,18 +1,21 @@
 # DevCD Brand System
 
-DevCD uses a **Continuity OS** identity: a hand-built command wordmark for local
-agent continuity. The brand should feel like developer infrastructure with a
-real command surface, not a generic SaaS monogram or cloud-service badge.
+DevCD uses a **Continuity OS** identity anchored by a daemon mascot — an amber
+ghost with teal-glowing eyes and two small horns. The name _daemon_ is literal:
+DevCD is the background process that never forgets. The brand should feel like
+developer infrastructure with personality, not a generic SaaS monogram.
 
 ## Core Idea
 
-The visual metaphor is a local context packet rendered as command-line type.
+The mascot is the daemon process made visible: amber body (command surface),
+teal pupils (signal / continuity), dark horns (daemon identity).
 
-- The transparent pixel wordmark is the primary project logo.
-- The dark terminal frame is reserved for the square mark and social-card uses.
-- The amber command text is the visible `devcd` invocation surface.
-- The teal rail is continuity passed from one agent session to the next.
-- Window controls, when present, imply a local desktop process, not a hosted service.
+- The **daemon mascot** is the primary visual anchor across all surfaces.
+- The **pixel wordmark** `devcd` sits alongside the daemon in wide placements.
+- The dark rounded background is the daemon's terminal home.
+- The amber body is the visible `devcd` command invocation surface.
+- The teal rail and teal pupils represent continuity passed from one agent to the next.
+- The smirk implies: _yes, I remember everything_.
 
 This system should support CLI, docs, MCP, README, releases, and social previews
 without implying hosted sync or production maturity.

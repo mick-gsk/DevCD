@@ -1,0 +1,23 @@
+/* DevCD brand color overrides for MkDocs Material */
+:root,
+[data-md-color-scheme="default"],
+[data-md-color-scheme="slate"] {
+  --md-primary-fg-color:        #f7c948;   /* amber/command */
+  --md-primary-fg-color--light: #f7d97a;
+  --md-primary-fg-color--dark:  #9b5419;
+  --md-primary-bg-color:        #080a0f;   /* ink */
+  --md-accent-fg-color:         #18b7a6;   /* teal/signal */
+  --md-accent-fg-color--transparent: #18b7a620;
+}
+
+/* Navbar text on amber: force dark ink */
+.md-header__title,
+.md-nav__title {
+  color: #080a0f;
+}
+
+/* Nav logo: show daemon mark at slightly larger size */
+.md-header__button.md-logo img {
+  height: 2rem;
+  width: auto;
+}

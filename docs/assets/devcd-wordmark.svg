@@ -1,6 +1,6 @@
-<svg xmlns="http://www.w3.org/2000/svg" width="500" height="140" viewBox="100 22 500 140" role="img" aria-labelledby="title desc">
+<svg xmlns="http://www.w3.org/2000/svg" width="580" height="140" viewBox="0 0 580 140" role="img" aria-labelledby="title desc">
   <title id="title">DevCD wordmark</title>
-  <desc id="desc">A transparent hand-built pixel wordmark for DevCD.</desc>
+  <desc id="desc">DevCD daemon mascot + pixel wordmark — local-first agent continuity.</desc>
   <defs>
     <rect id="px" width="12" height="12" rx="1.5" fill="currentColor"/>
     <g id="devcd-pixels">
@@ -20,9 +20,40 @@
       <use href="#px" x="348" y="84"/><use href="#px" x="362" y="84"/><use href="#px" x="376" y="84"/><use href="#px" x="390" y="84"/>
     </g>
   </defs>
-  <use href="#devcd-pixels" x="115" y="34" color="#080a0f" transform="translate(8 10)" opacity="0.95"/>
-  <use href="#devcd-pixels" x="115" y="34" color="#9b5419" transform="translate(4 6)" opacity="0.95"/>
-  <use href="#devcd-pixels" x="115" y="34" color="#f7c948"/>
-  <path d="M118 142h420" stroke="#18b7a6" stroke-width="7" stroke-linecap="square"/>
-  <path d="M548 142h18" stroke="#18b7a6" stroke-width="7" stroke-linecap="square" opacity="0.55"/>
+
+  <!-- Daemon mascot left side.
+       Local daemon coords: body x 60-240 (180px), y 30-258 (228px incl. horns).
+       Scale 0.50 -> 90x114. Centered vertically in 140: top margin = (140-114)/2 = 13.
+       tx = 10 - 60*0.50 = -20
+       ty = 13 - 30*0.50 = -2
+  -->
+  <g transform="translate(-20,-2) scale(0.50)">
+    <!-- Shadow -->
+    <path d="M 60,258 L 60,170 C 60,90 90,55 150,55 C 210,55 240,90 240,170 L 240,258 Z"
+          fill="#6b3310" transform="translate(7 9)" opacity="0.55"/>
+    <!-- Body -->
+    <path d="M 60,258 L 60,170 C 60,90 90,55 150,55 C 210,55 240,90 240,170 L 240,258 Z"
+          fill="#f7c948"/>
+    <!-- Horns -->
+    <path d="M 100,68 L 90,30 L 116,60" fill="#f7c948"/>
+    <path d="M 200,68 L 210,30 L 184,60" fill="#f7c948"/>
+    <!-- Left eye -->
+    <circle cx="120" cy="182" r="21" fill="#0a0c12"/>
+    <circle cx="128" cy="175" r="9"  fill="#18b7a6"/>
+    <!-- Right eye -->
+    <circle cx="180" cy="182" r="21" fill="#0a0c12"/>
+    <circle cx="188" cy="175" r="9"  fill="#18b7a6"/>
+    <!-- Smirk -->
+    <path d="M 132,224 Q 151,242 168,222"
+          fill="none" stroke="#0a0c12" stroke-width="6" stroke-linecap="round"/>
+  </g>
+
+  <!-- Pixel wordmark at x=120, y=22 (pixels are 416x96, bottom at y=118) -->
+  <use href="#devcd-pixels" x="120" y="22" color="#080a0f" transform="translate(8 10)" opacity="0.95"/>
+  <use href="#devcd-pixels" x="120" y="22" color="#9b5419" transform="translate(4 6)" opacity="0.95"/>
+  <use href="#devcd-pixels" x="120" y="22" color="#f7c948"/>
+
+  <!-- Teal underline (x=120 to x=536, y=124) -->
+  <path d="M120 124h416" stroke="#18b7a6" stroke-width="7" stroke-linecap="square"/>
+  <path d="M546 124h18"  stroke="#18b7a6" stroke-width="7" stroke-linecap="square" opacity="0.55"/>
 </svg>
