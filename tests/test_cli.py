@@ -287,6 +287,88 @@ def test_onboard_json_contract_is_stable(tmp_path: Path, monkeypatch: pytest.Mon
     ]
 
 
+def test_onboard_preview_reports_agent_layer_without_writing(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.chdir(tmp_path)
+    (tmp_path / "pyproject.toml").write_text(
+        "[project]\nname = \"demo\"\n[tool.pytest.ini_options]\n", encoding="utf-8"
+    )
+    (tmp_path / "AGENTS.md").write_text("# Agents\n", encoding="utf-8")
+    runner = CliRunner()
+
+    result = runner.invoke(app, ["onboard", "--preview", "--agents", "auto", "--no-tui"])
+
+    assert result.exit_code == 0
+    assert "Agent layer proposal" in result.output
+    assert "preview: yes" in result.output
+    assert "recommended: builder" in result.output
+    assert "agents: codex" in result.output
+    assert "would write: .devcd/agent-layer-profile.json" in result.output
+    assert not (tmp_path / "devcd.toml").exists()
+    assert not (tmp_path / ".devcd" / "agent-layer-profile.json").exists()
+
+
+def test_onboard_yes_applies_recommended_profile_non_interactive(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.chdir(tmp_path)
+    runner = CliRunner()
+
+    result = runner.invoke(
+        app,
+        [
+            "onboard",
+            "--yes",
+            "--archetype",
+            "builder",
+            "--agents",
+            "copilot",
+            "--endpoint",
+            "http://127.0.0.1:9/state",
+            "--no-tui",
+        ],
+    )
+
+    profile_path = tmp_path / ".devcd" / "agent-layer-profile.json"
+    assert result.exit_code == 0
+    assert "Agent layer profile" in result.output
+    assert "applied: .devcd/agent-layer-profile.json" in result.output
+    assert profile_path.exists()
+    body = json.loads(profile_path.read_text(encoding="utf-8"))
+    assert body["archetype"] == "builder"
+    assert body["agent_targets"] == ["copilot"]
+
+
+def test_onboard_json_includes_agent_layer_proposal_and_receipts(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.chdir(tmp_path)
+    runner = CliRunner()
+
+    result = runner.invoke(
+        app,
+        [
+            "onboard",
+            "--yes",
+            "--archetype",
+            "researcher",
+            "--agents",
+            "copilot",
+            "--endpoint",
+            "http://127.0.0.1:9/state",
+            "--json",
+        ],
+    )
+
+    assert result.exit_code == 0
+    body = json.loads(result.output)
+    assert body["agent_layer"]["proposal"]["recommended_archetype"] == "researcher"
+    assert body["agent_layer"]["proposal"]["context_pack"] == "research"
+    assert body["agent_layer"]["profile"]["archetype"] == "researcher"
+    assert "requested archetype override: researcher" in body["agent_layer"]["trust_receipts"]
+
+
 def test_capture_goal_writes_allowed_event_to_configured_ledger(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
@@ -591,6 +673,92 @@ def test_cli_exposes_context_group() -> None:
     assert "policy" in result.output
 
 
+def test_context_workspace_analysis_reports_detection_without_writes(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.chdir(tmp_path)
+    (tmp_path / "pyproject.toml").write_text(
+        "[project]\nname = \"demo\"\n[tool.pytest.ini_options]\n", encoding="utf-8"
+    )
+    (tmp_path / "AGENTS.md").write_text("# Agents\n", encoding="utf-8")
+    runner = CliRunner()
+
+    result = runner.invoke(app, ["context", "workspace-analysis"])
+
+    assert result.exit_code == 0
+    assert "DevCD workspace analysis" in result.output
+    assert "Recommended layer: builder" in result.output
+    assert "Agents: codex" in result.output
+    assert "Languages: python" in result.output
+    assert "Tests: pytest" in result.output
+    assert "Next: devcd onboard --yes" in result.output
+    assert not (tmp_path / ".devcd" / "agent-layer-profile.json").exists()
+
+
+def test_context_workspace_analysis_json_is_metadata_only(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.chdir(tmp_path)
+    (tmp_path / "package.json").write_text(
+        json.dumps({"scripts": {"test": "vitest"}, "devDependencies": {"eslint": "latest"}}),
+        encoding="utf-8",
+    )
+    runner = CliRunner()
+
+    result = runner.invoke(app, ["context", "workspace-analysis", "--json"])
+
+    assert result.exit_code == 0
+    body = json.loads(result.output)
+    assert body["proposal"]["recommended_archetype"] == "builder"
+    assert body["detection"]["languages"][0]["name"] == "node"
+    assert body["detection"]["test_tools"][0]["name"] == "npm-test"
+    assert "secret" not in result.output.lower()
+    assert "raw" not in result.output.lower()
+    assert not (tmp_path / ".devcd" / "agent-layer-profile.json").exists()
+
+
+def test_context_profile_reports_missing_profile_with_next_step(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.chdir(tmp_path)
+    runner = CliRunner()
+
+    result = runner.invoke(app, ["context", "profile"])
+
+    assert result.exit_code == 0
+    assert "DevCD agent layer profile" in result.output
+    assert "Status: missing" in result.output
+    assert "Next: devcd onboard --yes" in result.output
+
+
+def test_context_profile_reads_persisted_agent_layer_profile(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    from devcd.slices.ambient_context.agent_layer_service import (
+        apply_agent_layer_profile,
+        build_agent_layer_proposal,
+        detect_workspace_agent_layer,
+    )
+
+    monkeypatch.chdir(tmp_path)
+    proposal = build_agent_layer_proposal(
+        detect_workspace_agent_layer(tmp_path),
+        requested_archetype="builder",
+        requested_agents=["copilot"],
+    )
+    apply_agent_layer_profile(proposal, workspace_root=tmp_path)
+    runner = CliRunner()
+
+    result = runner.invoke(app, ["context", "profile", "--json"])
+
+    assert result.exit_code == 0
+    body = json.loads(result.output)
+    assert body["status"] == "ready"
+    assert body["profile"]["archetype"] == "builder"
+    assert body["profile"]["agent_targets"] == ["copilot"]
+    assert body["next_step"] == "devcd agentic action-packet"
+
+
 def test_onboard_help_positions_it_as_primary_entry() -> None:
     runner = CliRunner()
 
@@ -600,6 +768,9 @@ def test_onboard_help_positions_it_as_primary_entry() -> None:
     output = plain_help(result.output)
     assert "Primary guided setup for the Action Packet workflow" in output
     assert "Defaults to preparing the common local agent targets" in output
+    assert "--preview" in output
+    assert "--yes" in output
+    assert "--archetype" in output
     assert "--no-tui" in output
 
 

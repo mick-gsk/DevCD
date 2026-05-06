@@ -20,6 +20,12 @@ from devcd.host import create_app
 from devcd.kernel.settings import DevCDSettings
 from devcd.slices.agentic_context.models import ActionPacket, ScoutReport
 from devcd.slices.agentic_context.service import AgenticContextService
+from devcd.slices.ambient_context.agent_layer_service import (
+    apply_agent_layer_profile,
+    build_agent_layer_proposal,
+    detect_workspace_agent_layer,
+    load_agent_layer_profile,
+)
 from devcd.slices.ambient_context.models import (
     AgentContextSurface,
     ContextFeedback,
@@ -436,9 +442,24 @@ def onboard(
         str | None,
         typer.Option(
             "--agents",
-            help="Comma-separated targets: copilot, claude, codex, openclaw, or all.",
+            help="Comma-separated targets: copilot, claude, codex, openclaw, auto, or all.",
         ),
     ] = None,
+    archetype: Annotated[
+        str,
+        typer.Option(
+            "--archetype",
+            help="Agent layer archetype: auto, builder, reviewer, researcher, or orchestrator.",
+        ),
+    ] = "auto",
+    preview: Annotated[
+        bool,
+        typer.Option("--preview", help="Show the agent layer proposal without writing files."),
+    ] = False,
+    yes: Annotated[
+        bool,
+        typer.Option("--yes", help="Apply the proposed local agent layer without prompting."),
+    ] = False,
     endpoint: Annotated[
         str,
         typer.Option("--endpoint", help="DevCD daemon state endpoint."),
@@ -461,6 +482,9 @@ def onboard(
         force=force,
         agent_ready=agent_ready,
         agents=agents,
+        archetype=archetype,
+        preview=preview,
+        yes=yes,
         endpoint=endpoint,
     )
     if output_json:
@@ -475,15 +499,55 @@ def _build_onboard_report(
     force: bool,
     agent_ready: bool,
     agents: str | None,
+    archetype: str,
+    preview: bool,
+    yes: bool,
     endpoint: str,
 ) -> dict[str, Any]:
-    config_status = _write_onboard_config(config, force=force)
-    agent_targets = _parse_agent_ready_targets(agents or "all") if agent_ready else ()
-    agent_report = (
-        _write_agent_ready_workspace(agent_targets, workspace_root=Path.cwd())
-        if agent_targets
-        else []
+    workspace_root = Path.cwd()
+    detection = detect_workspace_agent_layer(workspace_root)
+    requested_archetype = _agent_layer_archetype_override(archetype)
+    requested_agents = _agent_layer_requested_agents(agent_ready=agent_ready, agents=agents)
+    proposal = build_agent_layer_proposal(
+        detection,
+        requested_agents=requested_agents,
+        requested_archetype=requested_archetype,
     )
+    apply_result: dict[str, Any] | None = None
+    if preview:
+        config_status = "would keep" if config.exists() else "would create"
+        agent_report: list[dict[str, str]] = []
+    elif yes:
+        config_existed = config.exists()
+        try:
+            applied = apply_agent_layer_profile(
+                proposal,
+                workspace_root=workspace_root,
+                config_path=config,
+                force=force,
+                settings=DevCDSettings.load(config if config.exists() else None),
+            )
+        except PermissionError as error:
+            typer.echo(f"Agent layer profile denied: {error}", err=True)
+            raise typer.Exit(1) from error
+        config_status = _agent_layer_config_status(config_existed=config_existed, force=force)
+        agent_report = _agent_report_from_layer_profile(
+            applied.profile.agent_targets,
+            workspace_root=workspace_root,
+        )
+        apply_result = applied.model_dump(mode="json")
+    else:
+        config_status = _write_onboard_config(config, force=force)
+        agent_targets = _parse_onboard_agent_targets(
+            agent_ready=agent_ready,
+            agents=agents,
+            proposal=proposal,
+        )
+        agent_report = (
+            _write_agent_ready_workspace(agent_targets, workspace_root=workspace_root)
+            if agent_targets
+            else []
+        )
     quickstart_report = _build_quickstart_report(
         config=config,
         endpoint=endpoint,
@@ -497,6 +561,18 @@ def _build_onboard_report(
             agent_report=agent_report,
             quickstart_report=quickstart_report,
         ),
+        "agent_layer": {
+            "preview": preview,
+            "applied": apply_result is not None,
+            "detection": detection.model_dump(mode="json"),
+            "proposal": proposal.model_dump(mode="json"),
+            "profile": apply_result["profile"] if apply_result is not None else None,
+            "profile_path": apply_result["profile_path"] if apply_result is not None else None,
+            "trust_receipts": apply_result["trust_receipts"]
+            if apply_result is not None
+            else proposal.trust_receipts,
+            "next_step": "devcd onboard --yes" if preview else "devcd agentic action-packet",
+        },
         "doctor": _build_doctor_report(config=config, endpoint=endpoint),
         "mutates_external_config": False,
         "starts_daemon": False,
@@ -507,6 +583,85 @@ def _build_onboard_report(
             "devcd integrations openclaw --smoke-test",
         ],
     }
+
+
+def _agent_layer_archetype_override(value: str) -> str | None:
+    normalized = value.strip().lower()
+    if normalized == "auto":
+        return None
+    supported = {"builder", "reviewer", "researcher", "orchestrator"}
+    if normalized not in supported:
+        allowed = ", ".join(("auto", *sorted(supported)))
+        raise typer.BadParameter(
+            f"invalid agent layer archetype: {value}; expected one of {allowed}"
+        )
+    return normalized
+
+
+def _agent_layer_requested_agents(*, agent_ready: bool, agents: str | None) -> list[str]:
+    if not agent_ready:
+        return []
+    if agents is None:
+        return ["all"]
+    requested = [item.strip().lower() for item in agents.split(",") if item.strip()]
+    if not requested:
+        raise typer.BadParameter("At least one agent target is required")
+    supported = {*_AGENT_READY_TARGETS, "all", "auto"}
+    unsupported = sorted(set(requested) - supported)
+    if unsupported:
+        allowed = ", ".join((*_AGENT_READY_TARGETS, "auto", "all"))
+        raise typer.BadParameter(
+            f"Unsupported agent target: {', '.join(unsupported)}. Supported targets: {allowed}"
+        )
+    return requested
+
+
+def _parse_onboard_agent_targets(
+    *,
+    agent_ready: bool,
+    agents: str | None,
+    proposal: Any,
+) -> tuple[str, ...]:
+    if not agent_ready:
+        return ()
+    if agents is not None and agents.strip().lower() == "auto":
+        return tuple(str(target) for target in proposal.agent_targets)
+    return _parse_agent_ready_targets(agents or "all")
+
+
+def _agent_layer_config_status(*, config_existed: bool, force: bool) -> str:
+    if config_existed and force:
+        return "updated"
+    if config_existed:
+        return "kept"
+    return "created"
+
+
+def _agent_report_from_layer_profile(
+    agent_targets: list[Any],
+    *,
+    workspace_root: Path,
+) -> list[dict[str, str]]:
+    report: list[dict[str, str]] = []
+    for target_value in agent_targets:
+        target = str(target_value)
+        path = (
+            Path(".devcd") / "openclaw-mcp.json"
+            if target == "openclaw"
+            else _agent_instruction_path(target)
+        )
+        report.append(
+            {
+                "target": target,
+                "display_name": _AGENT_READY_DISPLAY_NAMES[target],
+                "path": path.relative_to(workspace_root).as_posix()
+                if path.is_absolute()
+                else path.as_posix(),
+                "status": "applied",
+                "mutates_external_config": "false",
+            }
+        )
+    return report
 
 
 def _build_onboard_warm_start_report(
@@ -599,6 +754,9 @@ def _render_onboard_report(report: dict[str, Any], *, no_tui: bool) -> str:
         lines.append(_render_agent_ready_report(cast(list[dict[str, str]], agent_ready)))
     else:
         lines.extend(["", "Agent-ready workspace", "- skipped"])
+    agent_layer = report.get("agent_layer")
+    if isinstance(agent_layer, dict):
+        lines.extend(["", _render_onboard_agent_layer(agent_layer)])
     lines.extend(
         [
             "",
@@ -657,6 +815,39 @@ def _render_onboard_action_packet_workflow(
     for item in cast(list[str], repeat_use_report.get("success_looks_like", [])):
         lines.append(f"- Success looks like: {item}")
     lines.append(f"- Trust receipts: {trust_text}")
+    return "\n".join(lines)
+
+
+def _render_onboard_agent_layer(agent_layer: dict[str, Any]) -> str:
+    proposal = cast(dict[str, Any], agent_layer["proposal"])
+    profile = agent_layer.get("profile")
+    agent_targets = ", ".join(cast(list[str], proposal.get("agent_targets", [])))
+    surface_plan = ", ".join(cast(list[str], proposal.get("surface_plan", [])))
+    lines = [
+        "Agent layer proposal",
+        f"- preview: {'yes' if agent_layer.get('preview') else 'no'}",
+        f"- recommended: {proposal['recommended_archetype']}",
+        f"- context pack: {proposal['context_pack']}",
+        f"- agents: {agent_targets or 'none'}",
+        f"- surfaces: {surface_plan}",
+    ]
+    writes = cast(list[dict[str, Any]], proposal.get("writes", []))
+    for write in writes:
+        verb = "would write" if agent_layer.get("preview") else "write"
+        lines.append(f"- {verb}: {write['path']} ({write['status']})")
+    if isinstance(profile, dict):
+        lines.extend(
+            [
+                "",
+                "Agent layer profile",
+                f"- applied: {agent_layer['profile_path']}",
+                f"- archetype: {profile['archetype']}",
+                f"- next: {agent_layer['next_step']}",
+            ]
+        )
+    receipts = cast(list[str], agent_layer.get("trust_receipts", []))
+    if receipts:
+        lines.append("- trust: " + "; ".join(receipts))
     return "\n".join(lines)
 
 
@@ -1196,6 +1387,45 @@ def context_packs(
 ) -> None:
     """List built-in local Context Packs."""
     typer.echo(render_context_packs_json() if output_json else _render_context_packs())
+
+
+@context_app.command("workspace-analysis")
+def context_workspace_analysis(
+    output_json: Annotated[
+        bool,
+        typer.Option("--json", help="Print machine-readable JSON output."),
+    ] = False,
+) -> None:
+    """Inspect local metadata and suggest an agent layer."""
+    detection = detect_workspace_agent_layer(Path.cwd())
+    proposal = build_agent_layer_proposal(detection)
+    report = {
+        "detection": detection.model_dump(mode="json"),
+        "proposal": proposal.model_dump(mode="json"),
+        "mutates_workspace": False,
+        "next_step": "devcd onboard --yes",
+    }
+    typer.echo(
+        json.dumps(report, indent=2, sort_keys=True)
+        if output_json
+        else _render_workspace_analysis_report(report)
+    )
+
+
+@context_app.command("profile")
+def context_profile(
+    output_json: Annotated[
+        bool,
+        typer.Option("--json", help="Print machine-readable JSON output."),
+    ] = False,
+) -> None:
+    """Inspect the local DevCD agent layer profile."""
+    report = load_agent_layer_profile(Path.cwd()).model_dump(mode="json")
+    typer.echo(
+        json.dumps(report, indent=2, sort_keys=True)
+        if output_json
+        else _render_agent_layer_profile_report(report)
+    )
 
 
 @context_app.command("feedback")
@@ -3181,6 +3411,58 @@ def _render_context_packs() -> str:
         if pack.policy_notes:
             lines.append(f"  Policy notes: {'; '.join(pack.policy_notes)}")
     return "\n".join(lines)
+
+
+def _render_workspace_analysis_report(report: dict[str, Any]) -> str:
+    detection = cast(dict[str, Any], report["detection"])
+    proposal = cast(dict[str, Any], report["proposal"])
+    agents = _names_from_detection(detection, "agents", "target")
+    languages = _names_from_detection(detection, "languages", "name")
+    tests = _names_from_detection(detection, "test_tools", "name")
+    lint = _names_from_detection(detection, "lint_tools", "name")
+    mcp = _names_from_detection(detection, "mcp_hints", "name")
+    lines = [
+        "DevCD workspace analysis",
+        f"Recommended layer: {proposal['recommended_archetype']}",
+        f"Context pack: {proposal['context_pack']}",
+        f"Surface plan: {', '.join(cast(list[str], proposal['surface_plan']))}",
+        f"Agents: {agents or 'none detected; default copilot'}",
+        f"Languages: {languages or 'none detected'}",
+        f"Tests: {tests or 'none detected'}",
+        f"Lint: {lint or 'none detected'}",
+        f"MCP: {mcp or 'none detected'}",
+        f"Mutates workspace: {'yes' if report['mutates_workspace'] else 'no'}",
+        f"Next: {report['next_step']}",
+    ]
+    return "\n".join(lines)
+
+
+def _render_agent_layer_profile_report(report: dict[str, Any]) -> str:
+    lines = ["DevCD agent layer profile", f"Status: {report['status']}"]
+    profile = report.get("profile")
+    if isinstance(profile, dict):
+        lines.extend(
+            [
+                f"Archetype: {profile['archetype']}",
+                f"Agents: {', '.join(cast(list[str], profile['agent_targets']))}",
+                f"Context pack: {profile['context_pack']}",
+                f"Surface plan: {', '.join(cast(list[str], profile['surface_plan']))}",
+                f"Path: {report['path']}",
+            ]
+        )
+    else:
+        lines.append(f"Path: {report['path']}")
+    lines.append(f"Next: {report['next_step']}")
+    return "\n".join(lines)
+
+
+def _names_from_detection(report: dict[str, Any], key: str, field: str) -> str:
+    values = []
+    for item in cast(list[dict[str, Any]], report.get(key, [])):
+        value = item.get(field)
+        if isinstance(value, str):
+            values.append(value)
+    return ", ".join(values)
 
 
 def _render_pack_sources(pack: ContextPack) -> str:
