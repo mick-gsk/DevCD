@@ -50,13 +50,14 @@ See [Release Readiness](docs/devcd/release-readiness.md) for the full alpha bar.
 ## Install
 
 ```bash
-python -m pip install --disable-pip-version-check --quiet devcd
-devcd onboard
+python -m pip install --disable-pip-version-check --quiet devcd && devcd setup
 ```
 
-Use this as the default first-run flow. `devcd onboard` is the primary
-entrypoint and prints a clear local success chain: verify, prepare, seed,
-prove, continue. The `--quiet` install keeps first-run output focused.
+Use this as the default first-run flow. `devcd setup` is the install-time
+wizard: it configures one or multiple projects, lets you select your agent
+targets, and seeds an initial local handoff so the next agent can continue
+without an extra manual setup step. The `--quiet` install keeps first-run
+output focused.
 
 Want a quick install confirmation first?
 
@@ -83,9 +84,9 @@ python -m pip install -e ".[dev]"
 
 DevCD now has one primary first-run path for real workspaces:
 
-1. Run `devcd onboard`.
-2. Follow the printed stages (verify, prepare, seed, prove, continue).
-3. Re-run `devcd onboard` whenever you switch to a fresh agent.
+1. Run `devcd setup`.
+2. Select project paths and agent targets in the wizard.
+3. Start or resume work from `devcd agentic action-packet`.
 
 Need proof before touching a real workspace?
 
@@ -100,12 +101,15 @@ chat recap.
 When you are ready for the real workspace, start here:
 
 ```bash
-devcd onboard
+devcd setup
 ```
 
-`devcd onboard` applies the local-first setup path directly and prints explicit
-stage outcomes. Use `--preview` only when you explicitly want a read-only plan,
-and `--yes` only when you want to force proposal-based apply behavior.
+`devcd setup` applies the local-first setup path directly and seeds the initial
+goal plus next action for the first handoff. Use `--projects` for
+comma-separated paths and `--agents` for an explicit target subset.
+
+`devcd onboard` remains available when you want a single-workspace guided flow
+with stage-by-stage output (`--preview`, `--yes`, `--no-tui`).
 
 Start from the handoff surface the next agent should read first:
 
@@ -185,9 +189,11 @@ DevCD gives agents a local, typed, policy-filtered continuity layer:
 
 ## Highlights
 
-- `devcd onboard` - first-run wrapper for config, selected agent instruction
-  files, `.devcd/agent-layer-profile.json`, and the primary Action Packet
-  workflow entry point.
+- `devcd setup` - install-time wizard for multi-project config, manual
+  agent-target selection, initial handoff seeding, and immediate Action Packet
+  readiness.
+- `devcd onboard` - single-workspace guided wrapper for config, selected agent
+  instruction files, and staged setup output.
 - `devcd handoff` - one-command goal, failure, and next-action capture before
   switching to a fresh agent.
 - `devcd capture` - daemonless, policy-gated continuity metadata capture.

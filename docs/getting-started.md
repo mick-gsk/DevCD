@@ -2,23 +2,23 @@
 
 DevCD lets a new agent continue from local, policy-filtered context without asking you to recap. The first success point is a warm-started agent workspace, not a running daemon and not a demo fixture. The goal is: Stop re-explaining yourself to AI agents.
 
-Use this guide when you want DevCD to solve the real frustration: a new agent starts cold and asks you to re-explain the work. The path below gets from a fresh checkout to a local Action Packet in 2 to 5 minutes, then leaves live daemon ingestion and MCP integration as explicit follow-up paths. The primary entry point is `devcd onboard`, which guides the full success chain.
+Use this guide when you want DevCD to solve the real frustration: a new agent starts cold and asks you to re-explain the work. The path below gets from a fresh checkout to a local Action Packet in 2 to 5 minutes, then leaves live daemon ingestion and MCP integration as explicit follow-up paths. The primary entry point is `devcd setup`, which guides the full install-time setup chain.
 
 <div class="devcd-happy-path">
 	<div class="devcd-happy-path__step devcd-callout--checkpoint">
 		<strong>1. Start once</strong>
-		<p>Run one command to begin the guided local success chain.</p>
-		<code>devcd onboard</code>
+		<p>Run one command to install DevCD and start the setup wizard.</p>
+		<code>python -m pip install --disable-pip-version-check --quiet devcd &amp;&amp; devcd setup</code>
 	</div>
 	<div class="devcd-happy-path__step devcd-callout--trust">
-		<strong>2. Follow the stages</strong>
-		<p>Use onboard stage output to verify, prepare, seed, and prove continuity.</p>
-		<code>devcd onboard</code>
+		<strong>2. Configure interactively</strong>
+		<p>Select project paths and agent targets in the terminal wizard.</p>
+		<code>devcd setup</code>
 	</div>
 	<div class="devcd-happy-path__step devcd-callout--safe-share">
-		<strong>3. Reuse the same command</strong>
-		<p>Re-run onboard whenever a fresh agent session starts.</p>
-		<code>devcd onboard</code>
+		<strong>3. Continue from Action Packet</strong>
+		<p>Agents can start directly from the seeded handoff context.</p>
+		<code>devcd agentic action-packet</code>
 	</div>
 </div>
 
@@ -38,25 +38,26 @@ own workspace. Then come back here for the real path.
 
 ## Warm-start path: make the real workspace useful
 
-This path starts with your actual local workspace. It starts no background service until you explicitly choose `devcd run`, makes no remote calls, and keeps agent setup inside explicit terminal choices. After `devcd onboard`, the next agent should know to read `devcd agentic action-packet` before asking you to recap; agents with shell access can capture continuity metadata themselves, and agents without shell access only read DevCD context.
+This path starts with your actual local workspace. It starts no background service until you explicitly choose `devcd run`, makes no remote calls, and keeps agent setup inside explicit terminal choices. After `devcd setup`, the next agent should know to read `devcd agentic action-packet` before asking you to recap; agents with shell access can capture continuity metadata themselves, and agents without shell access only read DevCD context.
 
-Success checkpoint after Step 2:
+Success checkpoint after Step 1:
 
-- `devcd.toml` exists locally.
+- `devcd.toml` exists for each selected project.
 - Selected agent runtime files contain the DevCD managed continuity block.
-- A fresh agent in this workspace should start from `devcd agentic action-packet`.
+- A fresh agent in each configured workspace should start from `devcd agentic action-packet`.
 - No daemon was started and no external agent config was mutated.
 
 ### Step 1: Install
 
 ```bash
-python -m pip install --disable-pip-version-check --quiet devcd
-devcd onboard
+python -m pip install --disable-pip-version-check --quiet devcd && devcd setup
 ```
 
-What happened: the `devcd` CLI is now available and `devcd onboard` runs the
-guided first-run chain in one command with clear stage output. The `--quiet`
-install keeps first-run terminal output cleaner.
+What happened: the `devcd` CLI is now available and `devcd setup` runs the
+interactive setup wizard in one command. It configures the selected projects,
+writes the agent-ready files you chose, and seeds an initial goal plus next
+action so the first Action Packet is immediately useful. The `--quiet` install
+keeps first-run terminal output cleaner.
 
 Optional fast proof before onboarding:
 
@@ -83,22 +84,24 @@ If you prefer an isolated local tool install and already use one of these
 tooling paths, you can install from the same checkout with `pipx install .` or
 `uv tool install .` instead.
 
-Success looks like: `devcd onboard` prints the five stages (verify, prepare,
-seed, prove, continue) and ends with `Return command: devcd onboard`.
+Success looks like: `devcd setup` prints a setup summary with configured and
+failed project counts, and each configured workspace is ready for
+`devcd agentic action-packet`.
 
-Next: follow any `attention` stage guidance, then rerun `devcd onboard`.
+Next: open the Action Packet in any configured project.
 
 If it fails: confirm Python 3.11+ is active, then rerun the install. Use
 `devcd smoke` for a narrow install check and `devcd doctor` for local
 remediation details.
 
-### Step 2: Onboard the workspace
+### Step 2: Single-workspace guided alternative (`onboard`)
 
 ```bash
 devcd onboard
 ```
 
-What happened: `devcd onboard` runs the full guided local setup. It creates or
+What happened: `devcd onboard` runs the full guided local setup for the current
+workspace only. It creates or
 keeps `devcd.toml`, prepares selected local agent runtime files, and reports
 what still needs attention without starting the daemon.
 

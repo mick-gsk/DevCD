@@ -8,11 +8,12 @@ Use the friendly workspace-first wrapper when you want the next agent to have a
 clear warm-start path immediately:
 
 ```bash
-devcd onboard
+devcd setup
 ```
 
-That default prepares the common local agent targets for the current
-workspace. Use `--agents` only when you want a narrower target list.
+That default can configure one or multiple projects, prompts for the agent
+targets you use, and seeds an initial goal + next action so the first Action
+Packet is ready without extra manual bootstrap steps.
 
 If you prefer the lower-level initialization primitive, make the current
 workspace agent-ready during initialization:
@@ -35,8 +36,7 @@ Non-interactive equivalent:
 devcd init --agent-ready --agents copilot,claude,codex,openclaw
 ```
 
-If you only want the same selection behavior through the friendlier wrapper,
-use:
+If you only want the single-workspace guided variant, use:
 
 ```bash
 devcd onboard --agents copilot,claude,codex,openclaw
