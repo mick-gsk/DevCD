@@ -7,6 +7,8 @@ from uuid import uuid4
 
 from pydantic import BaseModel, Field
 
+from devcd.slices.vision_layer.models import VisionBlock
+
 
 class FreshnessStatus(StrEnum):
     CURRENT = "current"
@@ -311,6 +313,7 @@ class ContinuityPacket(BaseModel):
     session_contract: SessionContract | None = None
     withheld_context: list[WithheldContext] = Field(default_factory=list)
     policy_decision: PolicySummary
+    vision: VisionBlock | None = Field(default=None)
     provenance: list[str] = Field(default_factory=list)
     pack_metadata: dict[str, Any] = Field(default_factory=dict)
     confidence: float = Field(default=0.0, ge=0.0, le=1.0)

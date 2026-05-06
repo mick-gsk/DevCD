@@ -56,6 +56,7 @@ from devcd.slices.host_state_engine.service import StateEngine
 from devcd.slices.memory_layer.models import MemoryEntry, MemoryScope
 from devcd.slices.memory_layer.service import MemoryStore
 from devcd.slices.policy_layer.service import PolicyEngine
+from devcd.slices.vision_layer.service import VisionService
 
 _ALL_STATE_AREAS = (
     "summary",
@@ -486,11 +487,13 @@ class AmbientContextService:
         memory_store: MemoryStore,
         policy_engine: PolicyEngine,
         feedback_path: Path | None = None,
+        vision_service: VisionService | None = None,
     ) -> None:
         self.state_engine = state_engine
         self.memory_store = memory_store
         self.policy_engine = policy_engine
         self.feedback_path = feedback_path or Path(".devcd/context-feedback.jsonl")
+        self._vision_service = vision_service
         self._dismissed_suggestions: dict[str, ProactiveSuggestion] = {}
         self._suggestion_cooldown = timedelta(minutes=30)
 
@@ -733,7 +736,13 @@ class AmbientContextService:
             context_pack=context_pack,
         )
         if include_empty_guidance:
-            return _with_empty_passport_guidance(packet)
+            packet = _with_empty_passport_guidance(packet)
+        if self._vision_service is not None:
+            surface_label = surface.kind.value if surface is not None else "agent"
+            vision_block = self._vision_service.get_block(
+                self.policy_engine, surface=surface_label
+            )
+            packet = packet.model_copy(update={"vision": vision_block})
         return packet
 
     def create_context_budget_report(
