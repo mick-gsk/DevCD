@@ -212,6 +212,21 @@ class PolicyEngine:
             data_class="metadata",
         )
 
+    def decide_vision_inject(self, surface: str) -> PolicyDecision:
+        if self._allow_local_storage:
+            return PolicyDecision(
+                kind=PolicyDecisionKind.ALLOW,
+                reason="vision injection into local agent surface is allowed by default policy",
+                operation="vision_inject",
+                source=surface,
+            )
+        return PolicyDecision(
+            kind=PolicyDecisionKind.DENY,
+            reason="vision injection denied: local storage is not permitted by policy",
+            operation="vision_inject",
+            source=surface,
+        )
+
     def decide_agentic_runner_output_store(self, data_class: str = "metadata") -> PolicyDecision:
         if data_class != "metadata" or "metadata" not in self._allowed_data_classes:
             return PolicyDecision(
