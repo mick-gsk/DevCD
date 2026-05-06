@@ -18,7 +18,11 @@ from devcd.slices.ambient_context.models import (
     WithheldContext,
 )
 from devcd.slices.ambient_context.service import AmbientContextService
+from devcd.slices.events.ledger import EventLedger
+from devcd.slices.events.models import DevEvent, EventSource
+from devcd.slices.policy_layer.models import PolicyDecision, PolicyDecisionKind
 from devcd.slices.policy_layer.service import PolicyEngine
+from devcd.slices.vision_layer.service import VisionService
 
 
 class AgenticContextService:
@@ -26,9 +30,13 @@ class AgenticContextService:
         self,
         ambient_context_service: AmbientContextService,
         policy_engine: PolicyEngine,
+        vision_service: VisionService | None = None,
+        event_ledger: EventLedger | None = None,
     ) -> None:
         self.ambient_context_service = ambient_context_service
         self.policy_engine = policy_engine
+        self._vision_service = vision_service
+        self._event_ledger = event_ledger
         self._reports: list[ScoutReport] = []
 
     def create_scout_tasks(
@@ -85,7 +93,7 @@ class AgenticContextService:
         latest_report = self._reports[-1] if self._reports else None
         if latest_report is not None:
             next_action = latest_report.next_action or latest_report.summary
-        return ActionPacket(
+        action_packet = ActionPacket(
             current_goal=current_goal,
             next_action=next_action,
             recommended_agent_mode=self._recommended_agent_mode(packet),
@@ -101,6 +109,30 @@ class AgenticContextService:
             ],
             policy_summary=packet.policy_decision.reason,
         )
+        if self._vision_service is not None:
+            vision_block = self._vision_service.get_block(
+                self.policy_engine, surface=surface
+            )
+            action_packet = action_packet.model_copy(update={"vision": vision_block})
+            if self._event_ledger is not None:
+                decision_kind = (
+                    PolicyDecisionKind.ALLOW
+                    if vision_block is not None
+                    else PolicyDecisionKind.DENY
+                )
+                self._event_ledger.append(
+                    DevEvent(
+                        source=EventSource.SYSTEM,
+                        type="vision_injected",
+                        payload={"surface": "action_packet", "allowed": vision_block is not None},
+                    ),
+                    PolicyDecision(
+                        kind=decision_kind,
+                        reason="vision injection event",
+                        operation="vision_injected",
+                    ),
+                )
+        return action_packet
 
     def accept_scout_report(self, report: ScoutReport) -> ScoutReport:
         if not report.evidence:

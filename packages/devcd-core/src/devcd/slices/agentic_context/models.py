@@ -7,6 +7,7 @@ from uuid import uuid4
 from pydantic import BaseModel, Field, field_validator, model_validator
 
 from devcd.slices.ambient_context.models import ContextBudget, ContextReference, SessionContract
+from devcd.slices.vision_layer.models import VisionBlock
 
 
 class ScoutTaskKind(StrEnum):
@@ -146,6 +147,7 @@ class ActionPacket(BaseModel):
     verification_required: bool = True
     withheld_context: list[ActionPacketWithheldContext] = Field(default_factory=list, max_length=20)
     policy_summary: str | None = Field(default=None, max_length=1000)
+    vision: VisionBlock | None = Field(default=None)
     ready_for_agent: bool = False
     created_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
 
