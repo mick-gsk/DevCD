@@ -112,12 +112,33 @@ class ScoutRunResult(BaseModel):
     raw_output_stored: bool = False
 
 
+class ActionPacketBlocker(BaseModel):
+    kind: str = Field(default="blocker", max_length=80)
+    summary: str = Field(min_length=1, max_length=500)
+    reason: str | None = Field(default=None, max_length=500)
+    policy_reason: str = Field(
+        default="visible blocker signal is allowed by policy",
+        min_length=1,
+        max_length=500,
+    )
+
+
+class ActionPacketWithheldContext(BaseModel):
+    kind: str = Field(default="withheld", max_length=80)
+    category: str = Field(default="policy", max_length=80)
+    policy_reason: str = Field(min_length=1, max_length=500)
+    safe_summary: str = Field(min_length=1, max_length=500)
+
+
 class ActionPacket(BaseModel):
     schema_version: str = "1.0"
     current_goal: str | None = Field(default=None, max_length=1200)
     next_action: str | None = Field(default=None, max_length=500)
     recommended_agent_mode: str = Field(default="continuation", max_length=80)
     evidence: list[ScoutEvidence] = Field(default_factory=list, max_length=30)
+    blockers: list[ActionPacketBlocker] = Field(default_factory=list, max_length=20)
+    do_not_repeat: list[str] = Field(default_factory=list, max_length=20)
+    withheld_context: list[ActionPacketWithheldContext] = Field(default_factory=list, max_length=20)
     policy_summary: str | None = Field(default=None, max_length=1000)
     ready_for_agent: bool = False
     created_at: datetime = Field(default_factory=lambda: datetime.now(UTC))

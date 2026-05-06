@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 import sys
 from datetime import UTC, datetime
 
@@ -18,7 +19,7 @@ from devcd.slices.agentic_context.runner import SubprocessScoutRunner
 from devcd.slices.agentic_context.service import AgenticContextService
 from devcd.slices.ambient_context.service import AmbientContextService
 from devcd.slices.events.ledger import EventLedger
-from devcd.slices.events.models import DevEvent, EventSource
+from devcd.slices.events.models import DevEvent, EventSensitivity, EventSource
 from devcd.slices.host_state_engine.service import StateEngine
 from devcd.slices.memory_layer.service import MemoryStore
 from devcd.slices.policy_layer.service import PolicyEngine
@@ -164,6 +165,59 @@ def test_service_uses_visible_continuity_for_action_packet(tmp_path) -> None:
 
     assert packet.current_goal == "Ship the local scout runner MVP"
     assert packet.evidence
+
+
+def test_service_maps_resume_signals_into_action_packet(tmp_path) -> None:
+    service, state_engine = build_agentic_context_service(tmp_path)
+    state_engine.accept_event(
+        DevEvent(
+            source=EventSource.TASK,
+            type="goal_update",
+            timestamp=datetime(2026, 5, 5, 12, 0, tzinfo=UTC),
+            payload={"current_goal": "Resume the release gate fix"},
+        )
+    )
+    state_engine.accept_event(
+        DevEvent(
+            source=EventSource.TASK,
+            type="patch_apply",
+            timestamp=datetime(2026, 5, 5, 12, 1, tzinfo=UTC),
+            payload={"summary": "Changed only the renderer output"},
+        )
+    )
+    state_engine.accept_event(
+        DevEvent(
+            source=EventSource.TASK,
+            type="test_failure",
+            timestamp=datetime(2026, 5, 5, 12, 2, tzinfo=UTC),
+            payload={
+                "reason": "make check failed on policy assertions",
+                "suggested_next_action": "Inspect the policy assertion before editing",
+                "do_not_repeat": ["Do not tweak the renderer without checking the contract"],
+            },
+        )
+    )
+    state_engine.accept_event(
+        DevEvent(
+            source=EventSource.NOTES,
+            type="note_update",
+            timestamp=datetime(2026, 5, 5, 12, 3, tzinfo=UTC),
+            payload={"title": "PRIVATE_NOTE_PAYLOAD"},
+            sensitivity=EventSensitivity.SENSITIVE,
+            data_class="metadata",
+        )
+    )
+
+    packet = service.create_action_packet(surface="coding-agent", context_pack="developer")
+    body = packet.model_dump(mode="json")
+
+    assert body["blockers"][0]["summary"] == "make check failed on policy assertions"
+    assert body["do_not_repeat"] == [
+        "Do not tweak the renderer without checking the contract"
+    ]
+    assert body["withheld_context"][0]["category"] == "sensitivity"
+    assert "sensitive events" in body["withheld_context"][0]["policy_reason"]
+    assert "PRIVATE_NOTE_PAYLOAD" not in json.dumps(body)
 
 
 def test_accept_scout_report_updates_next_action(tmp_path) -> None:

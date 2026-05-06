@@ -6,7 +6,7 @@ from pathlib import Path
 
 from devcd.slices.ambient_context.service import AmbientContextService
 from devcd.slices.events.ledger import EventLedger
-from devcd.slices.events.models import DevEvent, EventSource
+from devcd.slices.events.models import DevEvent, EventSensitivity, EventSource
 from devcd.slices.host_state_engine.service import StateEngine
 from devcd.slices.mcp_server.service import READ_ONLY_RESOURCE_URIS, ReadOnlyMCPServer
 from devcd.slices.memory_layer.service import MemoryStore
@@ -465,6 +465,28 @@ def test_mcp_server_action_packet_contains_ready_agent_context(tmp_path) -> None
             payload={"current_goal": "Read agentic action packet through MCP"},
         )
     )
+    state_engine.accept_event(
+        DevEvent(
+            source=EventSource.TASK,
+            type="test_failure",
+            timestamp=datetime(2026, 5, 5, 10, 1, tzinfo=UTC),
+            payload={
+                "reason": "MCP action packet lacks resume signals",
+                "suggested_next_action": "Assert the MCP action-packet contract fields",
+                "do_not_repeat": ["Do not ship an action packet without stale-attempt warnings"],
+            },
+        )
+    )
+    state_engine.accept_event(
+        DevEvent(
+            source=EventSource.NOTES,
+            type="note_update",
+            timestamp=datetime(2026, 5, 5, 10, 2, tzinfo=UTC),
+            payload={"title": "PRIVATE_NOTE_PAYLOAD"},
+            sensitivity=EventSensitivity.SENSITIVE,
+            data_class="metadata",
+        )
+    )
 
     body = read_resource(server, "devcd://context/action-packet")
 
@@ -473,6 +495,13 @@ def test_mcp_server_action_packet_contains_ready_agent_context(tmp_path) -> None
     assert "next_action" in body
     assert "ready_for_agent" in body
     assert "policy_summary" in body
+    assert body["blockers"][0]["summary"] == "MCP action packet lacks resume signals"
+    assert body["do_not_repeat"] == [
+        "Do not ship an action packet without stale-attempt warnings"
+    ]
+    assert body["withheld_context"][0]["category"] == "sensitivity"
+    assert "sensitive events" in body["withheld_context"][0]["policy_reason"]
+    assert "PRIVATE_NOTE_PAYLOAD" not in json.dumps(body)
 
 
 def test_mcp_server_action_packet_listed_in_resources(tmp_path) -> None:

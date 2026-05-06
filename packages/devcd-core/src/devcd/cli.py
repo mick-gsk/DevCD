@@ -18,7 +18,7 @@ import uvicorn
 
 from devcd.host import create_app
 from devcd.kernel.settings import DevCDSettings
-from devcd.slices.agentic_context.models import ScoutReport
+from devcd.slices.agentic_context.models import ActionPacket, ScoutReport
 from devcd.slices.agentic_context.service import AgenticContextService
 from devcd.slices.ambient_context.models import (
     AgentContextSurface,
@@ -341,6 +341,49 @@ def _render_agent_ready_report(report: list[dict[str, str]]) -> str:
             "- respect withheld context and local policy decisions",
         ]
     )
+    return "\n".join(lines)
+
+
+def _render_action_packet(packet: ActionPacket) -> str:
+    lines = [
+        "# DevCD Action Packet",
+        "",
+        "## Start Brief",
+        f"- ready_for_agent: {str(packet.ready_for_agent).lower()}",
+        f"- recommended_agent_mode: {packet.recommended_agent_mode}",
+        f"- current_goal: {packet.current_goal or 'unknown'}",
+        f"- next_action: {packet.next_action or 'Use Scout Tasks to gather context.'}",
+        "",
+        "## Evidence",
+    ]
+    if packet.evidence:
+        for evidence in packet.evidence:
+            lines.append(f"- {evidence.source}: {evidence.summary}")
+    else:
+        lines.append("- No policy-visible evidence is available yet.")
+    lines.extend(["", "## Blockers"])
+    if packet.blockers:
+        for blocker in packet.blockers:
+            if blocker.reason:
+                lines.append(f"- {blocker.summary}: {blocker.reason}")
+            else:
+                lines.append(f"- {blocker.summary}")
+    else:
+        lines.append("- No visible blockers are attached.")
+    lines.extend(["", "## Do Not Repeat"])
+    if packet.do_not_repeat:
+        lines.extend(f"- {item}" for item in packet.do_not_repeat)
+    else:
+        lines.append("- No stale attempt warning is attached.")
+    lines.extend(["", "## Withheld Context"])
+    if packet.withheld_context:
+        for withheld in packet.withheld_context:
+            lines.append(f"- {withheld.category}: {withheld.safe_summary}")
+            lines.append(f"  policy_reason: {withheld.policy_reason}")
+    else:
+        lines.append("- No policy-withheld context is attached.")
+    lines.extend(["", "## Policy"])
+    lines.append(f"- {packet.policy_summary or 'No policy summary was attached.'}")
     return "\n".join(lines)
 
 
@@ -1146,10 +1189,34 @@ def agentic_action_packet(
     if output_json:
         typer.echo(json.dumps(packet.model_dump(mode="json"), indent=2))
         return
-    typer.echo("Action Packet")
-    typer.echo(f"- ready_for_agent: {packet.ready_for_agent}")
-    typer.echo(f"- current_goal: {packet.current_goal or 'unknown'}")
-    typer.echo(f"- next_action: {packet.next_action or 'Use Scout Tasks to gather context.'}")
+    typer.echo(_render_action_packet(packet))
+
+
+@agentic_app.command("action-packet-demo")
+def agentic_action_packet_demo(
+    events: Annotated[Path, typer.Option("--events", help="JSONL file with DevCD events.")],
+    surface: Annotated[str, typer.Option("--surface", help="Context surface kind.")] = (
+        "coding-agent"
+    ),
+    pack: Annotated[str, typer.Option("--pack", help="Context pack renderer id.")] = "developer",
+    output_json: Annotated[
+        bool,
+        typer.Option("--json", help="Print machine-readable JSON output."),
+    ] = False,
+) -> None:
+    """Generate a read-only Action Packet from local JSONL events."""
+    with TemporaryDirectory() as temporary_directory:
+        service, state_engine = _build_demo_agentic_context_service(Path(temporary_directory))
+        for event in _read_jsonl_events(events):
+            state_engine.accept_event(event)
+        packet = service.create_action_packet(
+            surface=surface,
+            context_pack=_context_pack_id(pack),
+        )
+    if output_json:
+        typer.echo(json.dumps(packet.model_dump(mode="json"), indent=2))
+        return
+    typer.echo(_render_action_packet(packet))
 
 
 @agentic_app.command("report")
@@ -2381,6 +2448,22 @@ def _build_demo_context_service(
     state_engine = StateEngine(policy_engine, memory_store, event_ledger)
     service = AmbientContextService(state_engine, memory_store, policy_engine)
     return service, state_engine
+
+
+def _build_demo_agentic_context_service(
+    temporary_directory: Path,
+) -> tuple[AgenticContextService, StateEngine]:
+    policy_engine = PolicyEngine.default()
+    memory_store = MemoryStore.with_ttl_seconds(315360000)
+    event_ledger = EventLedger(temporary_directory / "events.jsonl")
+    state_engine = StateEngine(policy_engine, memory_store, event_ledger)
+    ambient_service = AmbientContextService(
+        state_engine,
+        memory_store,
+        policy_engine,
+        feedback_path=temporary_directory / "context-feedback.jsonl",
+    )
+    return AgenticContextService(ambient_service, policy_engine), state_engine
 
 
 def _build_mcp_server(settings: DevCDSettings) -> ReadOnlyMCPServer:

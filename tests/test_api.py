@@ -324,6 +324,32 @@ def test_agentic_context_action_packet_route_returns_packet() -> None:
             "payload": {"current_goal": "Expose the agentic action packet"},
         },
     )
+    client.post(
+        "/event",
+        headers=headers,
+        json={
+            "source": "task",
+            "type": "test_failure",
+            "timestamp": "2026-05-05T12:01:00Z",
+            "payload": {
+                "reason": "action packet route lacks resume signals",
+                "suggested_next_action": "Assert the action packet contract fields",
+                "do_not_repeat": ["Do not expose only current_goal and readiness"],
+            },
+        },
+    )
+    client.post(
+        "/event",
+        headers=headers,
+        json={
+            "source": "notes",
+            "type": "note_update",
+            "timestamp": "2026-05-05T12:02:00Z",
+            "payload": {"title": "PRIVATE_NOTE_PAYLOAD"},
+            "sensitivity": "sensitive",
+            "data_class": "metadata",
+        },
+    )
 
     response = client.get("/agentic-context/action-packet", headers=headers)
 
@@ -331,6 +357,11 @@ def test_agentic_context_action_packet_route_returns_packet() -> None:
     body = response.json()
     assert body["current_goal"] == "Expose the agentic action packet"
     assert body["ready_for_agent"] in {True, False}
+    assert body["blockers"][0]["summary"] == "action packet route lacks resume signals"
+    assert body["do_not_repeat"] == ["Do not expose only current_goal and readiness"]
+    assert body["withheld_context"][0]["category"] == "sensitivity"
+    assert "sensitive events" in body["withheld_context"][0]["policy_reason"]
+    assert "PRIVATE_NOTE_PAYLOAD" not in response.text
 
 
 def test_agentic_context_reports_route_accepts_metadata_report() -> None:

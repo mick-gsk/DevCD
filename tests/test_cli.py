@@ -1995,6 +1995,97 @@ def test_agentic_action_packet_json_returns_ready_field(tmp_path: Path) -> None:
     assert body["schema_version"] == "1.0"
 
 
+def test_agentic_action_packet_human_output_is_agent_start_brief(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.chdir(tmp_path)
+    runtime_dir = tmp_path / "runtime"
+    runtime_dir.mkdir()
+    config_path = tmp_path / "devcd.toml"
+    config_path.write_text(
+        '[devcd]\nruntime_dir = "runtime"\nworking_memory_ttl_seconds = 315360000\n',
+        encoding="utf-8",
+    )
+    (runtime_dir / "events.jsonl").write_text(
+        "\n".join(
+            [
+                live_ledger_record(
+                    source="task",
+                    event_type="goal_update",
+                    timestamp="2026-05-05T10:00:00Z",
+                    payload={"current_goal": "Resume the release gate fix"},
+                ),
+                live_ledger_record(
+                    source="task",
+                    event_type="test_failure",
+                    timestamp="2026-05-05T10:02:00Z",
+                    payload={
+                        "reason": "make check failed on policy assertions",
+                        "suggested_next_action": "Inspect the policy assertion before editing",
+                        "do_not_repeat": [
+                            "Do not tweak the renderer without checking the contract"
+                        ],
+                    },
+                ),
+            ]
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+    runner = CliRunner()
+
+    result = runner.invoke(app, ["agentic", "action-packet", "--config", str(config_path)])
+
+    assert result.exit_code == 0
+    assert "# DevCD Action Packet" in result.output
+    assert "## Start Brief" in result.output
+    assert "- ready_for_agent: true" in result.output
+    assert "- recommended_agent_mode: debugging" in result.output
+    assert "Resume the release gate fix" in result.output
+    assert "Inspect the policy assertion before editing" in result.output
+    assert "## Evidence" in result.output
+    assert "make check failed on policy assertions" in result.output
+    assert "## Blockers" in result.output
+    assert "## Do Not Repeat" in result.output
+    assert "Do not tweak the renderer without checking the contract" in result.output
+    assert "## Withheld Context" in result.output
+    assert "No policy-withheld context is attached." in result.output
+    assert "## Policy" in result.output
+
+
+def test_agentic_action_packet_demo_renders_fixture_without_daemon() -> None:
+    events_path = Path("examples/agentic-action-packet/sample-events.jsonl")
+    runner = CliRunner()
+
+    result = runner.invoke(app, ["agentic", "action-packet-demo", "--events", str(events_path)])
+
+    assert result.exit_code == 0
+    assert "# DevCD Action Packet" in result.output
+    assert "Resume the failing release gate after Agent A lost context" in result.output
+    assert "Inspect the policy assertion before editing again" in result.output
+    assert "Do not rerun the renderer-only patch unchanged" in result.output
+    assert "sensitive events are denied by the default local policy" in result.output
+    assert "PRIVATE_AGENT_A_NOTE" not in result.output
+
+
+def test_agentic_action_packet_demo_json_emits_safe_contract() -> None:
+    events_path = Path("examples/agentic-action-packet/sample-events.jsonl")
+    runner = CliRunner()
+
+    result = runner.invoke(
+        app,
+        ["agentic", "action-packet-demo", "--events", str(events_path), "--json"],
+    )
+
+    assert result.exit_code == 0
+    body = json.loads(result.output)
+    assert body["current_goal"] == "Resume the failing release gate after Agent A lost context"
+    assert body["blockers"][0]["summary"] == "make check failed on policy assertions"
+    assert body["do_not_repeat"] == ["Do not rerun the renderer-only patch unchanged"]
+    assert body["withheld_context"][0]["category"] == "sensitivity"
+    assert "PRIVATE_AGENT_A_NOTE" not in result.output
+
+
 def test_agentic_report_accepts_json_file(tmp_path: Path) -> None:
     config_path = _write_test_config(tmp_path)
     report_path = tmp_path / "report.json"

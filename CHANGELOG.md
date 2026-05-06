@@ -6,9 +6,15 @@ The project follows Conventional Commits and Semantic Versioning once public rel
 
 ## 0.1.0 - Unreleased
 
-Short version: Initial local-first context daemon foundation with context quality scoring, control-plane report, research-session recipe, live Agent Passport, and MCP integration snippets.
+Short version: Initial local-first context daemon foundation with context quality scoring, control-plane report, research-session recipe, live Agent Passport, MCP integration snippets, and daemonless Action Packet demo.
 
 ### Added
+
+- `ActionPacketBlocker` and `ActionPacketWithheldContext` models on `ActionPacket` for structured blocker and withheld-context surfaces.
+- `devcd agentic action-packet-demo --events <file.jsonl>` daemonless CLI command that replays raw DevEvents into an in-memory service and renders the Action Packet contract via `--json` or human-readable markdown.
+- `_render_action_packet` helper that renders the full Action Packet (start brief, evidence, blockers, do-not-repeat, withheld context, policy summary) as human-readable markdown.
+- `devcd-continuity` agent skill under `skills/devcd-continuity/` for OpenClaw and agent-continuity workflows.
+- Agent Landscape documentation (`docs/devcd/agent-landscape.md`) describing the DevCD-in-the-wild ecosystem.
 
 - Research-session event recipe (`devcd recipe research-session`) with policy-gated source, note, and full-text events.
 - Context quality scoring: deterministic local score, category counts, risk notes, and suggested next actions on `ContextQualityReport`.

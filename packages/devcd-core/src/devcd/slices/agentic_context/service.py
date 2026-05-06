@@ -2,6 +2,8 @@ from __future__ import annotations
 
 from devcd.slices.agentic_context.models import (
     ActionPacket,
+    ActionPacketBlocker,
+    ActionPacketWithheldContext,
     ScoutEvidence,
     ScoutReport,
     ScoutTask,
@@ -9,9 +11,11 @@ from devcd.slices.agentic_context.models import (
 )
 from devcd.slices.ambient_context.models import (
     AgentContextSurface,
+    ContinuityBlocker,
     ContinuityPacket,
     EvidenceItem,
     SurfaceKind,
+    WithheldContext,
 )
 from devcd.slices.ambient_context.service import AmbientContextService
 from devcd.slices.policy_layer.service import PolicyEngine
@@ -86,6 +90,11 @@ class AgenticContextService:
             next_action=next_action,
             recommended_agent_mode=self._recommended_agent_mode(packet),
             evidence=[*self._evidence_from_packet(packet), *report_evidence],
+            blockers=[self._action_blocker(blocker) for blocker in packet.blockers[:20]],
+            do_not_repeat=packet.do_not_repeat[:20],
+            withheld_context=[
+                self._action_withheld_context(withheld) for withheld in packet.withheld_context[:20]
+            ],
             policy_summary=packet.policy_decision.reason,
         )
 
@@ -131,4 +140,24 @@ class AgenticContextService:
             summary=evidence.summary,
             timestamp=evidence.timestamp,
             policy_reason=evidence.policy_reason,
+        )
+
+    def _action_blocker(self, blocker: ContinuityBlocker) -> ActionPacketBlocker:
+        return ActionPacketBlocker(
+            kind=blocker.kind,
+            summary=blocker.summary,
+            reason=blocker.reason,
+            policy_reason=blocker.policy_reason,
+        )
+
+    def _action_withheld_context(self, withheld: WithheldContext) -> ActionPacketWithheldContext:
+        policy_reason = (
+            withheld.policy_reason or withheld.reason or "context was withheld by policy"
+        )
+        safe_summary = withheld.safe_summary or withheld.reason or "Context was withheld by policy."
+        return ActionPacketWithheldContext(
+            kind=withheld.kind or "withheld",
+            category=withheld.category or withheld.kind or "policy",
+            policy_reason=policy_reason,
+            safe_summary=safe_summary,
         )

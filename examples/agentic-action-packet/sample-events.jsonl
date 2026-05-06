@@ -1,0 +1,4 @@
+{"source":"task","type":"goal_update","timestamp":"2026-05-05T10:00:00Z","payload":{"current_goal":"Resume the failing release gate after Agent A lost context"}}
+{"source":"task","type":"patch_apply","timestamp":"2026-05-05T10:01:00Z","payload":{"summary":"Changed only the action-packet renderer output"}}
+{"source":"task","type":"test_failure","timestamp":"2026-05-05T10:02:00Z","payload":{"reason":"make check failed on policy assertions","suggested_next_action":"Inspect the policy assertion before editing again","do_not_repeat":["Do not rerun the renderer-only patch unchanged"]}}
+{"source":"notes","type":"note_update","timestamp":"2026-05-05T10:03:00Z","sensitivity":"sensitive","data_class":"metadata","payload":{"title":"PRIVATE_AGENT_A_NOTE"}}
