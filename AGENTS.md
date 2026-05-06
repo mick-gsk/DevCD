@@ -1,79 +1,133 @@
-# DevCD — Agent Instructions
+# AGENTS.md
 
-This document provides context for AI agents (Copilot, Claude, Codex, etc.) working in the DevCD repository.
+Telegraph style. Root rules only. Read scoped AGENTS.md before subtree work.
 
-## Project Summary
+## Start
 
-DevCD is a **local-first Developer Context Daemon** written in Python. It observes developer activity (IDE events, Git, tasks), maintains a typed state tree, stores scoped memory, and gates every observation or action through an explicit policy layer.
+- Repo: `https://github.com/mick-gsk/DevCD`
+- Replies: prefer repo-root paths and precise file refs. Keep claims grounded in current files, tests, and commands.
+- Read only the docs needed for the task. Start with `README.md`, `docs/`, relevant ADRs in `docs/decisions/`, and `specs/002-ambient-context-kernel/plan.md` when architecture or policy is involved.
+- High-confidence fixes only: verify the owning slice, policy effect, API/schema surface, and current tests before deciding.
+- Dependency-backed behavior: read FastAPI, Pydantic, Typer, Textual, or stdlib docs/types/source before assuming defaults, errors, or runtime behavior.
+- Missing deps: `python -m pip install -e ".[dev]"`, retry once, then report the first actionable error.
+- Keep changes minimal, typed, and local to the owning slice.
+- Preserve local-first defaults: observe by default, deny actions by default, never add remote export without explicit policy.
+- Cross-slice architecture, policy-rule, schema, or public contract changes need ADR/docs/spec alignment before implementation.
 
-It is **not** a model, chat interface, or task runner. It is the structured state and policy layer between a developer's working environment and any agent that assists them.
+## Map
 
-## Repository Layout
+- Core package: `packages/devcd-core/src/devcd/`.
+- Entry surfaces: `cli.py`, `host.py`, `kernel/settings.py`.
+- Shared infrastructure belongs in `kernel/` only when at least two slices need it.
+- Slice roots: `slices/agentic_context/`, `slices/ambient_context/`, `slices/events/`, `slices/git_source/`, `slices/host_state_engine/`, `slices/mcp_server/`, `slices/memory_layer/`, `slices/policy_layer/`.
+- Tests mirror behavior in `tests/`.
+- Public schemas live in `schemas/`.
+- User and architecture docs live in `docs/devcd/` and `docs/decisions/`.
+- Examples and demos live in `examples/`.
+- Scoped instructions may exist under subtrees; read them before editing inside that subtree.
 
-```
-packages/devcd-core/src/devcd/
-├── cli.py                  # CLI entry point (Typer)
-├── host.py                 # FastAPI application factory
-├── kernel/
-│   └── settings.py         # Shared settings (Pydantic BaseSettings)
-└── slices/
-    ├── events/             # Event normalization and ledger
-    ├── host_state_engine/  # State tree, event application, state API
-    ├── memory_layer/       # Working-memory (TTL) and durable memory
-    └── policy_layer/       # Policy decisions, allow/deny, audit log
+## Architecture
 
-tests/                      # Pytest tests (mirror slice structure)
-schemas/                    # JSON Schemas for events and state
-docs/devcd/                 # Architecture, memory, and policy documentation
-docs/decisions/             # Architecture Decision Records (ADRs)
-```
-
-## Architecture Rules
-
-- **Vertical Slice Architecture**: each slice owns its `models.py`, `service.py`, `api.py`, and tests.
-- `devcd/kernel/` is shared infrastructure — only add here when two or more slices need it.
-- Do **not** add outbound network calls without explicit policy, docs, and tests for the opt-in boundary.
+- Vertical slice first: each slice owns its models, service, API, and tests.
+- Do not move slice-specific logic into `kernel/` unless at least two slices need the same abstraction.
 - Every state-changing operation must return or log policy reasoning.
-- Local-first by default: no remote export unless explicitly configured.
+- Observation is allowed by default. Mutations are denied by default until policy explicitly permits them.
+- Local-first is a product boundary, not a preference. No telemetry, sync, export, or remote side effect without explicit policy and docs.
+- Public contracts stay aligned across CLI, API, MCP, docs, and schemas.
+- Additive changes first for public contracts. If a contract must change incompatibly, document the migration path.
+- Start fixes in the owning slice. Add a shared seam only when multiple slices actually need it.
 
-## Code Conventions
+## Commands
 
-- Python 3.11+ with full type annotations.
-- Pydantic v2 models throughout.
-- FastAPI for the HTTP API surface.
-- `ruff` for linting and formatting (line length 100).
-- `mypy` in strict mode for `packages/devcd-core/src`.
-- `pytest` with `pytest-asyncio` for async test coverage.
-- Conventional Commits: `feat`, `fix`, `docs`, `chore`, `test`, `refactor`.
+- Runtime: Python 3.11+.
+- Install: `python -m pip install -e ".[dev]"`.
+- Lint: `make lint`.
+- Format: `make format`.
+- Typecheck: `make typecheck`.
+- Tests: `make test`.
+- Full local gate: `make check`.
+- Smoke: `make smoke`.
+- Distribution/package proof: `make distribution`.
+- Run daemon: `make run`.
+- Docs: `make docs`; local preview: `make docs-serve`.
+- Prefer the narrowest proof first: targeted `pytest` for touched behavior, then broader repo gates when needed.
 
-## Working on a Slice
+## GitHub / CI
 
-1. Add models to `slices/<slice>/models.py`.
-2. Add service logic to `slices/<slice>/service.py`.
-3. Register routes in `slices/<slice>/api.py` and mount them in `host.py`.
-4. Add or update tests in `tests/test_<slice>.py`.
-5. Run `make check` before opening a pull request.
+- Triage issues and PRs by listing first and hydrating only the few relevant items.
+- Do not comment on, close, relabel, retitle, or merge GitHub issues or PRs unless the user explicitly asks.
+- For issue or PR work, report findings in chat first; keep claims tied to code, tests, and current behavior.
+- PR descriptions should include a short Summary and Verification section.
+- When CI matters, inspect exact runs and the fields you need; avoid broad polling or noisy scans.
+- If a task changes user-facing behavior, be ready to point to the exact command, test, doc, or schema evidence that proves it.
 
-## Key Commands
+## Gates
 
-```bash
-python -m pip install -e ".[dev]"   # Install with dev dependencies
-devcd init                           # Create devcd.toml with defaults
-devcd run                            # Start the daemon (127.0.0.1:8765)
-make check                           # Lint + typecheck + test
-make run                             # Run the daemon
-```
+- Before handoff on code, test, runtime, schema, or config changes: prove the touched surface.
+- First proof should be the cheapest focused check that can falsify the change.
+- Run `make check` before considering implementation work complete.
+- Docs-only changes: `git diff --check` plus the relevant docs validation, usually `make docs` when published docs changed.
+- Packaging, install, or release-surface changes: run `make distribution`.
+- Do not ship related failing lint, typecheck, test, docs, or distribution gates.
+- If an unrelated failure blocks full validation, say so explicitly and separate it from the touched surface.
 
-## Privacy Model
+## Code
 
-- Sensitive events (e.g., file content, secrets) are **denied by default** in the policy layer.
-- Actions are **denied by default** — observation is allowed, mutations are not.
-- Memory is stored locally in `~/.devcd/` by default.
-- No telemetry, no remote calls without explicit configuration.
+- Python only, fully typed. Prefer explicit models and clear data flow over implicit dict-shaped payloads.
+- Use Pydantic v2 models for typed boundaries.
+- Keep FastAPI, Typer, Textual, and MCP surfaces thin; business logic belongs in slice services.
+- Avoid `Any` unless a boundary genuinely requires it and the runtime validation is explicit.
+- Keep comments brief and only for non-obvious logic.
+- Preserve existing public APIs unless the task requires a contract change.
+- Do not add outbound network calls, background sync, or hidden side effects without policy coverage.
 
-## What NOT to Do
+## Tests
 
-- Do not add features outside the current slice scope unless the issue explicitly spans slices.
-- Do not add docstrings or comments to unchanged code.
-- Do not introduce network calls without a policy decision record.
-- Do not add optional dependencies to `[project.dependencies]`; use `[project.optional-dependencies]`.
+- Use `pytest` with `pytest-asyncio`.
+- Add or update focused regression tests for behavior changes.
+- Prefer executable behavior checks over assertions about doc wording or incidental strings.
+- Keep fixtures deterministic. If working-memory expiry matters, use an explicit long TTL in tests rather than time-sensitive defaults.
+- Cover the owning slice first; add cross-surface tests only when the contract actually crosses CLI, API, MCP, or schema boundaries.
+- Clean up temp files, env overrides, and mutable global state.
+
+## Docs / Changelog
+
+- Docs change with behavior, API, schema, commands, onboarding, or policy.
+- Architecture and boundary decisions belong in `docs/decisions/`.
+- Product and operator guidance belongs in `docs/devcd/`, `README.md`, and the getting-started docs.
+- Update examples in `examples/` when they are part of the surfaced workflow.
+- `mkdocs build --strict` rebuilds `site/`; do not keep generated `site/` changes unless the task intentionally updates published site artifacts.
+- Update `CHANGELOG.md` for user-facing changes; pure internal test-only or refactor-only work can usually skip it.
+
+## Git
+
+- Keep diffs minimal. Never revert unrelated user changes.
+- Stage and commit only the intended files.
+- Use conventional commit prefixes when committing.
+- No destructive git commands unless explicitly requested.
+- No branch creation, rebase, push, or PR creation unless the user asks.
+- Before handoff, check the final diff for scope discipline.
+
+## Security / Release
+
+- Never commit secrets, tokens, credentials, or private local data.
+- Sensitive events and content remain denied by default unless policy changes explicitly allow them.
+- Release, version, packaging, dependency, or distribution changes need explicit validation and aligned docs.
+- Keep `pyproject.toml`, `README.md`, `CHANGELOG.md`, and published command/docs surfaces consistent when release-facing behavior changes.
+- No remote export or third-party integration without explicit local-first policy treatment.
+
+## Apps / Platform
+
+- Primary user surfaces are CLI, HTTP API, MCP, docs, examples, and the Textual TUI.
+- Keep the same contract semantics across CLI, API, MCP, and examples whenever they describe the same capability.
+- Reuse checked-in examples and fixtures for demos and smoke coverage before inventing ad hoc paths.
+- `host.py` owns app assembly; slice APIs should mount cleanly without hidden side effects.
+- `mcp_server` stays read-oriented unless a policy decision explicitly widens its authority.
+
+## Ops / Footguns
+
+- On Windows, write repo files as UTF-8 explicitly. Locale-default encodings can break later reads.
+- In PowerShell, use BOM-free UTF-8 for TOML, Python, and config files.
+- `mkdocs build --strict` updates tracked `site/` output. Clean or ignore that output unless the task targets published static artifacts.
+- Do not edit generated artifacts in `site/`, `dist/`, or other build outputs unless the task is specifically about them.
+- Avoid broad repo exploration when a single owning slice, test, or command can answer the question.
