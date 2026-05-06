@@ -2,23 +2,23 @@
 
 DevCD lets a new agent continue from local, policy-filtered context without asking you to recap. The first success point is a warm-started agent workspace, not a running daemon and not a demo fixture. The goal is: Stop re-explaining yourself to AI agents.
 
-Use this guide when you want DevCD to solve the real frustration: a new agent starts cold and asks you to re-explain the work. The path below gets from a fresh checkout to a local Action Packet in 2 to 5 minutes, then leaves live daemon ingestion and MCP integration as explicit follow-up paths. The primary entry point is `devcd welcome`, followed by `devcd onboard --preview`; `devcd quickstart` is the interactive follow-up report around that same Action Packet workflow.
+Use this guide when you want DevCD to solve the real frustration: a new agent starts cold and asks you to re-explain the work. The path below gets from a fresh checkout to a local Action Packet in 2 to 5 minutes, then leaves live daemon ingestion and MCP integration as explicit follow-up paths. The primary entry point is `devcd onboard`, which guides the full success chain.
 
 <div class="devcd-happy-path">
 	<div class="devcd-happy-path__step devcd-callout--checkpoint">
-		<strong>1. See the path</strong>
-		<p>Run welcome first to inspect the zero-write success chain.</p>
-		<code>devcd welcome</code>
+		<strong>1. Start once</strong>
+		<p>Run one command to begin the guided local success chain.</p>
+		<code>devcd onboard</code>
 	</div>
 	<div class="devcd-happy-path__step devcd-callout--trust">
-		<strong>2. Prepare the workspace</strong>
-		<p>Preview, then apply the local agent layer without starting the daemon.</p>
-		<code>devcd onboard --preview</code>
+		<strong>2. Follow the stages</strong>
+		<p>Use onboard stage output to verify, prepare, seed, and prove continuity.</p>
+		<code>devcd onboard</code>
 	</div>
 	<div class="devcd-happy-path__step devcd-callout--safe-share">
-		<strong>3. Read the Action Packet</strong>
-		<p>Make the next agent start from current continuity instead of a recap request.</p>
-		<code>devcd agentic action-packet</code>
+		<strong>3. Reuse the same command</strong>
+		<p>Re-run onboard whenever a fresh agent session starts.</p>
+		<code>devcd onboard</code>
 	</div>
 </div>
 
@@ -50,14 +50,19 @@ Success checkpoint after Step 2:
 ### Step 1: Install
 
 ```bash
-pip install devcd
-devcd smoke
-devcd welcome
+python -m pip install --disable-pip-version-check --quiet devcd
+devcd onboard
 ```
 
-What happened: the `devcd` CLI is now available. `devcd smoke` confirms the CLI,
-Context Packs, and quickstart path are working. `devcd welcome` shows the
-zero-write path you can inspect before writing any workspace files.
+What happened: the `devcd` CLI is now available and `devcd onboard` runs the
+guided first-run chain in one command with clear stage output. The `--quiet`
+install keeps first-run terminal output cleaner.
+
+Optional fast proof before onboarding:
+
+```bash
+devcd smoke
+```
 
 **Alternatively** with pipx or uvx:
 
@@ -78,20 +83,24 @@ If you prefer an isolated local tool install and already use one of these
 tooling paths, you can install from the same checkout with `pipx install .` or
 `uv tool install .` instead.
 
-Success looks like: `devcd smoke` reports `devcd --help: ok`, `devcd context packs: ok`, `devcd quickstart: ok`, and `Next: devcd onboard --preview`.
+Success looks like: `devcd onboard` prints the five stages (verify, prepare,
+seed, prove, continue) and ends with `Return command: devcd onboard`.
 
-Next: initialize local config for this workspace.
+Next: follow any `attention` stage guidance, then rerun `devcd onboard`.
 
-If it fails: confirm Python 3.11+ is active, then rerun the install. Use `python -m pip install -e ".[dev]"` only when you want contributor tooling such as pytest, Ruff, and mypy in the same environment.
+If it fails: confirm Python 3.11+ is active, then rerun the install. Use
+`devcd smoke` for a narrow install check and `devcd doctor` for local
+remediation details.
 
 ### Step 2: Onboard the workspace
 
 ```bash
-devcd onboard --preview
-devcd onboard --yes
+devcd onboard
 ```
 
-What happened: the preview detects metadata-only workspace signals, proposes an agent archetype and target set, and writes nothing. The `--yes` run creates `devcd.toml` if it is missing, keeps it if it already exists, writes `.devcd/agent-layer-profile.json` through the local storage policy, prepares the selected local agent runtime files, and prints the local Agent Passport path without starting the daemon.
+What happened: `devcd onboard` runs the full guided local setup. It creates or
+keeps `devcd.toml`, prepares selected local agent runtime files, and reports
+what still needs attention without starting the daemon.
 
 Success looks like: `devcd.toml` exists with loopback, local storage, and policy defaults. Selected agent files contain a managed DevCD continuity block with a small capture routine:
 
@@ -103,6 +112,9 @@ Success looks like: `devcd.toml` exists with loopback, local storage, and policy
 If you want a narrower target list, pass `--agents` with a comma-separated subset.
 Use `--archetype builder`, `reviewer`, `researcher`, or `orchestrator` when you
 want to override the recommendation explicitly.
+
+Use `--preview` only when you need a read-only plan. Use `--yes` only when you
+want to force proposal-based apply behavior in non-interactive runs.
 
 For read-only inspection without changing the workspace, use:
 
@@ -199,17 +211,18 @@ Use this path when you want DevCD to accept live local events from CLI calls, ho
 ```bash
 devcd status
 devcd doctor
+devcd doctor --fix
 ```
 
-What happened: `status` summarizes local state; `doctor` gives remediation without mutating external tool configs.
+What happened: `status` summarizes local state; `doctor` gives remediation without mutating external tool configs. `doctor --fix` applies only safe local repairs (for example missing `devcd.toml` and missing `.devcd/agent-layer-profile.json`) and records policy receipts for each repair.
 
 Success looks like: config, token, daemon, ledger, policy, docs, and MCP checks are understandable.
 
 Next: start the daemon when you are ready for live context.
 
-If it fails: follow the first non-pass `doctor` next step.
+If it fails: follow the first non-pass `doctor` next step. If the issue is only missing local scaffolding, run `devcd doctor --fix` and review the repair receipts.
 
-`devcd status` reports the daemon endpoint, token source, local workspace, event/state summary, policy mode, memory path, handoff availability, MCP availability, and the next suggested command. `devcd doctor --json` emits the same readiness checks for local automation.
+`devcd status` reports the daemon endpoint, token source, local workspace, event/state summary, policy mode, memory path, handoff availability, MCP availability, and the next suggested command. `devcd doctor --json` emits the same readiness checks for local automation, and `devcd doctor --fix --json` includes applied or denied local repair receipts.
 
 ### Step 7: Start the live daemon path
 

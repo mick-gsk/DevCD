@@ -50,15 +50,19 @@ See [Release Readiness](docs/devcd/release-readiness.md) for the full alpha bar.
 ## Install
 
 ```bash
-pip install devcd
-devcd smoke
-devcd welcome
+python -m pip install --disable-pip-version-check --quiet devcd
+devcd onboard
 ```
 
-`devcd smoke` is intentionally small. It checks the CLI, built-in Context Packs,
-and a daemonless quickstart report using checked-in demo events instead of your
-local ledger. `devcd welcome` then shows the zero-write first-run path before
-you touch the workspace.
+Use this as the default first-run flow. `devcd onboard` is the primary
+entrypoint and prints a clear local success chain: verify, prepare, seed,
+prove, continue. The `--quiet` install keeps first-run output focused.
+
+Want a quick install confirmation first?
+
+```bash
+devcd smoke
+```
 
 `pipx` and `uvx` work too:
 
@@ -79,12 +83,9 @@ python -m pip install -e ".[dev]"
 
 DevCD now has one primary first-run path for real workspaces:
 
-1. Run `devcd welcome` to see the zero-write success chain.
-2. Run `devcd onboard --preview` to inspect the proposed personal agent layer.
-3. Run `devcd onboard --yes` to prepare the workspace without starting a daemon.
-4. Read `devcd agentic action-packet` before a fresh agent asks for a recap.
-5. Seed safe metadata only if the local ledger is still empty.
-6. Use `devcd quickstart` as the interactive follow-up report around that same Action Packet workflow.
+1. Run `devcd onboard`.
+2. Follow the printed stages (verify, prepare, seed, prove, continue).
+3. Re-run `devcd onboard` whenever you switch to a fresh agent.
 
 Need proof before touching a real workspace?
 
@@ -98,19 +99,13 @@ chat recap.
 
 When you are ready for the real workspace, start here:
 
-Make the current workspace agent-ready without starting a daemon or mutating
-external agent config:
-
 ```bash
-devcd onboard --preview
-devcd onboard --yes
+devcd onboard
 ```
 
-The preview detects local metadata such as languages and test tools, proposes an
-agent archetype, and does not write files. `--yes` applies the profile under the
-local storage policy and writes `.devcd/agent-layer-profile.json` alongside the
-managed agent instructions. Use `--agents` only when you want a narrower target
-list.
+`devcd onboard` applies the local-first setup path directly and prints explicit
+stage outcomes. Use `--preview` only when you explicitly want a read-only plan,
+and `--yes` only when you want to force proposal-based apply behavior.
 
 Start from the handoff surface the next agent should read first:
 
@@ -204,6 +199,7 @@ DevCD gives agents a local, typed, policy-filtered continuity layer:
 - `devcd context passport` - broader live continuity view from the configured
   local ledger.
 - `devcd context control` - visibility report for included and withheld context.
+- `devcd doctor --fix` - policy-gated local repairs for missing config/profile scaffolding.
 - `devcd mcp serve` - read-only local MCP stdio resources.
 - `devcd integrations openclaw --smoke-test` - verifies the local MCP shape
   without installing OpenClaw or mutating its config.
