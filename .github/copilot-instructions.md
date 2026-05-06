@@ -15,5 +15,5 @@ and generated workspace setup still reference `.github/copilot-instructions.md`.
 <!-- SPECKIT START -->
 For additional context about technologies to be used, project structure,
 shell commands, and other important information, read
-`specs/002-ambient-context-kernel/plan.md`.
+`specs/003-agent-vision-layer/plan.md`.
 <!-- SPECKIT END -->
