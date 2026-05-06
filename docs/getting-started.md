@@ -1,5 +1,9 @@
 # Getting Started
 
+<p align="center">
+	<img src="assets/devcd-wordmark.svg?v=20260507" alt="DevCD" width="440">
+</p>
+
 DevCD lets a new agent continue from local, policy-filtered context without asking you to recap. The first success point is a warm-started agent workspace, not a running daemon and not a demo fixture. The goal is: Stop re-explaining yourself to AI agents.
 
 Use this guide when you want DevCD to solve the real frustration: a new agent starts cold and asks you to re-explain the work. The path below gets from a fresh checkout to a local Action Packet in 2 to 5 minutes, then leaves live daemon ingestion and MCP integration as explicit follow-up paths. The primary entry point is `devcd setup`, which guides the full install-time setup chain.
