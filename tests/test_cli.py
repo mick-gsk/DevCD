@@ -249,10 +249,7 @@ def test_onboard_json_contract_is_stable(tmp_path: Path, monkeypatch: pytest.Mon
             "respect withheld-context policy notes",
         ],
         "seed_commands": [
-            (
-                'devcd handoff --goal "<current goal>" '
-                '--next-action "<safe next step>"'
-            ),
+            ('devcd handoff --goal "<current goal>" --next-action "<safe next step>"'),
             'devcd capture --kind goal --summary "<current goal>"',
             (
                 'devcd capture --kind failure --summary "<what failed>" '
@@ -291,7 +288,7 @@ def test_onboard_preview_reports_agent_layer_without_writing(
 ) -> None:
     monkeypatch.chdir(tmp_path)
     (tmp_path / "pyproject.toml").write_text(
-        "[project]\nname = \"demo\"\n[tool.pytest.ini_options]\n", encoding="utf-8"
+        '[project]\nname = "demo"\n[tool.pytest.ini_options]\n', encoding="utf-8"
     )
     (tmp_path / "AGENTS.md").write_text("# Agents\n", encoding="utf-8")
     runner = CliRunner()
@@ -793,7 +790,7 @@ def test_context_workspace_analysis_reports_detection_without_writes(
 ) -> None:
     monkeypatch.chdir(tmp_path)
     (tmp_path / "pyproject.toml").write_text(
-        "[project]\nname = \"demo\"\n[tool.pytest.ini_options]\n", encoding="utf-8"
+        '[project]\nname = "demo"\n[tool.pytest.ini_options]\n', encoding="utf-8"
     )
     (tmp_path / "AGENTS.md").write_text("# Agents\n", encoding="utf-8")
     runner = CliRunner()
@@ -2978,7 +2975,7 @@ def test_doctor_fix_creates_missing_config_with_policy_receipt(tmp_path, monkeyp
 def test_doctor_fix_applies_missing_agent_layer_profile(tmp_path, monkeypatch) -> None:
     monkeypatch.chdir(tmp_path)
     (tmp_path / "pyproject.toml").write_text(
-        "[project]\nname = \"demo\"\n[tool.pytest.ini_options]\n",
+        '[project]\nname = "demo"\n[tool.pytest.ini_options]\n',
         encoding="utf-8",
     )
     runner = CliRunner()
@@ -3243,7 +3240,7 @@ def test_quickstart_json_reports_agent_layer_console_state(
 ) -> None:
     monkeypatch.chdir(tmp_path)
     (tmp_path / "pyproject.toml").write_text(
-        "[project]\nname = \"demo\"\n[tool.pytest.ini_options]\n", encoding="utf-8"
+        '[project]\nname = "demo"\n[tool.pytest.ini_options]\n', encoding="utf-8"
     )
     runner = CliRunner()
 

@@ -62,9 +62,7 @@ def test_agent_layer_profile_rejects_unknown_archetype_and_sensitive_summary() -
 
 def test_detects_existing_agent_instruction_files(tmp_path: Path) -> None:
     (tmp_path / ".github").mkdir()
-    (tmp_path / ".github" / "copilot-instructions.md").write_text(
-        "# Copilot\n", encoding="utf-8"
-    )
+    (tmp_path / ".github" / "copilot-instructions.md").write_text("# Copilot\n", encoding="utf-8")
     (tmp_path / "AGENTS.md").write_text("# Agents\n", encoding="utf-8")
     (tmp_path / ".devcd").mkdir()
     (tmp_path / ".devcd" / "openclaw-mcp.json").write_text("{}\n", encoding="utf-8")
@@ -79,7 +77,7 @@ def test_detects_existing_agent_instruction_files(tmp_path: Path) -> None:
 
 def test_detects_python_pytest_ruff_workspace(tmp_path: Path) -> None:
     (tmp_path / "pyproject.toml").write_text(
-        "[project]\nname = \"demo\"\n[tool.pytest.ini_options]\n[tool.ruff]\n",
+        '[project]\nname = "demo"\n[tool.pytest.ini_options]\n[tool.ruff]\n',
         encoding="utf-8",
     )
 
@@ -117,7 +115,7 @@ def test_recommends_orchestrator_for_multi_agent_workspace(tmp_path: Path) -> No
 
 def test_recommends_builder_for_python_test_workspace(tmp_path: Path) -> None:
     (tmp_path / "pyproject.toml").write_text(
-        "[project]\nname = \"demo\"\n[tool.pytest.ini_options]\n", encoding="utf-8"
+        '[project]\nname = "demo"\n[tool.pytest.ini_options]\n', encoding="utf-8"
     )
 
     proposal = build_agent_layer_proposal(detect_workspace_agent_layer(tmp_path))
@@ -129,7 +127,7 @@ def test_recommends_builder_for_python_test_workspace(tmp_path: Path) -> None:
 
 
 def test_requested_archetype_overrides_detection_but_keeps_receipt(tmp_path: Path) -> None:
-    (tmp_path / "pyproject.toml").write_text("[project]\nname = \"demo\"\n", encoding="utf-8")
+    (tmp_path / "pyproject.toml").write_text('[project]\nname = "demo"\n', encoding="utf-8")
 
     proposal = build_agent_layer_proposal(
         detect_workspace_agent_layer(tmp_path), requested_archetype="researcher"

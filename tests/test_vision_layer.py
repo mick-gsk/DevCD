@@ -186,15 +186,11 @@ class TestVisionServiceCorruptFile:
 
 class TestVisionServiceSensitiveContentCheck:
     def test_email_detected(self) -> None:
-        warnings = VisionService.check_for_sensitive_content(
-            "Contact admin@example.com for help."
-        )
+        warnings = VisionService.check_for_sensitive_content("Contact admin@example.com for help.")
         assert any("email" in w.lower() for w in warnings)
 
     def test_long_token_detected(self) -> None:
-        warnings = VisionService.check_for_sensitive_content(
-            "Key: " + "A" * 45
-        )
+        warnings = VisionService.check_for_sensitive_content("Key: " + "A" * 45)
         assert len(warnings) > 0
 
     def test_url_credentials_detected(self) -> None:
@@ -288,9 +284,7 @@ class TestVisionInjectionIntoActionPacket:
         packet = service.create_action_packet(surface="coding-agent", context_pack="developer")
         assert packet.vision is None
 
-    def test_vision_is_injected_when_service_wired_and_vision_exists(
-        self, tmp_path: Path
-    ) -> None:
+    def test_vision_is_injected_when_service_wired_and_vision_exists(self, tmp_path: Path) -> None:
         vs = VisionService(tmp_path)
         vs.init_vision(domain="test-project", north_star="Ship great tools.")
         service = _build_agentic_service(tmp_path, vision_service=vs)
@@ -362,9 +356,7 @@ class TestVisionServiceUpdateT014:
         with pytest.raises(ValueError):
             vs.update_vision("   ")
 
-    def test_update_without_prior_vision_raises_file_not_found(
-        self, tmp_path: Path
-    ) -> None:
+    def test_update_without_prior_vision_raises_file_not_found(self, tmp_path: Path) -> None:
         vs = VisionService(tmp_path)
         with pytest.raises(FileNotFoundError):
             vs.update_vision("New statement.")

@@ -153,8 +153,7 @@ def _agent_layer_panel(report: dict[str, Any]) -> Vertical:
     surfaces = ", ".join(cast(list[str], agent_layer.get("surface_plan", [])))
     tools = ", ".join(cast(list[str], agent_layer.get("detected_tools", []))) or "none"
     progress = " -> ".join(
-        str(item["label"])
-        for item in cast(list[dict[str, Any]], agent_layer.get("progress", []))
+        str(item["label"]) for item in cast(list[dict[str, Any]], agent_layer.get("progress", []))
     )
     summary = (
         f"Agent layer: {agent_layer.get('archetype', 'auto')}\n"

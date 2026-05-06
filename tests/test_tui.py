@@ -36,8 +36,7 @@ def _minimal_report() -> dict[str, Any]:
             "trigger": "Switch to a fresh agent after capturing at least one goal or failure.",
             "return_command": "devcd agentic action-packet",
             "capture_command": (
-                'devcd handoff --goal "<current goal>" '
-                '--next-action "<safe next step>"'
+                'devcd handoff --goal "<current goal>" --next-action "<safe next step>"'
             ),
             "why_it_matters": "The next agent should be able to continue without a recap.",
             "success_looks_like": [
@@ -101,13 +100,9 @@ def _minimal_report() -> dict[str, Any]:
                 "command": "devcd agentic action-packet",
                 "what_happened": "Shows the next-agent handoff first.",
                 "success_looks_like": (
-                    "The next agent starts from visible continuity instead "
-                    "of a recap."
+                    "The next agent starts from visible continuity instead of a recap."
                 ),
-                "next": (
-                    'devcd handoff --goal "<current goal>" '
-                    '--next-action "<safe next step>"'
-                ),
+                "next": ('devcd handoff --goal "<current goal>" --next-action "<safe next step>"'),
                 "if_fails": "Capture a goal or failure, then rerun the Action Packet.",
                 "status": "needs continuity",
             },
@@ -115,8 +110,7 @@ def _minimal_report() -> dict[str, Any]:
                 "id": "capture",
                 "title": "Capture a compact handoff",
                 "command": (
-                    'devcd handoff --goal "<current goal>" '
-                    '--next-action "<safe next step>"'
+                    'devcd handoff --goal "<current goal>" --next-action "<safe next step>"'
                 ),
                 "what_happened": "Stores compact continuity metadata for the next agent.",
                 "success_looks_like": "The Action Packet names the goal, failure, and next action.",
@@ -159,8 +153,7 @@ def _minimal_report() -> dict[str, Any]:
             "continue_live": "devcd run",
             "get_action_packet": "devcd agentic action-packet",
             "capture_handoff": (
-                'devcd handoff --goal "<current goal>" '
-                '--next-action "<safe next step>"'
+                'devcd handoff --goal "<current goal>" --next-action "<safe next step>"'
             ),
             "get_passport": "devcd context passport",
             "connect_agent": "devcd integrations openclaw --smoke-test",
@@ -221,9 +214,7 @@ async def test_quickstart_app_renders_agent_layer_console() -> None:
         progress = pilot.app.query_one("#agent-layer-progress", Static)
         assert "builder" in str(summary.render())
         assert "devcd onboard --yes" in str(summary.render())
-        assert "Detect -> Choose -> Apply -> Seed -> Use Action Packet" in str(
-            progress.render()
-        )
+        assert "Detect -> Choose -> Apply -> Seed -> Use Action Packet" in str(progress.render())
 
 
 @pytest.mark.asyncio

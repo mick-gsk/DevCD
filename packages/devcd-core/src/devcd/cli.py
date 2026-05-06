@@ -75,10 +75,7 @@ if TYPE_CHECKING:
     from devcd.slices.vision_layer.service import VisionService
 
 app = typer.Typer(
-    help=(
-        "DevCD terminal-first continuity for AI power users. "
-        "Start with 'devcd setup'."
-    )
+    help=("DevCD terminal-first continuity for AI power users. Start with 'devcd setup'.")
 )
 context_app = typer.Typer(help="Inspect the broader local continuity view and policy receipts.")
 agentic_app = typer.Typer(help="Warm-start the next agent with action packets and scout tasks.")
@@ -111,6 +108,7 @@ def _app_callback(
     if version:
         typer.echo(f"DevCD {__version__}")
         raise typer.Exit()
+
 
 _LOCAL_TOKEN_PATH = Path(".devcd") / "token"
 _LOOPBACK_HOSTS = {"127.0.0.1", "::1", "localhost"}
@@ -925,8 +923,7 @@ def _build_onboard_report(
         "warm_start": warm_start,
         "stages": stages,
         "primary_outcome": (
-            "A fresh agent starts from the current Action Packet "
-            "instead of a recap request."
+            "A fresh agent starts from the current Action Packet instead of a recap request."
         ),
         "return_command": "devcd onboard",
         "agent_layer": {
@@ -987,7 +984,7 @@ def _build_onboard_stages(
         seed_status = "attention"
         seed_what = "No continuity metadata is visible yet in the local ledger."
         seed_success = "A compact goal/failure handoff exists for the next agent."
-        seed_next = seed_commands[0] if seed_commands else "devcd handoff --goal \"<current goal>\""
+        seed_next = seed_commands[0] if seed_commands else 'devcd handoff --goal "<current goal>"'
     else:
         seed_status = "ok"
         seed_what = "Local continuity metadata already exists."
@@ -1002,9 +999,7 @@ def _build_onboard_stages(
     )
     prove_success = "The next agent can start from goal, blocker, and next action."
     prove_next = (
-        "done"
-        if action_packet_ready
-        else (seed_commands[0] if seed_commands else "devcd onboard")
+        "done" if action_packet_ready else (seed_commands[0] if seed_commands else "devcd onboard")
     )
 
     return [
@@ -1014,8 +1009,7 @@ def _build_onboard_stages(
             "status": "ok",
             "what_happened": f"Local config state: {config_status} {config_path}.",
             "success_looks_like": (
-                "DevCD is ready to run local-first onboarding "
-                "without daemon start."
+                "DevCD is ready to run local-first onboarding without daemon start."
             ),
             "next": "done",
         },
@@ -1048,12 +1042,10 @@ def _build_onboard_stages(
             "title": "Continue",
             "status": "ok",
             "what_happened": (
-                "The same command remains the primary entry point "
-                "for future sessions."
+                "The same command remains the primary entry point for future sessions."
             ),
             "success_looks_like": (
-                "You can return to the guided chain "
-                "without remembering extra commands."
+                "You can return to the guided chain without remembering extra commands."
             ),
             "next": "devcd onboard",
         },
@@ -1176,10 +1168,7 @@ def _build_onboard_warm_start_report(
             "respect withheld-context policy notes",
         ],
         "seed_commands": [
-            (
-                'devcd handoff --goal "<current goal>" '
-                '--next-action "<safe next step>"'
-            ),
+            ('devcd handoff --goal "<current goal>" --next-action "<safe next step>"'),
             'devcd capture --kind goal --summary "<current goal>"',
             (
                 'devcd capture --kind failure --summary "<what failed>" '
@@ -2902,9 +2891,7 @@ def _apply_doctor_repairs(*, config: Path | None, config_path: Path) -> list[dic
     return repairs
 
 
-def _doctor_repair_policy_decision(
-    settings: DevCDSettings, *, repair_id: str
-) -> PolicyDecision:
+def _doctor_repair_policy_decision(settings: DevCDSettings, *, repair_id: str) -> PolicyDecision:
     event = DevEvent(
         source=EventSource.SYSTEM,
         type="doctor_repair",
@@ -2931,9 +2918,7 @@ def _build_quickstart_report(
     agent_layer = _build_quickstart_agent_layer_report(settings=settings)
     workspace_command = "devcd status" if config_exists else "devcd init"
     daemon_command = "devcd status" if daemon_reachable else "devcd run"
-    capture_command = (
-        'devcd handoff --goal "<current goal>" --next-action "<safe next step>"'
-    )
+    capture_command = 'devcd handoff --goal "<current goal>" --next-action "<safe next step>"'
     steps = [
         _quickstart_step(
             "install",
@@ -3201,9 +3186,7 @@ def _quickstart_detected_tool_names(detection: dict[str, Any]) -> list[str]:
     return names
 
 
-def _build_smoke_report(
-    *, config: Path | None, endpoint: str, demo_events: Path
-) -> dict[str, Any]:
+def _build_smoke_report(*, config: Path | None, endpoint: str, demo_events: Path) -> dict[str, Any]:
     checks: list[dict[str, Any]] = []
 
     checks.append({"id": "cli_help", "label": "devcd --help", "status": "pass"})
@@ -3236,9 +3219,7 @@ def _build_smoke_report(
     missing_quickstart_keys = sorted(required_keys - set(quickstart_report))
     quickstart_errors: list[str] = []
     if missing_quickstart_keys:
-        quickstart_errors.append(
-            f"missing keys: {', '.join(missing_quickstart_keys)}"
-        )
+        quickstart_errors.append(f"missing keys: {', '.join(missing_quickstart_keys)}")
     if quickstart_report.get("privacy", {}).get("remote_export_enabled_by_default") is not False:
         quickstart_errors.append("remote export must stay disabled by default")
     agent_layer = quickstart_report.get("agent_layer")
@@ -3254,9 +3235,7 @@ def _build_smoke_report(
     }
     missing_agent_layer_keys = sorted(required_agent_layer_keys - set(agent_layer))
     if missing_agent_layer_keys:
-        quickstart_errors.append(
-            f"agent_layer missing keys: {', '.join(missing_agent_layer_keys)}"
-        )
+        quickstart_errors.append(f"agent_layer missing keys: {', '.join(missing_agent_layer_keys)}")
     checks.append(
         {
             "id": "quickstart",
@@ -3463,7 +3442,7 @@ def _ledger_integrity_check(settings: DevCDSettings) -> dict[str, Any]:
             "warn",
             "Local event ledger not found",
             {"path": str(ledger_path) if ledger_path else "not configured"},
-            "devcd handoff --goal \"<current goal>\" --next-action \"<safe next step>\"",
+            'devcd handoff --goal "<current goal>" --next-action "<safe next step>"',
         )
     try:
         raw_lines = ledger_path.read_text(encoding="utf-8").splitlines()
@@ -3496,7 +3475,7 @@ def _ledger_integrity_check(settings: DevCDSettings) -> dict[str, Any]:
         "pass",
         f"Local event ledger is valid ({event_count} event(s))",
         {"path": str(ledger_path), "events": event_count, "parse_errors": 0},
-        "devcd handoff --goal \"<current goal>\" --next-action \"<safe next step>\"",
+        'devcd handoff --goal "<current goal>" --next-action "<safe next step>"',
     )
 
 
@@ -3924,8 +3903,7 @@ def _render_quickstart_agent_layer(agent_layer: dict[str, Any]) -> str:
     targets = ", ".join(cast(list[str], agent_layer.get("agent_targets", [])))
     surfaces = ", ".join(cast(list[str], agent_layer.get("surface_plan", [])))
     progress = " -> ".join(
-        str(item["label"])
-        for item in cast(list[dict[str, Any]], agent_layer.get("progress", []))
+        str(item["label"]) for item in cast(list[dict[str, Any]], agent_layer.get("progress", []))
     )
     return "\n".join(
         [
@@ -4492,7 +4470,7 @@ def vision_init(
     existing = svc.load()
     if existing is not None and not force:
         typer.echo(
-            f"A vision already exists (North Star: \"{existing.north_star[:60]}...\").\n"
+            f'A vision already exists (North Star: "{existing.north_star[:60]}...").\n'
             "Use --force to overwrite, or run 'devcd vision update' to update it."
         )
         raise typer.Exit(code=1)
@@ -4501,9 +4479,7 @@ def vision_init(
         typer.echo("Guided vision setup — answer four questions to compose your North Star.\n")
         if not domain:
             domain = typer.prompt("1. What is your project or domain label?")
-        project_goal = typer.prompt(
-            "2. What is the primary goal of this project in one sentence?"
-        )
+        project_goal = typer.prompt("2. What is the primary goal of this project in one sentence?")
         agent_behavior = typer.prompt(
             "3. How should agents behave when working on this project? "
             "(e.g., cautious, bold, test-first)"

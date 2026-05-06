@@ -496,9 +496,7 @@ def test_mcp_server_action_packet_contains_ready_agent_context(tmp_path) -> None
     assert "ready_for_agent" in body
     assert "policy_summary" in body
     assert body["blockers"][0]["summary"] == "MCP action packet lacks resume signals"
-    assert body["do_not_repeat"] == [
-        "Do not ship an action packet without stale-attempt warnings"
-    ]
+    assert body["do_not_repeat"] == ["Do not ship an action packet without stale-attempt warnings"]
     assert body["withheld_context"][0]["category"] == "sensitivity"
     assert "sensitive events" in body["withheld_context"][0]["policy_reason"]
     assert "PRIVATE_NOTE_PAYLOAD" not in json.dumps(body)

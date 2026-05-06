@@ -238,8 +238,7 @@ class ReadOnlyMCPServer:
                     else None,
                     "context_budget": packet.context_budget.model_dump(mode="json"),
                     "context_references": [
-                        reference.model_dump(mode="json")
-                        for reference in packet.context_references
+                        reference.model_dump(mode="json") for reference in packet.context_references
                     ],
                     "policy_summary": packet.policy_decision.reason,
                 }
