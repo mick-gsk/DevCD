@@ -249,6 +249,76 @@ class PolicyEngine:
             data_class=data_class,
         )
 
+    def decide_workflow_step_execute(self, step: object) -> PolicyDecision:
+        step_type = getattr(step, "type", "unknown")
+        if step_type == "shell":
+            if self._allow_actions:
+                return PolicyDecision(
+                    kind=PolicyDecisionKind.ALLOW,
+                    reason="shell step execution is allowed; actions are permitted by policy",
+                    operation="workflow_step_execute",
+                    data_class=step_type,
+                )
+            return PolicyDecision(
+                kind=PolicyDecisionKind.DENY,
+                reason=(
+                    "shell step execution is denied by the default observe-only policy;"
+                    " enable actions to permit shell steps"
+                ),
+                operation="workflow_step_execute",
+                data_class=step_type,
+            )
+        return PolicyDecision(
+            kind=PolicyDecisionKind.ALLOW,
+            reason=f"workflow step of type '{step_type}' is allowed by default policy",
+            operation="workflow_step_execute",
+            data_class=step_type,
+        )
+
+    def decide_catalog_install(self, source_tier: str, install_allowed: bool) -> PolicyDecision:
+        if not install_allowed:
+            return PolicyDecision(
+                kind=PolicyDecisionKind.DENY,
+                reason=(
+                    f"catalog source '{source_tier}' has install_allowed=False;"
+                    " discovery is permitted but installation is not"
+                ),
+                operation="catalog_install",
+                source=source_tier,
+            )
+        if not self._allow_local_storage:
+            return PolicyDecision(
+                kind=PolicyDecisionKind.DENY,
+                reason="catalog install denied: local storage is not permitted by policy",
+                operation="catalog_install",
+                source=source_tier,
+            )
+        return PolicyDecision(
+            kind=PolicyDecisionKind.ALLOW,
+            reason=f"catalog install from '{source_tier}' is allowed by policy",
+            operation="catalog_install",
+            source=source_tier,
+        )
+
+    def decide_instruction_layer_write(self, target: str, layer_source: str) -> PolicyDecision:
+        allowed_prefixes = (".devcd/", ".github/")
+        if any(target.startswith(p) for p in allowed_prefixes):
+            return PolicyDecision(
+                kind=PolicyDecisionKind.ALLOW,
+                reason=f"instruction layer write to '{target}' is allowed by policy",
+                operation="instruction_layer_write",
+                source=layer_source,
+            )
+        return PolicyDecision(
+            kind=PolicyDecisionKind.DENY,
+            reason=(
+                f"instruction layer write to '{target}' is denied;"
+                " only .devcd/ and .github/ targets are permitted"
+            ),
+            operation="instruction_layer_write",
+            source=layer_source,
+        )
+
     def explain_decision(
         self,
         decision: PolicyDecision,

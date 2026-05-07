@@ -18,6 +18,8 @@ from devcd.slices.memory_layer.service import MemoryStore
 from devcd.slices.policy_layer.models import PolicyDecision, PolicyDecisionKind
 from devcd.slices.policy_layer.service import PolicyEngine
 from devcd.slices.vision_layer.service import VisionService
+from devcd.slices.workflow_layer.api import router as workflow_router
+from devcd.slices.workflow_layer.catalog import WorkflowCatalog
 
 _LOOPBACK_HOSTS = {"127.0.0.1", "::1", "localhost"}
 
@@ -66,6 +68,7 @@ def create_app(settings: DevCDSettings | None = None) -> FastAPI:
         vision_service=vision_service,
         event_ledger=event_ledger,
     )
+    app.state.workflow_catalog = WorkflowCatalog.from_env(Path.cwd())
     app.state.vision_service = vision_service
     state_engine.rebuild_from_ledger()
 
@@ -97,4 +100,5 @@ def create_app(settings: DevCDSettings | None = None) -> FastAPI:
     app.include_router(state_router)
     app.include_router(ambient_context_router)
     app.include_router(agentic_context_router)
+    app.include_router(workflow_router)
     return app

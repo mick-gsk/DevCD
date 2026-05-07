@@ -1,7 +1,9 @@
 from __future__ import annotations
 
+from pathlib import Path
 from tempfile import mkdtemp
 
+import yaml
 from fastapi.testclient import TestClient
 
 from devcd.host import create_app
@@ -102,6 +104,57 @@ def test_app_wires_agentic_context_service() -> None:
     app = create_app(settings)
 
     assert hasattr(app.state, "agentic_context_service")
+
+
+def test_app_wires_workflow_catalog_service() -> None:
+    settings = DevCDSettings(api_token="test-token", runtime_dir=mkdtemp(prefix="devcd-api-test-"))
+    app = create_app(settings)
+
+    assert hasattr(app.state, "workflow_catalog")
+
+
+def test_workflow_catalog_api_lists_project_workflows(tmp_path: Path, monkeypatch) -> None:
+    monkeypatch.chdir(tmp_path)
+    workflows_dir = tmp_path / ".devcd" / "workflows"
+    workflows_dir.mkdir(parents=True)
+    (workflows_dir / "demo.yaml").write_text(
+        yaml.safe_dump({"name": "demo", "description": "demo flow", "steps": []}),
+        encoding="utf-8",
+    )
+    client = build_client()
+    headers = {"Authorization": "Bearer test-token"}
+
+    response = client.get("/workflow/catalog", headers=headers)
+
+    assert response.status_code == 200
+    names = [entry["name"] for entry in response.json()]
+    assert "demo" in names
+
+
+def test_workflow_catalog_api_resolves_definition(tmp_path: Path, monkeypatch) -> None:
+    monkeypatch.chdir(tmp_path)
+    workflows_dir = tmp_path / ".devcd" / "workflows"
+    workflows_dir.mkdir(parents=True)
+    (workflows_dir / "ship.yaml").write_text(
+        yaml.safe_dump({"name": "ship", "description": "ship flow", "steps": []}),
+        encoding="utf-8",
+    )
+    client = build_client()
+    headers = {"Authorization": "Bearer test-token"}
+
+    response = client.get("/workflow/catalog/ship", headers=headers)
+
+    assert response.status_code == 200
+    assert response.json()["name"] == "ship"
+
+
+def test_workflow_catalog_api_returns_404_for_missing_workflow() -> None:
+    client = build_client()
+    headers = {"Authorization": "Bearer test-token"}
+
+    response = client.get("/workflow/catalog/missing", headers=headers)
+
+    assert response.status_code == 404
 
 
 def test_context_work_state_api_returns_derived_state() -> None:
