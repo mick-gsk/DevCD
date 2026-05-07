@@ -1,0 +1,12 @@
+name: check-and-gate
+description: Run local checks, pause for human review, then run a smoke test.
+version: "1.0"
+steps:
+  - type: command
+    name: check
+    description: Run the full local gate (lint, typecheck, tests).
+  - type: gate
+    message: Review the check output above. Continue to smoke test?
+  - type: command
+    name: smoke
+    description: Run the smoke test to confirm the runtime is working.

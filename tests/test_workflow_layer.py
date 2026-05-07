@@ -409,3 +409,132 @@ def test_policy_allows_instruction_write_to_github_dir() -> None:
         ".github/copilot-instructions.md", "managed-core"
     )
     assert decision.allowed
+
+
+# ---------------------------------------------------------------------------
+# workflow new (CLI)
+# ---------------------------------------------------------------------------
+
+
+def test_workflow_new_creates_valid_yaml_file(tmp_path: Path) -> None:
+    from typer.testing import CliRunner
+
+    from devcd.cli import app
+
+    runner = CliRunner()
+    result = runner.invoke(app, ["workflow", "new", "my-flow", "--output-dir", str(tmp_path)])
+    assert result.exit_code == 0, result.output
+    dest = tmp_path / "my-flow.yaml"
+    assert dest.is_file()
+    raw = yaml.safe_load(dest.read_text(encoding="utf-8"))
+    defn = WorkflowDefinition.model_validate(raw)
+    assert defn.name == "my-flow"
+    assert len(defn.steps) > 0
+
+
+def test_workflow_new_fails_if_file_exists(tmp_path: Path) -> None:
+    from typer.testing import CliRunner
+
+    from devcd.cli import app
+
+    runner = CliRunner()
+    runner.invoke(app, ["workflow", "new", "my-flow", "--output-dir", str(tmp_path)])
+    result = runner.invoke(app, ["workflow", "new", "my-flow", "--output-dir", str(tmp_path)])
+    assert result.exit_code != 0
+
+
+# ---------------------------------------------------------------------------
+# workflow list (CLI)
+# ---------------------------------------------------------------------------
+
+
+def test_workflow_list_shows_builtin_workflows(tmp_path: Path) -> None:
+    from devcd.slices.workflow_layer.catalog import WorkflowCatalog
+
+    catalog = WorkflowCatalog.from_env(tmp_path)
+    entries = catalog.list_available()
+    builtin_names = [e.name for e in entries if e.source_tier.value == "builtin"]
+    assert len(builtin_names) >= 2
+    assert "check-and-gate" in builtin_names
+    assert "capture-and-handoff" in builtin_names
+
+
+def test_workflow_list_json_output(tmp_path: Path) -> None:
+    import json
+
+    from typer.testing import CliRunner
+
+    from devcd.cli import app
+
+    runner = CliRunner()
+    result = runner.invoke(app, ["workflow", "list", "--json"])
+    assert result.exit_code == 0, result.output
+    data = json.loads(result.output)
+    names = [entry["name"] for entry in data]
+    assert "check-and-gate" in names
+
+
+# ---------------------------------------------------------------------------
+# preset new (CLI)
+# ---------------------------------------------------------------------------
+
+
+def test_preset_new_creates_file_matching_resolver_glob(tmp_path: Path) -> None:
+    from typer.testing import CliRunner
+
+    from devcd.cli import app
+
+    runner = CliRunner()
+    result = runner.invoke(
+        app, ["preset", "new", "team-rules", "--target", "copilot"],
+        env={"PWD": str(tmp_path)},
+        catch_exceptions=False,
+    )
+    # fallback: invoke with cwd parameter if env PWD is not used
+    import os
+
+    orig = os.getcwd()
+    os.chdir(tmp_path)
+    try:
+        result = runner.invoke(app, ["preset", "new", "team-rules", "--target", "copilot"])
+    finally:
+        os.chdir(orig)
+
+    assert result.exit_code == 0, result.output
+    dest = tmp_path / ".devcd" / "presets" / "copilot-team-rules.md"
+    assert dest.is_file()
+    content = dest.read_text(encoding="utf-8")
+    assert "team-rules" in content
+
+
+def test_preset_new_file_is_picked_up_by_resolver(tmp_path: Path) -> None:
+    preset_dir = tmp_path / ".devcd" / "presets"
+    preset_dir.mkdir(parents=True)
+    (preset_dir / "copilot-team-rules.md").write_text("## Team rules\n\n- Rule A", encoding="utf-8")
+
+    resolver = InstructionLayerResolver(
+        workspace_root=tmp_path,
+        managed_core_content="## Managed core",
+    )
+    resolved = resolver.resolve("copilot")
+    assert "## Team rules" in resolved.content
+    assert "## Managed core" in resolved.content
+    assert any("preset" in p for p in resolved.provenance)
+
+
+def test_preset_new_fails_if_file_exists(tmp_path: Path) -> None:
+    import os
+
+    from typer.testing import CliRunner
+
+    from devcd.cli import app
+
+    runner = CliRunner()
+    orig = os.getcwd()
+    os.chdir(tmp_path)
+    try:
+        runner.invoke(app, ["preset", "new", "rules", "--target", "claude"])
+        result = runner.invoke(app, ["preset", "new", "rules", "--target", "claude"])
+    finally:
+        os.chdir(orig)
+    assert result.exit_code != 0

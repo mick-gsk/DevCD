@@ -90,12 +90,14 @@ mcp_app = typer.Typer(help="Serve read-only DevCD context through MCP.")
 integrations_app = typer.Typer(help="Print local runtime integration snippets.")
 policy_app = typer.Typer(help="Explain and simulate local policy decisions.")
 recipe_app = typer.Typer(help="Convert local workflow reports into DevCD events.")
+preset_app = typer.Typer(help="Scaffold and manage agent instruction presets.")
 app.add_typer(context_app, name="context")
 app.add_typer(agentic_app, name="agentic")
 app.add_typer(mcp_app, name="mcp")
 app.add_typer(integrations_app, name="integrations")
 app.add_typer(policy_app, name="policy")
 app.add_typer(recipe_app, name="recipe")
+app.add_typer(preset_app, name="preset")
 vision_app = typer.Typer(help="Manage your persistent agent vision and North Star.")
 app.add_typer(vision_app, name="vision")
 workflow_app = typer.Typer(help="Run, resume, and inspect structured workflows with human gates.")
@@ -2382,6 +2384,51 @@ def recipe() -> None:
     """Event recipe commands."""
 
 
+@preset_app.callback()
+def preset() -> None:
+    """Agent instruction preset commands."""
+
+
+@preset_app.command("new")
+def preset_new(
+    name: Annotated[str, typer.Argument(help="Preset name (used as filename suffix).")],
+    target: Annotated[
+        str,
+        typer.Option(
+            "--target",
+            help="Agent target (e.g. claude, copilot, cursor). Used as filename prefix.",
+        ),
+    ] = "claude",
+) -> None:
+    """Scaffold a new agent instruction preset file at .devcd/presets/<target>-<name>.md."""
+    presets_dir = Path.cwd() / ".devcd" / "presets"
+    presets_dir.mkdir(parents=True, exist_ok=True)
+    dest = presets_dir / f"{target}-{name}.md"
+    if dest.exists():
+        typer.echo(f"Preset '{dest}' already exists.", err=True)
+        raise typer.Exit(code=1)
+    scaffold = (
+        f"# {name} preset for {target}\n"
+        "#\n"
+        "# This file is a DevCD instruction preset. It is composed into the agent's\n"
+        "# instruction file using the WRAP strategy: its content is prepended to the\n"
+        "# DevCD-managed core block.\n"
+        "#\n"
+        "# Filename pattern: .devcd/presets/<target>-<name>.md\n"
+        "# Applies to: agent target '{target}'\n"
+        "#\n"
+        "# Add your team- or project-specific rules below.\n"
+        "# Keep rules concise and actionable. Avoid duplicating DevCD core rules.\n"
+        "\n"
+        f"## {name} rules\n"
+        "\n"
+        "- Add your rules here.\n"
+    )
+    dest.write_text(scaffold, encoding="utf-8")
+    typer.echo(f"Created {dest}")
+    typer.echo("Re-run 'devcd setup' to compose this preset into the agent instruction file.")
+
+
 @recipe_app.command("pytest-failure")
 def recipe_pytest_failure(
     input_path: Annotated[
@@ -2444,6 +2491,83 @@ def recipe_git_commit(
     """Convert a git commit into a DevCD JSONL event (use in a post-commit hook)."""
     report = GitCommitRecipeInput(message=message, sha=sha, branch=branch, repo=repo)
     jsonl = "\n".join(event.model_dump_json() for event in events_from_git_commit(report))
+    jsonl = f"{jsonl}\n"
+    if output is not None:
+        output.write_text(jsonl, encoding="utf-8")
+        typer.echo(f"Wrote {output}")
+        return
+    typer.echo(jsonl, nl=False)
+
+
+@recipe_app.command("new")
+def recipe_new(
+    name: Annotated[str, typer.Argument(help="Recipe name (used as filename).")],
+) -> None:
+    """Scaffold a new custom recipe YAML file at .devcd/recipes/<name>.yaml."""
+    recipes_dir = Path.cwd() / ".devcd" / "recipes"
+    recipes_dir.mkdir(parents=True, exist_ok=True)
+    dest = recipes_dir / f"{name}.yaml"
+    if dest.exists():
+        typer.echo(f"Recipe '{dest}' already exists.", err=True)
+        raise typer.Exit(code=1)
+    scaffold = (
+        f"name: {name}\n"
+        "description: \"\"\n"
+        "# event_source: ide | git | task | notes | browser | system\n"
+        "event_source: task\n"
+        f"event_type: {name.replace('-', '_')}\n"
+        "fields:\n"
+        "  - name: summary\n"
+        "    description: Short summary of what happened.\n"
+        "    required: true\n"
+        "    sensitive: false\n"
+        "  # - name: details\n"
+        "  #   description: Optional longer description.\n"
+        "  #   required: false\n"
+        "  #   sensitive: false\n"
+    )
+    dest.write_text(scaffold, encoding="utf-8")
+    typer.echo(f"Created {dest}")
+    typer.echo(f"Run with: devcd recipe run {name} --field summary=\"your summary\"")
+
+
+@recipe_app.command("run")
+def recipe_run(
+    name: Annotated[str, typer.Argument(help="Custom recipe name (from .devcd/recipes/).")],
+    field: Annotated[
+        list[str],
+        typer.Option("--field", help="Field value as key=value. Repeat for multiple fields."),
+    ] = [],  # noqa: B006
+    output: Annotated[
+        Path | None,
+        typer.Option("--output", help="Optional JSONL output path."),
+    ] = None,
+) -> None:
+    """Run a custom recipe from .devcd/recipes/<name>.yaml and emit JSONL events."""
+    from devcd.slices.events.custom_recipes import load_custom_recipes
+
+    recipes = {r.name: r for r in load_custom_recipes(Path.cwd())}
+    if name not in recipes:
+        typer.echo(f"Custom recipe '{name}' not found in .devcd/recipes/.", err=True)
+        raise typer.Exit(code=1)
+
+    values: dict[str, str] = {}
+    for pair in field:
+        if "=" not in pair:
+            typer.echo(f"Invalid --field value '{pair}': expected key=value format.", err=True)
+            raise typer.Exit(code=1)
+        k, v = pair.split("=", 1)
+        values[k.strip()] = v
+
+    from devcd.slices.events.custom_recipes import events_from_custom_recipe
+
+    try:
+        events = events_from_custom_recipe(recipes[name], values)
+    except ValueError as exc:
+        typer.echo(str(exc), err=True)
+        raise typer.Exit(code=1) from exc
+
+    jsonl = "\n".join(event.model_dump_json() for event in events)
     jsonl = f"{jsonl}\n"
     if output is not None:
         output.write_text(jsonl, encoding="utf-8")
@@ -6014,6 +6138,79 @@ def workflow_info(
             or ""
         )
         typer.echo(f"  {i + 1}. [{step.type}] {label}")
+
+
+@workflow_app.command("new")
+def workflow_new(
+    name: Annotated[str, typer.Argument(help="Name of the new workflow (used as filename).")],
+    output_dir: Annotated[
+        Path | None,
+        typer.Option(
+            "--output-dir",
+            help="Directory to write the workflow YAML. Defaults to .devcd/workflows/.",
+        ),
+    ] = None,
+) -> None:
+    """Scaffold a new workflow YAML file with annotated step examples."""
+    dest_dir = output_dir or (Path.cwd() / ".devcd" / "workflows")
+    dest_dir.mkdir(parents=True, exist_ok=True)
+    dest = dest_dir / f"{name}.yaml"
+    if dest.exists():
+        typer.echo(f"Workflow '{dest}' already exists.", err=True)
+        raise typer.Exit(code=1)
+    scaffold = (
+        f"name: {name}\n"
+        "description: \"\"\n"
+        "version: \"1.0\"\n"
+        "steps:\n"
+        "  # command step: runs a devcd sub-command\n"
+        "  - type: command\n"
+        "    name: check\n"
+        "    args: []\n"
+        "    description: Run the full local gate.\n"
+        "    timeout_seconds: 120\n"
+        "\n"
+        "  # gate step: pauses execution until 'devcd workflow resume <run-id>'\n"
+        "  - type: gate\n"
+        "    message: Review the output above. Continue?\n"
+        "\n"
+        "  # shell step: runs an arbitrary shell command\n"
+        "  # (denied by default unless allow_actions=true)\n"
+        "  - type: shell\n"
+        "    run: echo done\n"
+        "    description: Example shell step.\n"
+        "    timeout_seconds: 30\n"
+    )
+    dest.write_text(scaffold, encoding="utf-8")
+    typer.echo(f"Created {dest}")
+    typer.echo(f"Run with: devcd workflow run {dest}")
+
+
+@workflow_app.command("list")
+def workflow_list(
+    as_json: Annotated[bool, typer.Option("--json", help="Output as JSON.")] = False,
+) -> None:
+    """List all available workflows across builtin, user, and project catalogs."""
+    from devcd.slices.workflow_layer.catalog import WorkflowCatalog
+
+    catalog = WorkflowCatalog.from_env(Path.cwd())
+    entries = catalog.list_available()
+
+    if not entries:
+        typer.echo("No workflows found.")
+        return
+
+    if as_json:
+        typer.echo(
+            json.dumps(
+                [{"name": e.name, "tier": e.source_tier.value} for e in entries],
+                indent=2,
+            )
+        )
+        return
+
+    for entry in entries:
+        typer.echo(f"{entry.name:<40} [{entry.source_tier.value}]")
 
 
 def _print_run_state(state: object) -> None:

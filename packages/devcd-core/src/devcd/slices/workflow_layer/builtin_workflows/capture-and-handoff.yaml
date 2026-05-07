@@ -1,0 +1,13 @@
+name: capture-and-handoff
+description: Capture the current context, pause for review, then write the handoff packet.
+version: "1.0"
+steps:
+  - type: command
+    name: capture
+    args: ["--kind", "next_action", "--summary", "Review and update before handoff"]
+    description: Capture the current next action before switching agents.
+  - type: gate
+    message: Review the captured context. Continue to write the handoff packet?
+  - type: command
+    name: handoff
+    description: Write the agent handoff packet with current state.

@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from datetime import UTC, datetime
+from pathlib import Path
 
 import pytest
 from pydantic import ValidationError
@@ -185,3 +186,83 @@ def test_research_session_recipe_emits_metadata_events_and_sensitive_full_conten
     assert all(event.data_class == "metadata" for event in sensitive_events)
     assert "PRIVATE_ARTICLE_TEXT" in sensitive_events[0].payload["full_text"]
     assert "PRIVATE_NOTE_TEXT" in sensitive_events[1].payload["text"]
+
+
+# ---------------------------------------------------------------------------
+# custom recipe: model + loader + run
+# ---------------------------------------------------------------------------
+
+
+def test_custom_recipe_emits_event_with_correct_fields(tmp_path: pytest.TempPathFactory) -> None:
+    from devcd.slices.events.custom_recipes import CustomRecipeDefinition, events_from_custom_recipe
+
+    definition = CustomRecipeDefinition(
+        name="deploy-done",
+        event_source="system",
+        event_type="deployment",
+        fields=[],
+    )
+    events = events_from_custom_recipe(definition, {"env": "production"})
+    assert len(events) == 1
+    assert events[0].type == "deployment"
+    assert events[0].source.value == "system"
+    assert events[0].payload["recipe"] == "deploy-done"
+    assert events[0].payload["env"] == "production"
+
+
+def test_custom_recipe_sensitive_field_sets_sensitivity() -> None:
+    from devcd.slices.events.custom_recipes import (
+        CustomRecipeDefinition,
+        RecipeField,
+        events_from_custom_recipe,
+    )
+    from devcd.slices.events.models import EventSensitivity
+
+    definition = CustomRecipeDefinition(
+        name="secret-op",
+        event_source="task",
+        event_type="secret_operation",
+        fields=[
+            RecipeField(name="token", description="API token", required=True, sensitive=True),
+        ],
+    )
+    events = events_from_custom_recipe(definition, {"token": "abc123"})
+    assert events[0].sensitivity is EventSensitivity.SENSITIVE
+
+
+def test_custom_recipe_raises_on_missing_required_field() -> None:
+    from devcd.slices.events.custom_recipes import (
+        CustomRecipeDefinition,
+        RecipeField,
+        events_from_custom_recipe,
+    )
+
+    definition = CustomRecipeDefinition(
+        name="my-recipe",
+        event_source="task",
+        event_type="my_event",
+        fields=[RecipeField(name="summary", required=True)],
+    )
+    with pytest.raises(ValueError, match="summary"):
+        events_from_custom_recipe(definition, {})
+
+
+def test_load_custom_recipes_finds_yaml_files(tmp_path: Path) -> None:
+    from devcd.slices.events.custom_recipes import load_custom_recipes
+
+    recipes_dir = tmp_path / ".devcd" / "recipes"
+    recipes_dir.mkdir(parents=True)
+    (recipes_dir / "my-deploy.yaml").write_text(
+        "name: my-deploy\nevent_source: system\nevent_type: deployment\nfields: []\n",
+        encoding="utf-8",
+    )
+    results = load_custom_recipes(tmp_path)
+    assert len(results) == 1
+    assert results[0].name == "my-deploy"
+
+
+def test_load_custom_recipes_returns_empty_when_dir_missing(tmp_path: Path) -> None:
+    from devcd.slices.events.custom_recipes import load_custom_recipes
+
+    results = load_custom_recipes(tmp_path)
+    assert results == []
