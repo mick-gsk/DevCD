@@ -269,9 +269,7 @@ class ReadOnlyMCPServer:
         if uri == "devcd://context/session-contract":
             return self._json_text(self._session_contract_payload())
         if uri == "devcd://context/session-contract/concise":
-            return self._json_text(
-                self._concise_session_contract(self._session_contract_payload())
-            )
+            return self._json_text(self._concise_session_contract(self._session_contract_payload()))
         if uri == "devcd://context/session-contract/detailed":
             return self._json_text(self._session_contract_payload())
         if uri == "devcd://context/recent-timeline":

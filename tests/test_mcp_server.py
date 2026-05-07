@@ -220,8 +220,7 @@ def test_mcp_server_agent_handoff_packet_matches_cli_contract_fields(tmp_path) -
     assert body["do_not_repeat"] == [
         {
             "path": (
-                "Do not repeat the last attempted fix unchanged: "
-                "Only changed the Markdown handoff"
+                "Do not repeat the last attempted fix unchanged: Only changed the Markdown handoff"
             ),
             "rationale": (
                 "The latest failure happened after the attempted fix, so the fix did not "
@@ -736,9 +735,10 @@ def test_mcp_server_session_contract_withheld_count_matches_withheld_items(tmp_p
 
     body = read_resource(server, "devcd://context/session-contract")
 
-    assert body["session_contract"]["withheld_count"] == body["context_budget"][
-        "withheld_context_count"
-    ]
+    assert (
+        body["session_contract"]["withheld_count"]
+        == body["context_budget"]["withheld_context_count"]
+    )
 
 
 def test_mcp_server_session_contract_detailed_includes_context_references(tmp_path) -> None:

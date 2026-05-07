@@ -43,16 +43,14 @@ def test_all_skills_use_progressive_disclosure_contract() -> None:
         text = path.read_text(encoding="utf-8")
         frontmatter = _frontmatter_lines(text)
         assert any(line.startswith("name:") for line in frontmatter), f"missing name in {path}"
-        assert any(
-            line.startswith("description:") for line in frontmatter
-        ), f"missing description in {path}"
+        assert any(line.startswith("description:") for line in frontmatter), (
+            f"missing description in {path}"
+        )
 
         assert "## Progressive Disclosure" in text, f"missing progressive section in {path}"
         assert "### Level 1 - Metadata (Auto-Loaded)" in text, f"missing level 1 in {path}"
         assert "### Level 2 - Full Instructions" in text, f"missing level 2 in {path}"
-        assert (
-            "### Level 3 - Referenced Supporting Files" in text
-        ), f"missing level 3 in {path}"
+        assert "### Level 3 - Referenced Supporting Files" in text, f"missing level 3 in {path}"
 
 
 def test_level3_references_are_none_or_existing_files() -> None:

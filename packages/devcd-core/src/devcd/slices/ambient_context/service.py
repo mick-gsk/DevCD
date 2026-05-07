@@ -1560,9 +1560,7 @@ class AmbientContextService:
         elif (
             not failure_appears_resolved
             and explicit_suggested_next_action is not None
-            and not self._is_low_signal_next_action(
-            explicit_suggested_next_action
-            )
+            and not self._is_low_signal_next_action(explicit_suggested_next_action)
         ):
             suggested_next_action = explicit_suggested_next_action
         elif captured_next_action is not None:
