@@ -11,6 +11,7 @@ Telegraph style. Root rules only. Read scoped AGENTS.md before subtree work.
 - Dependency-backed behavior: read FastAPI, Pydantic, Typer, Textual, or stdlib docs/types/source before assuming defaults, errors, or runtime behavior.
 - Missing deps: `python -m pip install -e ".[dev]"`, retry once, then report the first actionable error.
 - Keep changes minimal, typed, and local to the owning slice.
+- Treat DevCD as a public product, not a private experiment; prioritize stable, documented behavior suitable for external users.
 - Preserve local-first defaults: observe by default, deny actions by default, never add remote export without explicit policy.
 - Cross-slice architecture, policy-rule, schema, or public contract changes need ADR/docs/spec alignment before implementation.
 

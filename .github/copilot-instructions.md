@@ -6,6 +6,7 @@ and generated workspace setup still reference `.github/copilot-instructions.md`.
 
 - Read `.github/instructions/copilot.instructions.md` for the full codebase patterns.
 - Keep changes minimal, typed, and covered by focused tests.
+- Treat DevCD as a public product, not a private experiment: prioritize stable, documented, user-facing behavior over ad hoc shortcuts.
 - Prefer slice-owned models, services, API routes, and tests under `packages/devcd-core/src/devcd/slices/<slice_name>/`.
 - Shared code belongs in `packages/devcd-core/src/devcd/kernel/` only when at least two slices need it.
 - Preserve local-first privacy defaults: observe by default, deny actions by default, never introduce remote export without explicit policy.

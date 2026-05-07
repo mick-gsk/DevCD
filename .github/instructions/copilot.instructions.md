@@ -55,6 +55,7 @@ shell commands, and other important information, read
 ## Code Quality
 
 - Keep changes minimal, typed, and covered by focused tests.
+- Treat DevCD as a public product, not a private experiment: favor stable, documented, user-facing behavior over ad hoc local-only shortcuts.
 - Preserve local-first privacy defaults: observe by default, deny actions by default, never introduce remote export without explicit policy.
 - Every state-changing operation must be explainable through a policy decision.
 - Keep public contracts aligned across CLI, API, MCP, docs, schemas, and examples when they describe the same capability.
