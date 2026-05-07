@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from datetime import UTC, datetime
 from enum import StrEnum
-from typing import Any
+from typing import Any, Literal
 from uuid import uuid4
 
 from pydantic import BaseModel, Field
@@ -30,3 +30,11 @@ class DevEvent(BaseModel):
     payload: dict[str, Any] = Field(default_factory=dict)
     sensitivity: EventSensitivity = EventSensitivity.NORMAL
     data_class: str = Field(default="metadata", min_length=1)
+
+
+class SubtaskCompletionEvent(BaseModel):
+    event_type: Literal["subtask_completion"]
+    subtask_id: str
+    status: Literal["complete", "incomplete", "reverted"]
+    completion_marker: str
+    timestamp: datetime
