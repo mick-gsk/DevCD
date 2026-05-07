@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import json
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
 
 import pytest
@@ -244,11 +244,12 @@ def test_feedback_adjusts_next_passport_confidence_and_actions(tmp_path) -> None
 
 def test_continuity_packet_includes_context_budget_and_session_contract(tmp_path) -> None:
     service, state_engine = build_ambient_context_service(tmp_path)
+    now = datetime.now(UTC)
     state_engine.accept_event(
         DevEvent(
             source=EventSource.TASK,
             type="goal_update",
-            timestamp=datetime(2026, 5, 5, 10, 0, tzinfo=UTC),
+            timestamp=now,
             payload={"current_goal": "Ship curated context budgets"},
         )
     )
@@ -256,7 +257,7 @@ def test_continuity_packet_includes_context_budget_and_session_contract(tmp_path
         DevEvent(
             source=EventSource.IDE,
             type="file_focus",
-            timestamp=datetime(2026, 5, 5, 10, 1, tzinfo=UTC),
+            timestamp=now,
             payload={"path": "packages/devcd-core/src/devcd/slices/ambient_context/service.py"},
         )
     )
@@ -264,7 +265,7 @@ def test_continuity_packet_includes_context_budget_and_session_contract(tmp_path
         DevEvent(
             source=EventSource.TASK,
             type="test_failure",
-            timestamp=datetime(2026, 5, 5, 10, 2, tzinfo=UTC),
+            timestamp=now,
             payload={
                 "reason": "budget report missing from passport",
                 "suggested_next_action": "Add the context budget fields first",
@@ -275,7 +276,7 @@ def test_continuity_packet_includes_context_budget_and_session_contract(tmp_path
         DevEvent(
             source=EventSource.NOTES,
             type="note_update",
-            timestamp=datetime(2026, 5, 5, 10, 3, tzinfo=UTC),
+            timestamp=now,
             payload={"title": "PRIVATE_NOTE_PAYLOAD"},
             sensitivity="sensitive",
         )
@@ -314,11 +315,12 @@ def test_continuity_packet_includes_context_budget_and_session_contract(tmp_path
 
 def test_continuity_packet_prioritizes_recent_blockers_over_older_artifacts(tmp_path) -> None:
     service, state_engine = build_ambient_context_service(tmp_path)
+    now = datetime.now(UTC)
     state_engine.accept_event(
         DevEvent(
             source=EventSource.TASK,
             type="goal_update",
-            timestamp=datetime(2026, 5, 5, 9, 0, tzinfo=UTC),
+            timestamp=now,
             payload={"current_goal": "Prefer high-signal continuity entries"},
         )
     )
@@ -326,7 +328,7 @@ def test_continuity_packet_prioritizes_recent_blockers_over_older_artifacts(tmp_
         DevEvent(
             source=EventSource.IDE,
             type="file_focus",
-            timestamp=datetime(2026, 5, 5, 9, 1, tzinfo=UTC),
+            timestamp=now - timedelta(days=2),
             payload={"path": "packages/devcd-core/src/devcd/slices/ambient_context/service.py"},
         )
     )
@@ -334,7 +336,7 @@ def test_continuity_packet_prioritizes_recent_blockers_over_older_artifacts(tmp_
         DevEvent(
             source=EventSource.TASK,
             type="test_failure",
-            timestamp=datetime(2026, 5, 5, 10, 2, tzinfo=UTC),
+            timestamp=now,
             payload={
                 "reason": "fresh blocker should outrank stale artifact",
                 "suggested_next_action": "Fix blocker-first prioritization",
@@ -353,6 +355,101 @@ def test_continuity_packet_prioritizes_recent_blockers_over_older_artifacts(tmp_
 
     assert non_intent_references
     assert non_intent_references[0].kind == "blocker"
+
+
+def test_continuity_packet_discards_stale_references_from_startup_path(tmp_path) -> None:
+    service, state_engine = build_ambient_context_service(tmp_path)
+    now = datetime.now(UTC)
+    state_engine.accept_event(
+        DevEvent(
+            source=EventSource.TASK,
+            type="goal_update",
+            timestamp=now,
+            payload={"current_goal": "Favor fresh continuity references"},
+        )
+    )
+    state_engine.accept_event(
+        DevEvent(
+            source=EventSource.IDE,
+            type="file_focus",
+            timestamp=now - timedelta(days=2),
+            payload={"path": "packages/devcd-core/src/devcd/slices/ambient_context/service.py"},
+        )
+    )
+    state_engine.accept_event(
+        DevEvent(
+            source=EventSource.TASK,
+            type="test_failure",
+            timestamp=now,
+            payload={
+                "reason": "stale references should not survive startup selection",
+                "suggested_next_action": "Prioritize fresh blocker context",
+            },
+        )
+    )
+
+    packet = service.create_continuity_packet(
+        AgentContextSurface(kind="coding-agent", name="copilot"),
+        include_empty_guidance=True,
+    )
+
+    assert packet.context_references
+    assert all(
+        reference.freshness.status is FreshnessStatus.CURRENT
+        for reference in packet.context_references
+    )
+    assert not any(reference.kind == "artifact" for reference in packet.context_references)
+
+
+def test_continuity_packet_emits_canonical_load_hints_per_reference_kind(tmp_path) -> None:
+    service, state_engine = build_ambient_context_service(tmp_path)
+    now = datetime.now(UTC)
+    state_engine.accept_event(
+        DevEvent(
+            source=EventSource.TASK,
+            type="goal_update",
+            timestamp=now,
+            payload={"current_goal": "Keep startup load hints deterministic"},
+        )
+    )
+    state_engine.accept_event(
+        DevEvent(
+            source=EventSource.IDE,
+            type="file_focus",
+            timestamp=now,
+            payload={"path": "packages/devcd-core/src/devcd/slices/ambient_context/models.py"},
+        )
+    )
+    state_engine.accept_event(
+        DevEvent(
+            source=EventSource.TASK,
+            type="test_failure",
+            timestamp=now,
+            payload={
+                "reason": "load hints must remain stable",
+                "suggested_next_action": "Verify canonical hints",
+            },
+        )
+    )
+
+    packet = service.create_continuity_packet(
+        AgentContextSurface(kind="coding-agent", name="copilot"),
+        include_empty_guidance=True,
+    )
+
+    load_hints_by_kind = {
+        reference.kind: reference.load_hint for reference in packet.context_references
+    }
+
+    assert load_hints_by_kind["intent"] == (
+        "Use this summary as the current goal; do not request raw history first."
+    )
+    assert load_hints_by_kind["blocker"] == (
+        "Use this blocker summary before repeating earlier attempts."
+    )
+    assert load_hints_by_kind["attempt"] == (
+        "Use this attempt summary to avoid rediscovering recent work."
+    )
 
 
 def test_all_feedback_categories_surface_safe_packet_quality_notes(tmp_path) -> None:

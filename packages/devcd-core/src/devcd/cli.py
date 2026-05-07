@@ -138,7 +138,12 @@ def _configure_windows_utf8_stdio() -> None:
 _LOCAL_TOKEN_PATH = Path(".devcd") / "token"
 _LOOPBACK_HOSTS = {"127.0.0.1", "::1", "localhost"}
 _REPO_ROOT = Path(__file__).resolve().parents[4]
-_SMOKE_DEMO_EVENTS = _REPO_ROOT / "examples" / "agent-handoff" / "sample-events.jsonl"
+try:
+    from importlib.resources import files as _res_files
+
+    _SMOKE_DEMO_EVENTS: Path = _res_files("devcd.examples") / "sample-events.jsonl"  # type: ignore[assignment]
+except Exception:
+    _SMOKE_DEMO_EVENTS = _REPO_ROOT / "examples" / "agent-handoff" / "sample-events.jsonl"
 _AGENT_READY_TARGETS = ("copilot", "claude", "codex", "openclaw")
 _AGENT_READY_DEFAULT_TARGETS = ("copilot", "claude", "codex")
 _AGENT_READY_DISPLAY_NAMES = {
@@ -1227,13 +1232,42 @@ def _render_action_packet(packet: ActionPacket) -> str:
     if packet.session_contract is not None:
         done_when = packet.session_contract.done_when.strip()
 
+    t0 = packet.turn_0_brief
+    t0_goal = t0.goal or "unknown"
+    t0_next = t0.next_action or "Use Scout Tasks to gather context."
+
     lines = [
         "# DevCD Action Packet",
         "",
-        "## What To Do Next",
-        f"- Next action now: {next_action}",
-        "- If you need broader context: devcd context passport",
+        "## Turn-0 Priority",
+        f"**Goal:** {t0_goal}",
+        "",
+        "**Do Not Repeat (avoid these paths):**",
     ]
+    if t0.do_not_repeat:
+        for item in t0.do_not_repeat[:3]:
+            if item.rationale:
+                lines.append(f"- {item.path} (rationale: {item.rationale})")
+            else:
+                lines.append(f"- {item.path}")
+    else:
+        lines.append("- None.")
+    lines.extend(["", "**Blockers:**"])
+    if t0.blockers:
+        for blocker in t0.blockers[:3]:
+            lines.append(f"- {blocker.summary}")
+    else:
+        lines.append("- None.")
+    lines.extend(
+        [
+            "",
+            f"**Next Action:** {t0_next}",
+            "",
+            "## What To Do Next",
+            f"- Next action now: {next_action}",
+            "- If you need broader context: devcd context passport",
+        ]
+    )
     if packet.ready_for_agent:
         lines.append("- This packet is ready: continue immediately from the next action.")
     else:
@@ -3263,7 +3297,11 @@ def _build_agentic_compliance_report(
         "blocker_events": 0,
         "artifact_events": 0,
     }
+    action_packet_reads = 0
     for event, _decision in records:
+        summary = event.payload.get("summary", "")
+        if isinstance(summary, str) and summary.startswith("hook:action-packet.before"):
+            action_packet_reads += 1
         capture_kind = event.payload.get("capture_kind")
         if not isinstance(capture_kind, str):
             continue
@@ -3293,13 +3331,23 @@ def _build_agentic_compliance_report(
         next_action=packet.next_action,
     )
     has_handoff = counts["handoff_events"] > 0
+    packet_consumed_this_session = action_packet_reads > 0
     ready = bool(packet.ready_for_agent and has_handoff)
     metrics = {
         "total_events": len(records),
         **counts,
         "startup_capture_coverage": _safe_ratio(counts["startup_events"], counts["capture_events"]),
         "handoff_capture_coverage": _safe_ratio(counts["handoff_events"], counts["capture_events"]),
+        "action_packet_reads": action_packet_reads,
     }
+    warnings: list[str] = list(vision_alignment.warnings)
+    if has_handoff and not packet_consumed_this_session:
+        warnings.append(
+            "consumption_gap: completion claimed but no action-packet read recorded in this session"
+        )
+    if packet.staleness_flag:
+        age_h = round((packet.goal_age_seconds or 0) / 3600, 1)
+        warnings.append(f"staleness: goal is {age_h}h old, consider refreshing with devcd handoff")
     completion_gate = {
         "ready": ready,
         "requires": [
@@ -3312,9 +3360,13 @@ def _build_agentic_compliance_report(
             "current_goal": packet.current_goal,
             "next_action": packet.next_action,
             "vision_alignment": vision_alignment.model_dump(mode="json"),
+            "turn0_risk": packet.turn0_risk,
+            "goal_age_seconds": packet.goal_age_seconds,
+            "staleness_flag": packet.staleness_flag,
+            "packet_consumed_this_session": packet_consumed_this_session,
         },
         "notes": [vision_alignment.note] if vision_alignment.configured else [],
-        "warnings": vision_alignment.warnings,
+        "warnings": warnings,
         "next_step": "devcd handoff --goal \"...\" --next-action \"...\"" if not ready else "done",
     }
     return {

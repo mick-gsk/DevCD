@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from datetime import UTC, datetime
+
 from devcd.slices.agentic_context.models import (
     ActionPacket,
     ActionPacketBlocker,
@@ -111,6 +113,7 @@ class AgenticContextService:
             verification_required=verification_required,
             withheld_count=packet.context_budget.withheld_context_count,
         )
+        goal_age_seconds, staleness_flag = self._goal_age()
         action_packet = ActionPacket(
             current_goal=current_goal,
             next_action=next_action,
@@ -127,6 +130,9 @@ class AgenticContextService:
                 self._action_withheld_context(withheld) for withheld in packet.withheld_context[:20]
             ],
             policy_summary=packet.policy_decision.reason,
+            turn0_risk=_turn0_risk(current_goal=current_goal, next_action=next_action),
+            goal_age_seconds=goal_age_seconds,
+            staleness_flag=staleness_flag,
         )
         if self._vision_service is not None:
             workspace_root = getattr(self.ambient_context_service, "_repo_path", None)
@@ -274,6 +280,24 @@ class AgenticContextService:
                 return done_when
         return ""
 
+    _STALENESS_THRESHOLD_SECONDS: float = 86400.0
+
+    def _goal_age(self) -> tuple[float | None, bool]:
+        """Return (goal_age_seconds, staleness_flag) derived from the event ledger."""
+        if self._event_ledger is None:
+            return None, False
+        most_recent_goal_ts: datetime | None = None
+        for event, _decision in self._event_ledger.read_records():
+            capture_kind = event.payload.get("capture_kind")
+            if capture_kind == "goal" and (
+                most_recent_goal_ts is None or event.timestamp > most_recent_goal_ts
+            ):
+                most_recent_goal_ts = event.timestamp
+        if most_recent_goal_ts is None:
+            return None, False
+        age = (datetime.now(UTC) - most_recent_goal_ts).total_seconds()
+        return round(age, 1), age >= self._STALENESS_THRESHOLD_SECONDS
+
     def _rejected_paths_from_memory(self) -> list[RejectedPath]:
         rejected: list[RejectedPath] = []
         for entry in self._visible_working_memory():
@@ -299,3 +323,11 @@ class AgenticContextService:
             if len(rejected) == 20:
                 break
         return rejected
+
+
+def _turn0_risk(*, current_goal: str | None, next_action: str | None) -> str:
+    if current_goal and next_action:
+        return "low"
+    if current_goal:
+        return "medium"
+    return "high"

@@ -58,6 +58,20 @@ DevCD version:
 - MCP shape stable? (yes/no):
 - Rating (0-100):
 
+### 6) Outcome Eval Signals (supplemental, not weighted)
+
+These supplement the above dimensions with machine-readable regression data.
+Use `devcd agentic action-packet --json` and `devcd agentic compliance --json` to collect.
+
+- `turn0_risk` in action packet: (low / medium / high)
+- `staleness_flag` in action packet: (true / false)
+- `goal_age_seconds` in action packet:
+- `action_packet_reads` in compliance metrics:
+- `packet_consumed_this_session` in completion gate signals: (true / false)
+- Any `consumption_gap` warnings? (yes/no):
+- Any `staleness` warnings? (yes/no):
+- Automated outcome eval suite pass? (`python -m pytest tests/test_agentic_context.py tests/test_cli.py -q -k "turn0_risk or staleness or eval_signal or consumption_gap"`): (yes/no)
+
 ## Weighted Score
 
 ```text

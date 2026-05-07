@@ -177,6 +177,62 @@ Collect these artifacts per run:
 - Top 3 improvements
 - Go/No-Go recommendation for broader team usage
 
+## Automated Outcome Evaluation
+
+The manual playbook above gives qualitative signal across the full Phase A-E
+lifecycle. The automated outcome eval loop covers four specific regression-prone
+failure modes that cannot be detected by unit tests alone.
+
+Run this before any release and after changes to the agentic context, compliance, or
+handoff paths.
+
+### Four Failure Modes Under Automated Test
+
+| Mode | What it measures | Pytest target |
+| --- | --- | --- |
+| Turn-0 recap risk | Does the Action Packet carry enough context that an agent can start without asking "What is your goal?" | `test_action_packet_turn0_risk_*` in `tests/test_agentic_context.py` |
+| Incorrect resource choice | Does concise variant carry the required handoff fields? Does the escalation to detailed only trigger when needed? | `test_action_packet_json_includes_turn0_risk_low_after_handoff` in `tests/test_cli.py` |
+| Staleness drift | Is a goal older than 24 h flagged with `staleness_flag=true` and a warning in the compliance report? | `test_action_packet_staleness_flag_*` and `test_compliance_json_shows_staleness_warning_for_old_goal` |
+| False completion resistance | Does the completion gate warn when an agent claims done without having read the Action Packet in the current session? | `test_completion_check_warns_when_handoff_exists_but_packet_never_read` |
+
+### Automated Eval Commands
+
+Run the targeted outcome eval suite:
+
+```powershell
+python -m pytest tests/test_agentic_context.py -q -k "turn0_risk or staleness"
+python -m pytest tests/test_cli.py -q -k "eval_signal or consumption_gap or staleness"
+```
+
+Run all agentic outcome tests together:
+
+```powershell
+python -m pytest tests/test_agentic_context.py tests/test_cli.py tests/test_internal_agentic_benchmark.py -q -k "agentic or completion_check or compliance or staleness or turn0 or eval_signal or consumption"
+```
+
+### Outcome Signals in JSON Output
+
+The following signals are now present in `devcd agentic action-packet --json` and
+`devcd agentic compliance --json` / `devcd agentic completion-check --json`:
+
+**Action Packet** (`devcd agentic action-packet --json`):
+
+- `turn0_risk`: `"low"` when goal and next action are both present, `"medium"` when only goal is
+  available, `"high"` when neither is set.
+- `goal_age_seconds`: seconds since the most recent goal capture event in the ledger, or `null`
+  when no goal capture exists.
+- `staleness_flag`: `true` when `goal_age_seconds >= 86400` (24 h).
+
+**Compliance / Completion Gate** (`devcd agentic compliance --json`):
+
+- `metrics.action_packet_reads`: count of `hook:action-packet.before` events — how many times
+  an agent read the Action Packet in this session.
+- `completion_gate.signals.turn0_risk`, `staleness_flag`, `goal_age_seconds`,
+  `packet_consumed_this_session`: see above.
+- `completion_gate.warnings` may include:
+  - `consumption_gap`: completion claimed but no Action Packet read recorded.
+  - `staleness`: goal older than 24 h with the age in hours.
+
 ## Verification Gates
 
 Run these before closing the session:

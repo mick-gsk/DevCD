@@ -1,5 +1,16 @@
 # DevCD Action Packet
 
+## Turn-0 Priority
+**Goal:** Resume the failing release gate after Agent A lost context
+
+**Do Not Repeat (avoid these paths):**
+- Do not rerun the renderer-only patch unchanged
+
+**Blockers:**
+- make check failed on policy assertions
+
+**Next Action:** Inspect the policy assertion before editing again
+
 ## Start Brief
 - ready_for_agent: true
 - recommended_agent_mode: debugging

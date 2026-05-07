@@ -3,6 +3,7 @@ from __future__ import annotations
 import json
 from typing import Any, TextIO
 
+from devcd import __version__
 from devcd.slices.agentic_context.service import AgenticContextService
 from devcd.slices.ambient_context.models import AgentContextSurface, SurfaceKind
 from devcd.slices.ambient_context.service import (
@@ -77,38 +78,40 @@ _RESOURCE_METADATA: dict[str, dict[str, str]] = {
     "devcd://context/continuity-packet": {
         "name": "continuity_packet",
         "description": (
-            "Domain-neutral policy-filtered continuity packet (developer pack by default). "
-            "Structured ContinuityPacket model: intent, artifacts, attempts, blockers, "
-            "do_not_repeat, suggested_next_steps, and withheld-context metadata. "
-            "No sensitive payloads."
+            "State-reconstruction continuity packet (developer pack by default). "
+            "Use this to understand what happened, why work is in the current state, "
+            "and what context should carry over across agent runs; not the primary "
+            "next-step command surface. No sensitive payloads."
         ),
     },
     "devcd://context/continuity-packet/concise": {
         "name": "continuity_packet_concise",
         "description": (
-            "Reduced high-signal continuity packet for low-token startup reads. "
+            "Reduced continuity reconstruction snapshot for low-token startup reads. "
+            "Use when you need fast state/background orientation, not action selection. "
             "Field-reduced subset of the continuity packet contract."
         ),
     },
     "devcd://context/continuity-packet/detailed": {
         "name": "continuity_packet_detailed",
         "description": (
-            "Full policy-filtered continuity packet for deep debugging and reconstruction. "
+            "Full continuity reconstruction packet for deep debugging and state replay. "
             "Startup step 3: use detailed resources only after concise startup reads."
         ),
     },
     "devcd://context/action-packet": {
         "name": "action_packet",
         "description": (
-            "Agentic Action Packet for the next local agent run. "
-            "Includes current goal, next action, evidence, and policy summary. "
+            "Execution-oriented action packet for the next local agent run. "
+            "Primary surface for what to do next now: current goal, next action, "
+            "evidence, and policy summary. "
             "No sensitive payloads."
         ),
     },
     "devcd://context/action-packet/concise": {
         "name": "action_packet_concise",
         "description": (
-            "Reduced high-signal action packet for low-token startup reads. "
+            "Reduced next-action packet for low-token startup reads. "
             "Startup step 1: read this first. "
             "Field-reduced subset of the action packet contract."
         ),
@@ -116,7 +119,7 @@ _RESOURCE_METADATA: dict[str, dict[str, str]] = {
     "devcd://context/action-packet/detailed": {
         "name": "action_packet_detailed",
         "description": (
-            "Full policy-filtered action packet with all context fields. "
+            "Full execution packet with all action-context fields. "
             "Startup step 3: use detailed resources only after concise startup reads."
         ),
     },
@@ -130,8 +133,8 @@ _RESOURCE_METADATA: dict[str, dict[str, str]] = {
     "devcd://context/session-contract/concise": {
         "name": "session_contract_concise",
         "description": (
-            "Reduced session contract for startup guidance: includes next-step contract, "
-            "compact budget summary, and policy summary. "
+            "Reduced session contract for startup escalation and coordination: includes "
+            "next-step contract, compact budget summary, and policy summary. "
             "Startup step 2: if uncertain after action-packet/concise, escalate to this."
         ),
     },
@@ -192,7 +195,7 @@ class ReadOnlyMCPServer:
                 {
                     "protocolVersion": "2024-11-05",
                     "capabilities": {"resources": {}},
-                    "serverInfo": {"name": "devcd", "version": "0.2.0"},
+                    "serverInfo": {"name": "devcd", "version": __version__},
                 },
             )
         if method == "resources/list":
@@ -200,9 +203,30 @@ class ReadOnlyMCPServer:
         if method == "resources/read":
             uri = self._resource_uri(message.get("params"))
             if uri is None:
-                return self._error(request_id, -32602, "resource uri is required")
+                return self._error(
+                    request_id,
+                    -32602,
+                    "resource uri is required",
+                    data={
+                        "hint": (
+                            'Send params as {"uri": "devcd://context/<name>"}. '
+                            "Call resources/list to see all valid URIs."
+                        ),
+                    },
+                )
             if uri not in READ_ONLY_RESOURCE_URIS:
-                return self._error(request_id, -32602, f"unknown resource: {uri}")
+                recovery: JsonObject = {
+                    "hint": (
+                        "Use resources/list to discover all valid URIs. "
+                        "Prefer /concise variants for token efficiency; "
+                        "use /detailed only when full context is needed."
+                    ),
+                    "valid_uris": list(READ_ONLY_RESOURCE_URIS),
+                }
+                variants = self._uri_variants(uri)
+                if variants:
+                    recovery["try_instead"] = variants
+                return self._error(request_id, -32602, f"unknown resource: {uri}", data=recovery)
             return self._result(request_id, {"contents": [self._resource_content(uri)]})
         if method == "tools/list":
             return self._result(request_id, {"tools": []})
@@ -210,7 +234,25 @@ class ReadOnlyMCPServer:
             return self._result(request_id, {"prompts": []})
         if method == "ping":
             return self._result(request_id, {})
-        return self._error(request_id, -32601, f"unsupported method: {method}")
+        return self._error(
+            request_id,
+            -32601,
+            f"unsupported method: {method}",
+            data={
+                "hint": (
+                    "This server supports: initialize, resources/list, resources/read, "
+                    "tools/list, prompts/list, ping."
+                ),
+                "supported_methods": [
+                    "initialize",
+                    "resources/list",
+                    "resources/read",
+                    "tools/list",
+                    "prompts/list",
+                    "ping",
+                ],
+            },
+        )
 
     def _list_resources(self) -> list[JsonObject]:
         resources: list[JsonObject] = []
@@ -334,6 +376,7 @@ class ReadOnlyMCPServer:
     def _concise_action_packet(self, payload: JsonObject) -> JsonObject:
         keys = (
             "schema_version",
+            "turn_0_brief",
             "current_goal",
             "next_action",
             "recommended_agent_mode",
@@ -442,8 +485,21 @@ class ReadOnlyMCPServer:
     def _result(self, request_id: object, result: JsonObject) -> JsonObject:
         return {"jsonrpc": "2.0", "id": request_id, "result": result}
 
-    def _error(self, request_id: object, code: int, message: str) -> JsonObject:
-        return {"jsonrpc": "2.0", "id": request_id, "error": {"code": code, "message": message}}
+    def _error(
+        self,
+        request_id: object,
+        code: int,
+        message: str,
+        data: JsonObject | None = None,
+    ) -> JsonObject:
+        error: JsonObject = {"code": code, "message": message}
+        if data is not None:
+            error["data"] = data
+        return {"jsonrpc": "2.0", "id": request_id, "error": error}
+
+    def _uri_variants(self, uri: str) -> list[str]:
+        prefix = uri + "/"
+        return [u for u in READ_ONLY_RESOURCE_URIS if u.startswith(prefix)]
 
 
 def serve_stdio(server: ReadOnlyMCPServer, input_stream: TextIO, output_stream: TextIO) -> None:

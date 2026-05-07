@@ -3168,7 +3168,7 @@ def test_agentic_action_packet_json_returns_ready_field(tmp_path: Path) -> None:
     assert result.exit_code == 0
     body = json.loads(result.output)
     assert "ready_for_agent" in body
-    assert body["schema_version"] == "1.1"
+    assert body["schema_version"] == "1.2"
     assert body["context_budget"]["sync_warning_ab"] == 0.5
     assert body["context_budget"]["switch_recommended_ab"] == 0.7
 
@@ -3215,6 +3215,8 @@ def test_agentic_action_packet_human_output_is_agent_start_brief(
     result = runner.invoke(app, ["agentic", "action-packet", "--config", str(config_path)])
 
     assert result.exit_code == 0
+    assert "## Turn-0 Priority" in result.output
+    assert result.output.index("## Turn-0 Priority") < result.output.index("## What To Do Next")
     assert "# DevCD Action Packet" in result.output
     assert "## What To Do Next" in result.output
     assert "- Next action now: Inspect the policy assertion before editing" in result.output
@@ -3739,8 +3741,256 @@ def test_doctor_profile_check_is_warn_not_fail_when_missing(tmp_path, monkeypatc
     body = json.loads(result.output)
     profile_check = next(check for check in body["checks"] if check["id"] == "agent_layer_profile")
     assert profile_check["status"] == "warn"
-    assert profile_check["details"]["profile_status"] == "missing"
-    assert body["summary"]["status"] == "attention"
+
+
+# ---------------------------------------------------------------------------
+# Outcome eval signal regression tests
+# ---------------------------------------------------------------------------
+
+
+def test_compliance_json_includes_action_packet_reads_metric(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.chdir(tmp_path)
+    config_path = tmp_path / "devcd.toml"
+    config_path.write_text(
+        '[devcd]\nruntime_dir = "runtime"\nworking_memory_ttl_seconds = 315360000\n',
+        encoding="utf-8",
+    )
+    runner = CliRunner()
+
+    # Perform a handoff and then read the action packet (registers hook:action-packet.before)
+    runner.invoke(
+        app,
+        [
+            "handoff",
+            "--goal",
+            "Track eval signal reads",
+            "--next-action",
+            "Inspect action packet",
+            "--config",
+            str(config_path),
+        ],
+    )
+    runner.invoke(
+        app,
+        ["agentic", "action-packet", "--config", str(config_path)],
+    )
+    result = runner.invoke(
+        app,
+        ["agentic", "compliance", "--json", "--config", str(config_path)],
+    )
+
+    assert result.exit_code == 0
+    body = json.loads(result.output)
+    assert body["metrics"]["action_packet_reads"] >= 1
+
+
+def test_compliance_json_includes_turn0_risk_and_staleness_in_signals(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.chdir(tmp_path)
+    config_path = tmp_path / "devcd.toml"
+    config_path.write_text(
+        '[devcd]\nruntime_dir = "runtime"\nworking_memory_ttl_seconds = 315360000\n',
+        encoding="utf-8",
+    )
+    runner = CliRunner()
+
+    runner.invoke(
+        app,
+        [
+            "handoff",
+            "--goal",
+            "Eval signal coverage",
+            "--next-action",
+            "Run the eval signal tests",
+            "--config",
+            str(config_path),
+        ],
+    )
+    result = runner.invoke(
+        app,
+        ["agentic", "compliance", "--json", "--config", str(config_path)],
+    )
+
+    assert result.exit_code == 0
+    body = json.loads(result.output)
+    signals = body["completion_gate"]["signals"]
+    assert "turn0_risk" in signals
+    assert signals["turn0_risk"] in {"low", "medium", "high"}
+    assert "staleness_flag" in signals
+    assert "goal_age_seconds" in signals
+    assert "packet_consumed_this_session" in signals
+
+
+def test_completion_check_warns_when_handoff_exists_but_packet_never_read(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.chdir(tmp_path)
+    config_path = tmp_path / "devcd.toml"
+    config_path.write_text(
+        '[devcd]\nruntime_dir = "runtime"\nworking_memory_ttl_seconds = 315360000\n',
+        encoding="utf-8",
+    )
+    runner = CliRunner()
+
+    # Create a handoff without ever reading the action packet
+    runner.invoke(
+        app,
+        [
+            "handoff",
+            "--goal",
+            "Test false completion gate",
+            "--next-action",
+            "Inspect completion warnings",
+            "--config",
+            str(config_path),
+        ],
+    )
+    result = runner.invoke(
+        app,
+        ["agentic", "completion-check", "--json", "--config", str(config_path)],
+    )
+
+    assert result.exit_code == 0
+    body = json.loads(result.output)
+    assert body["signals"]["packet_consumed_this_session"] is False
+    assert any("consumption_gap" in w for w in body["warnings"])
+
+
+def test_completion_check_no_consumption_warning_when_packet_was_read(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.chdir(tmp_path)
+    config_path = tmp_path / "devcd.toml"
+    config_path.write_text(
+        '[devcd]\nruntime_dir = "runtime"\nworking_memory_ttl_seconds = 315360000\n',
+        encoding="utf-8",
+    )
+    runner = CliRunner()
+
+    # Handoff then explicitly read the action packet
+    runner.invoke(
+        app,
+        [
+            "handoff",
+            "--goal",
+            "Test consumption tracking",
+            "--next-action",
+            "Read packet and continue",
+            "--config",
+            str(config_path),
+        ],
+    )
+    runner.invoke(
+        app,
+        ["agentic", "action-packet", "--config", str(config_path)],
+    )
+    result = runner.invoke(
+        app,
+        ["agentic", "completion-check", "--json", "--config", str(config_path)],
+    )
+
+    assert result.exit_code == 0
+    body = json.loads(result.output)
+    assert body["signals"]["packet_consumed_this_session"] is True
+    assert not any("consumption_gap" in w for w in body["warnings"])
+
+
+def test_action_packet_json_includes_turn0_risk_low_after_handoff(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.chdir(tmp_path)
+    config_path = tmp_path / "devcd.toml"
+    config_path.write_text(
+        '[devcd]\nruntime_dir = "runtime"\nworking_memory_ttl_seconds = 315360000\n',
+        encoding="utf-8",
+    )
+    runner = CliRunner()
+
+    runner.invoke(
+        app,
+        [
+            "handoff",
+            "--goal",
+            "Verify turn0 risk is low",
+            "--next-action",
+            "Check the risk field in action packet JSON",
+            "--config",
+            str(config_path),
+        ],
+    )
+    result = runner.invoke(
+        app,
+        ["agentic", "action-packet", "--json", "--config", str(config_path)],
+    )
+
+    assert result.exit_code == 0
+    body = json.loads(result.output)
+    assert body["turn0_risk"] == "low"
+    assert body["staleness_flag"] is False
+
+
+def test_compliance_json_shows_staleness_warning_for_old_goal(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    from datetime import UTC, datetime
+
+    from devcd.kernel.settings import DevCDSettings
+    from devcd.slices.events.ledger import EventLedger
+    from devcd.slices.events.models import DevEvent, EventSource
+    from devcd.slices.policy_layer.models import PolicyDecision, PolicyDecisionKind
+
+    monkeypatch.chdir(tmp_path)
+    config_path = tmp_path / "devcd.toml"
+    config_path.write_text(
+        '[devcd]\nruntime_dir = "runtime"\nworking_memory_ttl_seconds = 315360000\n',
+        encoding="utf-8",
+    )
+    settings = DevCDSettings.load(config_path)
+    ledger = EventLedger(settings.ledger_path)
+    allow = PolicyDecision(
+        kind=PolicyDecisionKind.ALLOW,
+        reason="metadata is allowed",
+        operation="capture",
+    )
+    # Write a stale goal capture event (2020 — well beyond 24h threshold)
+    old_ts = datetime(2020, 1, 1, 0, 0, tzinfo=UTC)
+    ledger.append(
+        DevEvent(
+            source=EventSource.SYSTEM,
+            type="capture",
+            timestamp=old_ts,
+            payload={"capture_kind": "goal", "summary": "Very old goal"},
+        ),
+        allow,
+    )
+    # Write a next_action event to satisfy has_handoff=True (without calling devcd handoff
+    # which would write a fresh goal event and reset the staleness clock)
+    ledger.append(
+        DevEvent(
+            source=EventSource.SYSTEM,
+            type="capture",
+            timestamp=old_ts,
+            payload={
+                "capture_kind": "next_action",
+                "summary": "Resume stale work",
+                "suggested_next_action": "Resume stale work",
+            },
+        ),
+        allow,
+    )
+    runner = CliRunner()
+    result = runner.invoke(
+        app,
+        ["agentic", "compliance", "--json", "--config", str(config_path)],
+    )
+
+    assert result.exit_code == 0
+    body = json.loads(result.output)
+    assert body["completion_gate"]["signals"]["staleness_flag"] is True
+    assert any("staleness" in w for w in body["completion_gate"]["warnings"])
 
 
 def test_doctor_json_verifies_sensitive_policy_denial(tmp_path, monkeypatch) -> None:

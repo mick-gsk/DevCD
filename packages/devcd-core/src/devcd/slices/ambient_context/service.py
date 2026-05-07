@@ -110,6 +110,25 @@ _REFERENCE_KIND_RANKS: dict[str, int] = {
 _FRESHNESS_STALE_AFTER = timedelta(hours=24)
 _FRESHNESS_EXPIRED_AFTER = timedelta(days=7)
 
+_REFERENCE_LOAD_HINTS: dict[str, str] = {
+    "intent": "Use this summary as the current goal; do not request raw history first.",
+    "artifact": "Load this path only if the next action needs file-level detail.",
+    "blocker": "Use this blocker summary before repeating earlier attempts.",
+    "attempt": "Use this attempt summary to avoid rediscovering recent work.",
+}
+
+_REFERENCE_INCLUDE_REASONS: dict[str, str] = {
+    "intent": "active goal is the strongest continuity signal",
+    "artifact": "artifact was selected by surface relevance limits",
+    "blocker": "visible blocker changes the safest next action",
+    "attempt": "recent attempts preserve continuity across agent sessions",
+}
+
+_REFERENCE_DISCARD_REASONS: dict[FreshnessStatus, str] = {
+    FreshnessStatus.STALE: "stale_reference_outside_startup_window",
+    FreshnessStatus.EXPIRED: "expired_reference_outside_startup_window",
+}
+
 
 @dataclass(frozen=True)
 class ContextSurfaceDefinition:
@@ -3024,8 +3043,8 @@ def _context_references_from_packet(packet: ContinuityPacket) -> list[ContextRef
                 identifier="active_goal",
                 summary=packet.intent.summary,
                 source="devcd",
-                load_hint="Use this summary as the current goal; do not request raw history first.",
-                include_reason="active goal is the strongest continuity signal",
+                load_hint=_REFERENCE_LOAD_HINTS["intent"],
+                include_reason=_REFERENCE_INCLUDE_REASONS["intent"],
                 freshness=_freshness_for_observation(
                     observed_at=packet.intent.updated_at,
                     generated_at=packet.generated_at,
@@ -3041,8 +3060,8 @@ def _context_references_from_packet(packet: ContinuityPacket) -> list[ContextRef
                 identifier=artifact.identifier,
                 summary=artifact.summary,
                 source=artifact.source,
-                load_hint="Load this path only if the next action needs file-level detail.",
-                include_reason="artifact was selected by surface relevance limits",
+                load_hint=_REFERENCE_LOAD_HINTS["artifact"],
+                include_reason=_REFERENCE_INCLUDE_REASONS["artifact"],
                 freshness=_freshness_for_observation(
                     observed_at=artifact.last_seen_at,
                     generated_at=packet.generated_at,
@@ -3058,8 +3077,8 @@ def _context_references_from_packet(packet: ContinuityPacket) -> list[ContextRef
                 identifier=blocker.kind,
                 summary=blocker.summary,
                 source="devcd",
-                load_hint="Use this blocker summary before repeating earlier attempts.",
-                include_reason="visible blocker changes the safest next action",
+                load_hint=_REFERENCE_LOAD_HINTS["blocker"],
+                include_reason=_REFERENCE_INCLUDE_REASONS["blocker"],
                 freshness=_freshness_for_observation(
                     observed_at=blocker.detected_at,
                     generated_at=packet.generated_at,
@@ -3075,8 +3094,8 @@ def _context_references_from_packet(packet: ContinuityPacket) -> list[ContextRef
                 identifier=attempt.type,
                 summary=attempt.summary,
                 source=attempt.source,
-                load_hint="Use this attempt summary to avoid rediscovering recent work.",
-                include_reason="recent attempts preserve continuity across agent sessions",
+                load_hint=_REFERENCE_LOAD_HINTS["attempt"],
+                include_reason=_REFERENCE_INCLUDE_REASONS["attempt"],
                 freshness=_freshness_for_observation(
                     observed_at=attempt.timestamp,
                     generated_at=packet.generated_at,
@@ -3085,7 +3104,22 @@ def _context_references_from_packet(packet: ContinuityPacket) -> list[ContextRef
                 policy_reason=attempt.policy_reason,
             )
         )
-    return _rank_context_references(references, generated_at=packet.generated_at)
+    ranked_references = _rank_context_references(references, generated_at=packet.generated_at)
+    return _select_startup_context_references(ranked_references)
+
+
+def _select_startup_context_references(
+    references: list[ContextReference],
+) -> list[ContextReference]:
+    selected: list[ContextReference] = []
+    for reference in references:
+        if reference.freshness.status is FreshnessStatus.CURRENT:
+            selected.append(reference)
+            continue
+        discard_reason = _REFERENCE_DISCARD_REASONS.get(reference.freshness.status)
+        if discard_reason is not None:
+            reference.discard_reason = discard_reason
+    return selected
 
 
 def _freshness_for_observation(

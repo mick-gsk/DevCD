@@ -68,6 +68,15 @@ def test_mcp_resource_descriptions_include_startup_read_order_guidance(tmp_path)
     assert "Startup step 3: use detailed resources only after concise startup reads." in (
         descriptions_by_uri["devcd://context/continuity-packet/detailed"]
     )
+    assert "Primary surface for what to do next now" in descriptions_by_uri[
+        "devcd://context/action-packet"
+    ]
+    assert "State-reconstruction continuity packet" in descriptions_by_uri[
+        "devcd://context/continuity-packet"
+    ]
+    assert "not the primary next-step command surface" in descriptions_by_uri[
+        "devcd://context/continuity-packet"
+    ]
 
 
 def test_mcp_server_reads_context_brief_without_external_client(tmp_path) -> None:
@@ -161,6 +170,63 @@ def test_mcp_server_rejects_unknown_resource(tmp_path) -> None:
     assert response is not None
     assert response["error"]["code"] == -32602
     assert "unknown resource" in response["error"]["message"]
+    data = response["error"]["data"]
+    assert "hint" in data
+    assert "valid_uris" in data
+    assert isinstance(data["valid_uris"], list)
+    assert len(data["valid_uris"]) > 0
+
+
+def test_mcp_server_unknown_uri_without_variants_has_no_try_instead(tmp_path) -> None:
+    server, _state_engine = build_mcp_server(tmp_path)
+
+    # An unknown URI with no sub-variants in the current set must not produce try_instead.
+    # The try_instead key is additive: it only appears when the unknown URI is a prefix
+    # of one or more registered URIs (e.g., if future URIs add sub-variants for an
+    # otherwise-invalid base path).
+    response = server.handle_message(
+        {
+            "jsonrpc": "2.0",
+            "id": 8,
+            "method": "resources/read",
+            "params": {"uri": "devcd://context/missing"},
+        }
+    )
+
+    assert response is not None
+    assert response["error"]["code"] == -32602
+    data = response["error"]["data"]
+    assert "valid_uris" in data
+    assert "try_instead" not in data
+
+
+def test_mcp_server_missing_uri_param_includes_hint(tmp_path) -> None:
+    server, _state_engine = build_mcp_server(tmp_path)
+
+    response = server.handle_message(
+        {"jsonrpc": "2.0", "id": 9, "method": "resources/read", "params": {}}
+    )
+
+    assert response is not None
+    assert response["error"]["code"] == -32602
+    assert "resource uri is required" in response["error"]["message"]
+    assert "hint" in response["error"]["data"]
+
+
+def test_mcp_server_unsupported_method_includes_recovery_hint(tmp_path) -> None:
+    server, _state_engine = build_mcp_server(tmp_path)
+
+    response = server.handle_message(
+        {"jsonrpc": "2.0", "id": 10, "method": "resources/subscribe", "params": {}}
+    )
+
+    assert response is not None
+    assert response["error"]["code"] == -32601
+    data = response["error"]["data"]
+    assert "hint" in data
+    assert "supported_methods" in data
+    assert "resources/list" in data["supported_methods"]
+    assert "resources/read" in data["supported_methods"]
 
 
 def read_resource(server: ReadOnlyMCPServer, uri: str) -> dict[str, object]:
@@ -528,7 +594,7 @@ def test_mcp_server_action_packet_contains_ready_agent_context(tmp_path) -> None
 
     body = read_resource(server, "devcd://context/action-packet")
 
-    assert body["schema_version"] == "1.1"
+    assert body["schema_version"] == "1.2"
     assert body["current_goal"] == "Read agentic action packet through MCP"
     assert "next_action" in body
     assert "ready_for_agent" in body
@@ -541,6 +607,17 @@ def test_mcp_server_action_packet_contains_ready_agent_context(tmp_path) -> None
         }
     ]
     assert body["withheld_context"][0]["category"] == "sensitivity"
+    assert "turn_0_brief" in body
+    t0 = body["turn_0_brief"]
+    assert t0["goal"] == "Read agentic action packet through MCP"
+    assert t0["do_not_repeat"] == [
+        {
+            "path": "Do not ship an action packet without stale-attempt warnings",
+            "rationale": None,
+        }
+    ]
+    assert t0["blockers"][0]["summary"] == "MCP action packet lacks resume signals"
+    assert t0["next_action"] is not None
     assert "sensitive events" in body["withheld_context"][0]["policy_reason"]
     assert "PRIVATE_NOTE_PAYLOAD" not in json.dumps(body)
 

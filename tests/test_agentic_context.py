@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import json
 import sys
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 
 import pytest
 
@@ -152,9 +152,10 @@ def test_service_creates_action_packet_without_runner(tmp_path) -> None:
 
     packet = service.create_action_packet(surface="coding-agent", context_pack="developer")
 
-    assert packet.schema_version == "1.1"
+    assert packet.schema_version == "1.2"
     assert packet.ready_for_agent in {True, False}
     assert packet.policy_summary is not None
+    assert packet.turn_0_brief is not None
 
 
 def test_service_uses_visible_continuity_for_action_packet(tmp_path) -> None:
@@ -237,6 +238,45 @@ def test_action_packet_projects_session_contract_and_context_budget(tmp_path) ->
     assert body["context_budget"]["estimated_tokens"] > 0
     assert body["context_budget"]["sync_warning_ab"] == 0.5
     assert body["context_budget"]["switch_recommended_ab"] == 0.7
+
+
+def test_action_packet_discards_stale_artifact_references_in_startup_projection(
+    tmp_path,
+) -> None:
+    service, state_engine = build_agentic_context_service(tmp_path)
+    now = datetime.now(UTC)
+    state_engine.accept_event(
+        DevEvent(
+            source=EventSource.TASK,
+            type="goal_update",
+            timestamp=now,
+            payload={"current_goal": "Keep startup context focused on fresh signals"},
+        )
+    )
+    state_engine.accept_event(
+        DevEvent(
+            source=EventSource.IDE,
+            type="file_focus",
+            timestamp=now - timedelta(days=2),
+            payload={"path": "packages/devcd-core/src/devcd/slices/ambient_context/service.py"},
+        )
+    )
+    state_engine.accept_event(
+        DevEvent(
+            source=EventSource.TASK,
+            type="test_failure",
+            timestamp=now,
+            payload={
+                "reason": "fresh blocker context should win over stale artifact",
+                "suggested_next_action": "Keep blocker-first startup ordering",
+            },
+        )
+    )
+
+    packet = service.create_action_packet(surface="coding-agent", context_pack="developer")
+
+    assert packet.context_references
+    assert not any(reference.kind == "artifact" for reference in packet.context_references)
 
 
 def test_action_packet_session_contract_uses_done_when_event_class(tmp_path) -> None:
@@ -385,6 +425,13 @@ def test_service_maps_resume_signals_into_action_packet(tmp_path) -> None:
     assert "sensitive events" in body["withheld_context"][0]["policy_reason"]
     assert body["session_contract"]["withheld_count"] == 1
     assert "PRIVATE_NOTE_PAYLOAD" not in json.dumps(body)
+    t0 = body["turn_0_brief"]
+    assert t0["goal"] == "Resume the release gate fix"
+    assert t0["do_not_repeat"] == [
+        {"path": "Do not tweak the renderer without checking the contract", "rationale": None}
+    ]
+    assert t0["blockers"][0]["summary"] == "make check failed on policy assertions"
+    assert t0["next_action"] is not None
 
 
 def test_action_packet_warm_start_picks_first_incomplete_priority_subtask(tmp_path) -> None:
@@ -628,3 +675,110 @@ def _sample_scout_task() -> ScoutTask:
         expected_evidence=["devcd_continuity"],
         policy_decision_id="policy-1",
     )
+
+
+# ---------------------------------------------------------------------------
+# Outcome eval signal tests
+# ---------------------------------------------------------------------------
+
+
+def test_action_packet_turn0_risk_low_when_goal_and_next_action_present(tmp_path) -> None:
+    service, state_engine = build_agentic_context_service(tmp_path)
+    state_engine.accept_event(
+        DevEvent(
+            source=EventSource.TASK,
+            type="goal_update",
+            timestamp=datetime(2026, 5, 5, 12, 0, tzinfo=UTC),
+            payload={"current_goal": "Ship eval signal regression tests"},
+        )
+    )
+    state_engine.accept_event(
+        DevEvent(
+            source=EventSource.TASK,
+            type="test_failure",
+            timestamp=datetime(2026, 5, 5, 12, 1, tzinfo=UTC),
+            payload={
+                "reason": "eval tests missing",
+                "suggested_next_action": "Implement eval outcome tests",
+            },
+        )
+    )
+
+    packet = service.create_action_packet(surface="coding-agent", context_pack="developer")
+
+    assert packet.turn0_risk == "low"
+    assert packet.ready_for_agent is True
+
+
+def test_action_packet_turn0_risk_high_when_no_context(tmp_path) -> None:
+    service, _state_engine = build_agentic_context_service(tmp_path)
+
+    packet = service.create_action_packet(surface="coding-agent", context_pack="developer")
+
+    assert packet.turn0_risk == "high"
+    assert packet.ready_for_agent is False
+
+
+def test_action_packet_staleness_flag_set_when_goal_capture_is_old(tmp_path) -> None:
+    from devcd.slices.policy_layer.models import PolicyDecision, PolicyDecisionKind
+
+    service, _state_engine = build_agentic_context_service(tmp_path)
+    # Write a goal capture event with a timestamp older than the staleness threshold (>86400s)
+    old_ts = datetime(2020, 1, 1, 0, 0, tzinfo=UTC)
+    assert service._event_ledger is not None
+    service._event_ledger.append(
+        DevEvent(
+            source=EventSource.SYSTEM,
+            type="capture",
+            timestamp=old_ts,
+            payload={"capture_kind": "goal", "summary": "Very old goal"},
+        ),
+        PolicyDecision(
+            kind=PolicyDecisionKind.ALLOW,
+            reason="metadata is allowed",
+            operation="capture",
+        ),
+    )
+
+    packet = service.create_action_packet(surface="coding-agent", context_pack="developer")
+
+    assert packet.staleness_flag is True
+    assert packet.goal_age_seconds is not None
+    assert packet.goal_age_seconds > 86400.0
+
+
+def test_action_packet_staleness_flag_not_set_for_fresh_goal(tmp_path) -> None:
+    from devcd.slices.policy_layer.models import PolicyDecision, PolicyDecisionKind
+
+    service, _state_engine = build_agentic_context_service(tmp_path)
+    # Write a goal capture event with current timestamp (fresh)
+    assert service._event_ledger is not None
+    service._event_ledger.append(
+        DevEvent(
+            source=EventSource.SYSTEM,
+            type="capture",
+            timestamp=datetime.now(UTC),
+            payload={"capture_kind": "goal", "summary": "Fresh goal"},
+        ),
+        PolicyDecision(
+            kind=PolicyDecisionKind.ALLOW,
+            reason="metadata is allowed",
+            operation="capture",
+        ),
+    )
+
+    packet = service.create_action_packet(surface="coding-agent", context_pack="developer")
+
+    assert packet.staleness_flag is False
+    assert packet.goal_age_seconds is not None
+    assert packet.goal_age_seconds < 86400.0
+
+
+def test_action_packet_goal_age_is_none_when_no_goal_capture_in_ledger(tmp_path) -> None:
+    service, _state_engine = build_agentic_context_service(tmp_path)
+    # No goal capture events in ledger
+
+    packet = service.create_action_packet(surface="coding-agent", context_pack="developer")
+
+    assert packet.goal_age_seconds is None
+    assert packet.staleness_flag is False

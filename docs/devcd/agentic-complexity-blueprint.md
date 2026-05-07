@@ -123,6 +123,10 @@ Recommended additional KPIs for agentic complexity:
 - `policy_explainability_coverage` (ratio of denied/withheld outputs with explicit reasons)
 - `resume_success_rate` (fresh session resumes without manual recap)
 - `handoff_readiness_rate` (sessions passing completion-check)
+- `turn0_risk_rate` (ratio of sessions with `turn0_risk=high` — target: 0)
+- `staleness_rate` (ratio of sessions with `staleness_flag=true` — target: 0 before handoff)
+- `consumption_gap_rate` (ratio of completion claims without prior action-packet read — target: 0)
+- `concise_escalation_rate` (ratio of sessions where agent escalated to detailed unnecessarily — lower is better)
 
 ## CI Execution Order
 
@@ -135,13 +139,17 @@ Run these stages in order:
 2. Agent continuity behavior
    - `python -m pytest tests/test_cli.py -q -k "agentic or completion_check or compliance or product_intent"`
 
-3. Real-world scenario subset
+3. Outcome eval regression gates (new)
+   - `python -m pytest tests/test_agentic_context.py -q -k "turn0_risk or staleness"`
+   - `python -m pytest tests/test_cli.py -q -k "eval_signal or consumption_gap or staleness"`
+
+4. Real-world scenario subset
    - replay scenarios 2, 4, 6, and 9 from this blueprint with command logs
 
-4. Full repository gates
+5. Full repository gates
    - `make check`
 
-5. Documentation integrity
+6. Documentation integrity
    - `make docs`
 
 ## Minimal Automation Harness

@@ -150,8 +150,25 @@ class SessionContract(BaseModel):
     withheld_count: int = Field(default=0, ge=0)
 
 
+class Turn0Brief(BaseModel):
+    """Compact Turn-0 start contract.
+
+    Guaranteed field order for agent warm-start:
+    1. goal — what is being worked on
+    2. do_not_repeat — paths already rejected (avoids wasted first move)
+    3. blockers — known obstacles the agent must not ignore
+    4. next_action — exactly one recommended first step
+    """
+
+    goal: str | None = Field(default=None, max_length=1200)
+    do_not_repeat: list[DoNotRepeatEntry] = Field(default_factory=list, max_length=20)
+    blockers: list[ActionPacketBlocker] = Field(default_factory=list, max_length=20)
+    next_action: str | None = Field(default=None, max_length=500)
+
+
 class ActionPacket(BaseModel):
-    schema_version: str = "1.1"
+    schema_version: str = "1.2"
+    turn_0_brief: Turn0Brief = Field(default_factory=Turn0Brief)
     current_goal: str | None = Field(default=None, max_length=1200)
     next_action: str | None = Field(default=None, max_length=500)
     recommended_agent_mode: str = Field(default="continuation", max_length=80)
@@ -168,10 +185,20 @@ class ActionPacket(BaseModel):
     vision: VisionBlock | None = Field(default=None)
     ready_for_agent: bool = False
     created_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
+    # Outcome eval signals (additive, never break existing consumers)
+    turn0_risk: str = Field(default="unknown", max_length=20)
+    goal_age_seconds: float | None = None
+    staleness_flag: bool = False
 
     @model_validator(mode="after")
     def derive_ready_for_agent(self) -> ActionPacket:
         self.ready_for_agent = bool(self.current_goal and self.next_action)
+        self.turn_0_brief = Turn0Brief(
+            goal=self.current_goal,
+            do_not_repeat=self.do_not_repeat,
+            blockers=self.blockers,
+            next_action=self.next_action,
+        )
         return self
 
 
