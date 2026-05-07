@@ -36,7 +36,7 @@ Ship the agent-switch review handoff demo
 - The latest failure happened after the attempted fix, so the fix did not resolve the blocker: review-agent expected handoff still missing review artifacts
 
 ## do_not_repeat
-- Do not repeat the last attempted fix unchanged: Created a coding-agent-only handoff and skipped review-agent output
+- Do not repeat the last attempted fix unchanged: Created a coding-agent-only handoff and skipped review-agent output (rationale: The latest failure happened after the attempted fix, so the fix did not resolve the blocker: review-agent expected handoff still missing review artifacts)
 
 ## Suggested next action
 - Add review-agent expected output and compare surfaces

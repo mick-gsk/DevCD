@@ -77,6 +77,13 @@ ein `vision`-Feld vom Typ `VisionBlock`:
 Wenn `withheld: true`, hat die Policy die Ausgabe blockiert.
 Wenn `vision: null`, wurde kein Vision Record angelegt.
 
+Zusätzlich verwenden `devcd agentic completion-check` und
+`devcd agentic compliance` die konfigurierte Vision jetzt als additives,
+policy-sicheres Orientierungssignal. Wenn Goal und Next Action noch sichtbar zur
+Vision passen, erscheint eine Alignment-Notiz. Wenn beide Signale klar davon
+wegdriften, erscheint eine Warnung. Die bestehende Ready-/Completion-Gate-Logik
+bleibt dabei unverändert.
+
 ---
 
 ## Policy

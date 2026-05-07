@@ -170,6 +170,10 @@ Before ending a session or switching to a fresh agent, enforce closure with:
 devcd agentic completion-check
 ```
 
+If you configured a North Star with `devcd vision init`, this output now also
+shows a vision alignment note and warns on obvious drift without changing the
+underlying ready/not-ready gate.
+
 To inspect startup/capture/handoff compliance coverage, run:
 
 ```bash

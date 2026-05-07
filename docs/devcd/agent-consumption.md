@@ -77,12 +77,13 @@ devcd agentic action-packet
 devcd agentic action-packet --json
 ```
 
-The JSON Action Packet includes a `session_contract` with one next action, a
-definition of done, the local verification command, and whether the next agent
-should leave a clean state. It also includes `context_references` and a
-`context_budget` so agents can load details just in time instead of asking for a
-raw recap. Both `session_contract` and `context_budget` now expose two additive
-rotation thresholds for long-running sessions:
+The JSON Action Packet includes a `session_contract` with one next action,
+`done_when`, `verification_required`, and `withheld_count`. It also includes
+`context_references` and a `context_budget` so agents can load details just in
+time instead of asking for a raw recap. `rejected_paths` captures policy-visible
+dead-end approaches so fresh agents can avoid retrying non-retriable paths.
+
+`context_budget` exposes two additive rotation thresholds for long-running sessions:
 
 - `sync_warning_ab`: advisory threshold where an agent should start actively
 	syncing progress into compact continuity metadata
@@ -151,12 +152,21 @@ Enforce closure before ending a session or switching agents:
 devcd agentic completion-check
 ```
 
+If a workspace North Star is configured, the completion gate now includes a
+policy-safe vision alignment note. Clear drift between the visible goal/next
+action and the configured vision shows up as an additive warning, not as a new
+hard readiness blocker.
+
 Track startup/capture/handoff compliance coverage:
 
 ```bash
 devcd agentic compliance
 devcd agentic compliance --json
 ```
+
+The compliance report carries the same vision alignment signal in
+`completion_gate`, so agents and operators can see whether the current handoff
+still points at the workspace North Star.
 
 `devcd capture` does not require the daemon. It writes to the configured local
 ledger only after the existing observation and storage policy decisions allow the
@@ -258,9 +268,9 @@ runtime concern, not an MCP resource behavior.
 Agents that need the next concrete handoff action should prefer `devcd://context/action-packet/concise` and escalate to `devcd://context/action-packet/detailed` when deeper context is required. Existing consumers can continue using `devcd://context/action-packet` as a compatible default. Agents that only need the next-session contract and budget should start with `devcd://context/session-contract/concise` and escalate to `devcd://context/session-contract/detailed` for full context references. Agents that need domain-neutral continuity should start with `devcd://context/continuity-packet/concise` and escalate to `devcd://context/continuity-packet/detailed` for full context. Developer-only compatibility consumers can continue using `devcd://context/agent-handoff-packet`.
 
 `devcd://context/session-contract` and `devcd://context/session-contract/concise`
-include the same additive two-stage rotation thresholds in both
-`session_contract` and `context_budget`: `sync_warning_ab` and
-`switch_recommended_ab`.
+include the Action Packet session contract (`next_action`, `done_when`,
+`verification_required`, `withheld_count`) plus context budget data including
+`sync_warning_ab` and `switch_recommended_ab`.
 
 It does not expose MCP tools, prompts, shell execution, browser automation, memory writes, or remote HTTP MCP.
 

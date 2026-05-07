@@ -35,7 +35,7 @@ Continue the resurrection demo after Agent A lost chat context
 - The latest failure happened after the attempted fix, so the fix did not resolve the blocker: make check still fails: do_not_repeat is absent
 
 ## do_not_repeat
-- Do not repeat the last attempted fix unchanged: Added only a Last failure section to the markdown renderer
+- Do not repeat the last attempted fix unchanged: Added only a Last failure section to the markdown renderer (rationale: The latest failure happened after the attempted fix, so the fix did not resolve the blocker: make check still fails: do_not_repeat is absent)
 
 ## Suggested next action
 - Add a first-class resurrection context before rendering

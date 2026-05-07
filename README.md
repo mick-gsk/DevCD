@@ -136,9 +136,9 @@ If the local ledger is still empty, seed safe metadata instead of pasting raw
 logs, transcripts, or file contents:
 
 ```bash
-devcd handoff --goal "Ship the failing release gate" --failure "make check failed on policy tests" --next-action "Inspect the failing policy assertion"
+devcd handoff --goal "Ship the failing release gate" --failure "make check failed on policy tests" --rationale "Policy assertion structure changed; old fix no longer applies" --next-action "Inspect the failing policy assertion"
 devcd capture --kind goal --summary "Ship the failing release gate"
-devcd capture --kind failure --summary "make check failed on policy tests" --next-action "Inspect the failing policy assertion"
+devcd capture --kind failure --summary "make check failed on policy tests" --rationale "Policy assertion structure changed; old fix no longer applies" --next-action "Inspect the failing policy assertion"
 ```
 
 Use `devcd handoff` at the end of a session or before switching agents. Use

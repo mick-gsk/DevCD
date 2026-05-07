@@ -69,6 +69,21 @@ events = events_from_pytest_failure(
 
 Feed the resulting events through `StateEngine.accept_event(...)` so normal policy, ledger, memory, and ambient-context behavior applies.
 
+## Manual Event Classes For Continuity Curation
+
+DevCD also supports explicit event classes on normal `POST /event` submissions
+for continuity curation workflows. These are metadata-only and developer-triggered.
+DevCD does not auto-emit them from chat text or command output.
+
+- `event_class: "dead_end"` marks a non-retriable approach and requires payload
+  fields: `approach_summary`, `reason`, `related_goal`.
+- `event_class: "goal.done_when"` records explicit completion criteria and
+  requires payload field: `done_when`.
+
+When policy allows storage, these event classes flow into memory-layer context
+so Action Packets can expose `rejected_paths` and a verification-aware
+`session_contract`.
+
 ## Research Session Recipe
 
 The research-session recipe turns a local research export into DevCD events for the Research Context Pack. It accepts structured metadata as the safe path: research goal, reviewed source titles and references, source type, note titles or summaries, hypotheses, decisions, failed attempts, why attempts failed, and a suggested next step.
