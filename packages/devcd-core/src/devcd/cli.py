@@ -55,8 +55,10 @@ from devcd.slices.ambient_context.service import (
 from devcd.slices.events.ledger import EventLedger
 from devcd.slices.events.models import DevEvent, EventSensitivity, EventSource
 from devcd.slices.events.recipes import (
+    GitCommitRecipeInput,
     PytestFailureRecipeInput,
     ResearchSessionRecipeInput,
+    events_from_git_commit,
     events_from_pytest_failure,
     events_from_research_session,
 )
@@ -2248,6 +2250,32 @@ def recipe_research_session(
     typer.echo(jsonl, nl=False)
 
 
+@recipe_app.command("git-commit")
+def recipe_git_commit(
+    message: Annotated[str, typer.Option("--message", help="Git commit message (subject line).")],
+    sha: Annotated[str | None, typer.Option("--sha", help="Short commit SHA.")] = None,
+    branch: Annotated[
+        str | None, typer.Option("--branch", help="Branch name at commit time.")
+    ] = None,
+    repo: Annotated[
+        str | None, typer.Option("--repo", help="Repo path or identifier.")
+    ] = None,
+    output: Annotated[
+        Path | None,
+        typer.Option("--output", help="Optional JSONL output path."),
+    ] = None,
+) -> None:
+    """Convert a git commit into a DevCD JSONL event (use in a post-commit hook)."""
+    report = GitCommitRecipeInput(message=message, sha=sha, branch=branch, repo=repo)
+    jsonl = "\n".join(event.model_dump_json() for event in events_from_git_commit(report))
+    jsonl = f"{jsonl}\n"
+    if output is not None:
+        output.write_text(jsonl, encoding="utf-8")
+        typer.echo(f"Wrote {output}")
+        return
+    typer.echo(jsonl, nl=False)
+
+
 @policy_app.command("simulate")
 def policy_simulate(
     surface: Annotated[str, typer.Option("--surface", help="Context surface to evaluate.")],
@@ -2286,6 +2314,30 @@ def policy_explain(
         json.dumps(explanation, indent=2, sort_keys=True)
         if output_json
         else _render_policy_explanation(explanation)
+    )
+
+
+@policy_app.command("audit")
+def policy_audit(
+    ledger: Annotated[
+        Path,
+        typer.Option("--ledger", help="Local DevCD event ledger to inspect."),
+    ] = Path(".devcd/events.jsonl"),
+    since: Annotated[
+        str | None,
+        typer.Option("--since", help="Filter to records within a duration: e.g. 1h, 24h, 7d."),
+    ] = None,
+    output_json: Annotated[
+        bool,
+        typer.Option("--json", help="Print machine-readable JSON output."),
+    ] = False,
+) -> None:
+    """Audit policy decisions recorded in the local ledger."""
+    report = _build_policy_audit_report(ledger_path=ledger, since=since)
+    typer.echo(
+        json.dumps(report, indent=2, sort_keys=True)
+        if output_json
+        else _render_policy_audit_report(report)
     )
 
 
@@ -2342,6 +2394,47 @@ def integrations_hermes(
         config=config,
         output_json=output_json,
         smoke_test=smoke_test,
+    )
+
+
+@integrations_app.command("git-hooks")
+def integrations_git_hooks(
+    install: Annotated[
+        bool,
+        typer.Option(
+            "--install",
+            help="Write the post-commit hook to .git/hooks/post-commit (chmod +x on POSIX).",
+        ),
+    ] = False,
+    output_json: Annotated[
+        bool,
+        typer.Option("--json", help="Print machine-readable JSON output."),
+    ] = False,
+) -> None:
+    """Print (or install) a git post-commit hook that captures commits as DevCD events."""
+    hook_script = _build_git_hook_script()
+    hook_path = Path(".git/hooks/post-commit")
+    if install:
+        result = _install_git_hook(hook_path, hook_script)
+        typer.echo(
+            json.dumps(result, indent=2, sort_keys=True)
+            if output_json
+            else _render_git_hook_install_result(result)
+        )
+        return
+    report = {
+        "hook_path": str(hook_path),
+        "script": hook_script,
+        "install_command": "devcd integrations git-hooks --install",
+        "note": (
+            "Run with --install to write the hook. "
+            "Appends commit events to .devcd/events.jsonl on every commit."
+        ),
+    }
+    typer.echo(
+        json.dumps(report, indent=2, sort_keys=True)
+        if output_json
+        else _render_git_hook_preview(report)
     )
 
 
@@ -4816,6 +4909,155 @@ def _explain_ledger_decision(decision_id: str, ledger_path: Path) -> dict[str, A
         if decision.decision_id == decision_id:
             return policy.explain_decision(decision, event).model_dump(mode="json")
     raise typer.BadParameter(f"policy decision not found: {decision_id}")
+
+
+def _parse_since_duration(since: str) -> float:
+    """Return the number of seconds for a duration string like '1h', '24h', '7d'."""
+    since = since.strip().lower()
+    if since.endswith("d"):
+        return float(since[:-1]) * 86400
+    if since.endswith("h"):
+        return float(since[:-1]) * 3600
+    if since.endswith("m"):
+        return float(since[:-1]) * 60
+    raise typer.BadParameter(f"unsupported duration format: {since!r}; use e.g. 1h, 24h, 7d")
+
+
+def _build_policy_audit_report(ledger_path: Path, since: str | None) -> dict[str, Any]:
+    from datetime import UTC, datetime, timedelta
+
+    cutoff: datetime | None = None
+    if since is not None:
+        seconds = _parse_since_duration(since)
+        cutoff = datetime.now(UTC) - timedelta(seconds=seconds)
+
+    records = EventLedger(ledger_path).read_records()
+    if cutoff is not None:
+        records = [
+            (ev, dec)
+            for ev, dec in records
+            if ev.timestamp is not None
+            and ev.timestamp.replace(
+                tzinfo=UTC if ev.timestamp.tzinfo is None else ev.timestamp.tzinfo
+            )
+            >= cutoff
+        ]
+
+    total = len(records)
+    allowed = sum(1 for _, dec in records if dec.kind.value == "allow")
+    denied = total - allowed
+
+    reason_counts: dict[str, int] = {}
+    withheld: list[dict[str, str]] = []
+    for ev, dec in records:
+        reason_counts[dec.reason] = reason_counts.get(dec.reason, 0) + 1
+        if dec.kind.value == "deny":
+            withheld.append(
+                {
+                    "event_id": ev.event_id,
+                    "source": ev.source.value,
+                    "type": ev.type,
+                    "operation": dec.operation,
+                    "reason": dec.reason,
+                }
+            )
+
+    top_reasons = sorted(reason_counts.items(), key=lambda x: -x[1])[:5]
+    return {
+        "total": total,
+        "allowed": allowed,
+        "denied": denied,
+        "since": since,
+        "top_reasons": [{"reason": r, "count": c} for r, c in top_reasons],
+        "withheld_events": withheld,
+    }
+
+
+def _render_policy_audit_report(report: dict[str, Any]) -> str:
+    since_label = f" (since {report['since']})" if report["since"] else ""
+    lines = [
+        f"Policy audit{since_label}",
+        f"Total recorded decisions: {report['total']}",
+        f"Allowed: {report['allowed']}",
+        f"Denied:  {report['denied']}",
+    ]
+    if report["top_reasons"]:
+        lines.append("")
+        lines.append("Top reasons")
+        for item in report["top_reasons"]:
+            lines.append(f"  {item['count']:>4}x  {item['reason']}")
+    if report["withheld_events"]:
+        lines.append("")
+        lines.append(f"Withheld events ({len(report['withheld_events'])})")
+        for item in report["withheld_events"][:10]:
+            lines.append(
+                f"  [{item['source']}] {item['type']} "
+                f"\u2014 {item['operation']}: {item['reason']}"
+            )
+        if len(report["withheld_events"]) > 10:
+            lines.append(f"  ... and {len(report['withheld_events']) - 10} more")
+    else:
+        lines.append("")
+        lines.append("No withheld events in this window.")
+    return "\n".join(lines)
+
+
+def _build_git_hook_script() -> str:
+    return (
+        "#!/bin/sh\n"
+        "# DevCD post-commit hook — auto-generated by 'devcd integrations git-hooks --install'\n"
+        "MSG=$(git log -1 --pretty=%s 2>/dev/null)\n"
+        "SHA=$(git rev-parse --short HEAD 2>/dev/null)\n"
+        "BRANCH=$(git branch --show-current 2>/dev/null)\n"
+        "REPO=$(git rev-parse --show-toplevel 2>/dev/null)\n"
+        'devcd recipe git-commit --message "$MSG" --sha "$SHA" --branch "$BRANCH" --repo "$REPO"'
+        " >> .devcd/events.jsonl 2>/dev/null || true\n"
+    )
+
+
+def _install_git_hook(hook_path: Path, script: str) -> dict[str, Any]:
+    import stat
+
+    if not hook_path.parent.exists():
+        return {
+            "installed": False,
+            "hook_path": str(hook_path),
+            "reason": "No .git/hooks directory found; run inside a git repository.",
+        }
+    hook_path.write_text(script, encoding="utf-8")
+    if platform.system() != "Windows":
+        current_mode = hook_path.stat().st_mode
+        hook_path.chmod(current_mode | stat.S_IXUSR | stat.S_IXGRP | stat.S_IXOTH)
+    return {
+        "installed": True,
+        "hook_path": str(hook_path),
+        "note": (
+            "Hook installed. Every commit will append"
+            " a git/commit event to .devcd/events.jsonl."
+        ),
+    }
+
+
+def _render_git_hook_preview(report: dict[str, Any]) -> str:
+    lines = [
+        "DevCD git-hooks integration",
+        f"Hook path: {report['hook_path']}",
+        f"Install:   {report['install_command']}",
+        "",
+        report["note"],
+        "",
+        "Script preview:",
+        "---",
+        report["script"].rstrip(),
+        "---",
+    ]
+    return "\n".join(lines)
+
+
+def _render_git_hook_install_result(result: dict[str, Any]) -> str:
+    if result.get("installed"):
+        return f"Installed: {result['hook_path']}\n{result['note']}"
+    return f"Not installed: {result.get('reason', 'unknown error')}"
 
 
 def _render_policy_simulation(report: dict[str, Any]) -> str:
