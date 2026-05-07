@@ -50,6 +50,7 @@ def _minimal_report() -> dict[str, Any]:
             "events_count": 0,
             "active_goal": None,
             "token_source": "missing",
+            "workflow_status": "attention",
             "config_path": "devcd.toml",
             "daemon_endpoint": "http://127.0.0.1:8765/state",
             "live_context_empty": True,
@@ -83,6 +84,7 @@ def _minimal_report() -> dict[str, Any]:
                 "next": "devcd quickstart",
                 "if_fails": "Confirm Python 3.11+.",
                 "status": "manual",
+                "status_level": "attention",
             },
             {
                 "id": "workspace",
@@ -93,6 +95,7 @@ def _minimal_report() -> dict[str, Any]:
                 "next": "devcd agentic action-packet",
                 "if_fails": "Run devcd doctor.",
                 "status": "missing",
+                "status_level": "attention",
             },
             {
                 "id": "action_packet",
@@ -105,6 +108,7 @@ def _minimal_report() -> dict[str, Any]:
                 "next": ('devcd handoff --goal "<current goal>" --next-action "<safe next step>"'),
                 "if_fails": "Capture a goal or failure, then rerun the Action Packet.",
                 "status": "needs continuity",
+                "status_level": "attention",
             },
             {
                 "id": "capture",
@@ -117,6 +121,7 @@ def _minimal_report() -> dict[str, Any]:
                 "next": "devcd context passport",
                 "if_fails": "Keep the capture metadata-only and retry.",
                 "status": "recommended",
+                "status_level": "attention",
             },
             {
                 "id": "passport",
@@ -127,6 +132,7 @@ def _minimal_report() -> dict[str, Any]:
                 "next": "devcd context control",
                 "if_fails": "Send goal_update event.",
                 "status": "empty guidance available",
+                "status_level": "attention",
             },
             {
                 "id": "daemon",
@@ -137,6 +143,7 @@ def _minimal_report() -> dict[str, Any]:
                 "next": "devcd status",
                 "if_fails": "Run devcd doctor.",
                 "status": "not running",
+                "status_level": "attention",
             },
             {
                 "id": "mcp",
@@ -147,6 +154,7 @@ def _minimal_report() -> dict[str, Any]:
                 "next": "devcd integrations hermes",
                 "if_fails": "Fix devcd command path.",
                 "status": "optional",
+                "status_level": "attention",
             },
         ],
         "next_paths": {
@@ -205,16 +213,18 @@ async def test_quickstart_app_renders_path_buttons() -> None:
 
 @pytest.mark.asyncio
 async def test_quickstart_app_renders_agent_layer_console() -> None:
-    from textual.widgets import Static
+    from textual.widgets import Label, Static
 
     app = QuickstartApp(_minimal_report())
     async with app.run_test(headless=True) as pilot:
         await pilot.pause()
         summary = pilot.app.query_one("#agent-layer-summary", Static)
         progress = pilot.app.query_one("#agent-layer-progress", Static)
+        labels = [str(label.render()) for label in pilot.app.screen.query(Label)]
         assert "builder" in str(summary.render())
         assert "devcd onboard --yes" in str(summary.render())
         assert "Detect -> Choose -> Apply -> Seed -> Use Action Packet" in str(progress.render())
+        assert any("Flow     attention" in label for label in labels)
 
 
 @pytest.mark.asyncio
@@ -245,7 +255,7 @@ async def test_demo_screen_renders_markdown() -> None:
 
 @pytest.mark.asyncio
 async def test_live_setup_screen_renders_steps() -> None:
-    from textual.widgets import Collapsible, Markdown
+    from textual.widgets import Collapsible, Label, Markdown
 
     report = _minimal_report()
     app = QuickstartApp(report)
@@ -256,8 +266,11 @@ async def test_live_setup_screen_renders_steps() -> None:
             await pilot.pause()
         assert pilot.app.screen.query_one(Markdown)
         collapsibles = pilot.app.screen.query(Collapsible)
+        labels = [str(label.render()) for label in pilot.app.screen.query(Label)]
         # Action Packet follow-up still exposes guided operational steps beneath the packet.
         assert len(collapsibles) >= 1
+        assert any("[attention]" in str(collapsible.title) for collapsible in collapsibles)
+        assert any("Status: missing [attention]" in label for label in labels)
 
 
 @pytest.mark.asyncio

@@ -75,6 +75,23 @@ def test_detects_existing_agent_instruction_files(tmp_path: Path) -> None:
     assert detection.workspace_root == str(tmp_path)
 
 
+def test_detects_modern_copilot_instruction_path(tmp_path: Path) -> None:
+    instructions_dir = tmp_path / ".github" / "instructions"
+    instructions_dir.mkdir(parents=True)
+    (instructions_dir / "copilot.instructions.md").write_text(
+        "# Copilot instructions\n",
+        encoding="utf-8",
+    )
+
+    detection = detect_workspace_agent_layer(tmp_path)
+
+    copilot_detection = next(
+        agent for agent in detection.agents if agent.target == AgentTarget.COPILOT
+    )
+    assert copilot_detection.status == "detected"
+    assert copilot_detection.path == ".github/instructions/copilot.instructions.md"
+
+
 def test_detects_python_pytest_ruff_workspace(tmp_path: Path) -> None:
     (tmp_path / "pyproject.toml").write_text(
         '[project]\nname = "demo"\n[tool.pytest.ini_options]\n[tool.ruff]\n',

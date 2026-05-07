@@ -98,6 +98,22 @@ If it fails: confirm Python 3.11+ is active, then rerun the install. Use
 `devcd smoke` for a narrow install check and `devcd doctor` for local
 remediation details.
 
+### Optional: shell completion (Bash, Zsh, Fish, PowerShell)
+
+Use the guided command first:
+
+```bash
+devcd autocomplete
+```
+
+Then install completion in the shell you are currently using:
+
+```bash
+devcd --install-completion
+```
+
+Use `devcd --show-completion` when you want to inspect or customize the generated script.
+
 ### Step 2: Single-workspace guided alternative (`onboard`)
 
 ```bash

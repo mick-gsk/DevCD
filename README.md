@@ -75,6 +75,13 @@ devcd agentic action-packet
 devcd smoke
 ```
 
+5. Optional: enable shell completion:
+
+```bash
+devcd autocomplete
+devcd --install-completion
+```
+
 Use `devcd setup` without `--yes` if you want an interactive setup wizard.
 
 ### Cross-Platform Notes
@@ -109,6 +116,7 @@ devcd agentic action-packet-demo --events examples/agentic-action-packet/sample-
 
 ```bash
 devcd handoff --goal "Ship the failing release gate" --failure "make check failed on policy tests" --rationale "Policy assertion structure changed" --next-action "Inspect the failing policy assertion"
+devcd autocomplete
 devcd quickstart
 devcd context passport
 devcd context control

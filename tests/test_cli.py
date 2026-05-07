@@ -10,7 +10,13 @@ import typer
 from typer.testing import CliRunner
 
 from devcd import __version__
-from devcd.cli import _build_mcp_server, _ensure_mcp_token, _post_event, app
+from devcd.cli import (
+    _build_mcp_server,
+    _configure_windows_utf8_stdio,
+    _ensure_mcp_token,
+    _post_event,
+    app,
+)
 from devcd.kernel.settings import DevCDSettings
 from devcd.slices.events.ledger import EventLedger
 from devcd.slices.events.models import DevEvent, EventSource
@@ -29,6 +35,28 @@ def plain_help(output: str) -> str:
 
 def normalized_text(value: str) -> str:
     return value.replace("\r\n", "\n")
+
+
+def test_configure_windows_utf8_stdio_reconfigures_streams(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    class FakeStream:
+        def __init__(self) -> None:
+            self.calls: list[dict[str, str]] = []
+
+        def reconfigure(self, **kwargs: str) -> None:
+            self.calls.append(kwargs)
+
+    stdout_stream = FakeStream()
+    stderr_stream = FakeStream()
+    monkeypatch.setattr("devcd.cli.platform.system", lambda: "Windows")
+    monkeypatch.setattr("devcd.cli.sys.stdout", stdout_stream)
+    monkeypatch.setattr("devcd.cli.sys.stderr", stderr_stream)
+
+    _configure_windows_utf8_stdio()
+
+    assert stdout_stream.calls == [{"encoding": "utf-8", "errors": "replace"}]
+    assert stderr_stream.calls == [{"encoding": "utf-8", "errors": "replace"}]
 
 
 def test_init_writes_default_config(tmp_path) -> None:
@@ -1214,9 +1242,9 @@ def test_welcome_command_prints_first_run_success_chain() -> None:
     assert result.exit_code == 0
     assert "DevCD welcome" in result.output
     assert "Install proof: devcd smoke" in result.output
-    assert "1. Start: devcd onboard" in result.output
-    assert "2. Prove: devcd agentic action-packet" in result.output
-    assert "3. Repair: devcd doctor" in result.output
+    assert "1. Start: devcd setup --yes" in result.output
+    assert "2. Verify: devcd smoke" in result.output
+    assert "3. Prove: devcd agentic action-packet" in result.output
     assert "Local-first" in result.output
     assert "No daemon starts until devcd run" in result.output
 
@@ -1230,11 +1258,11 @@ def test_welcome_json_contract_is_stable() -> None:
     body = json.loads(result.output)
     assert body["status"] == "ready"
     assert body["install_proof"]["command"] == "devcd smoke"
-    assert body["next_command"] == "devcd onboard"
+    assert body["next_command"] == "devcd setup --yes"
     assert [step["command"] for step in body["success_chain"]][:3] == [
-        "devcd onboard",
+        "devcd setup --yes",
+        "devcd smoke",
         "devcd agentic action-packet",
-        "devcd doctor",
     ]
     assert body["trust"]["remote_export_enabled_by_default"] is False
 
@@ -1366,7 +1394,21 @@ def test_smoke_command_verifies_local_first_run() -> None:
     assert "devcd --help: ok" in result.output
     assert "devcd context packs: ok" in result.output
     assert "devcd quickstart: ok" in result.output
-    assert "Next: devcd onboard" in result.output
+    assert "Next: devcd setup --yes" in result.output
+
+
+def test_autocomplete_command_prints_shell_guidance() -> None:
+    runner = CliRunner()
+
+    result = runner.invoke(app, ["autocomplete"])
+
+    assert result.exit_code == 0
+    assert "DevCD shell completion" in result.output
+    assert "Bash:" in result.output
+    assert "Zsh:" in result.output
+    assert "Fish:" in result.output
+    assert "PowerShell:" in result.output
+    assert "devcd --install-completion" in result.output
 
 
 @pytest.mark.slow
@@ -3095,13 +3137,17 @@ def test_agentic_action_packet_human_output_is_agent_start_brief(
 
     assert result.exit_code == 0
     assert "# DevCD Action Packet" in result.output
+    assert "## What To Do Next" in result.output
+    assert "- Next action now: Inspect the policy assertion before editing" in result.output
+    assert "- If you need broader context: devcd context passport" in result.output
+    assert "- This packet is ready: continue immediately from the next action." in result.output
+    assert "## Status" in result.output
     assert "## Immediate Path" in result.output
-    assert "- 1. Start from next_action before gathering more context." in result.output
-    assert "## Start Brief" in result.output
+    assert "- 1. Execute next_action first." in result.output
     assert "- ready_for_agent: true" in result.output
     assert "- recommended_agent_mode: debugging" in result.output
     assert "Resume the release gate fix" in result.output
-    assert "Inspect the policy assertion before editing" in result.output
+    assert "- done_when: not specified" in result.output
     assert "## Evidence" in result.output
     assert "make check failed on policy assertions" in result.output
     assert "## Blockers" in result.output
@@ -3730,7 +3776,7 @@ def test_quickstart_prioritizes_action_packet_and_reports_next_steps(
     assert "- Broader continuity view: devcd context passport" in result.output
     assert "- Policy receipts: devcd context control" in result.output
     assert "Happy path" in result.output
-    assert "- 1. Prepare workspace: devcd onboard" in result.output
+    assert "- 1. Prepare workspace: devcd setup --yes" in result.output
     assert "- 2. Warm-start the next agent: devcd agentic action-packet" in result.output
     assert "- 3. Open the follow-up report: devcd quickstart" in result.output
     assert "Local-first defaults" in result.output
@@ -3748,7 +3794,11 @@ def test_quickstart_prioritizes_action_packet_and_reports_next_steps(
     assert "Repeat-use moment" in result.output
     assert "Come back with: devcd agentic action-packet" in result.output
     assert "Config: missing" in result.output
+    assert "Workflow: attention" in result.output
+    assert "Workflow counts: ready=1, attention=6, blocked=0" in result.output
     assert "Step 3: Open the Action Packet" in result.output
+    assert "Status: missing [attention]" in result.output
+    assert "Status: complete [ready]" in result.output
     assert "Step 5: Inspect the broader continuity view" in result.output
     assert "devcd context passport" in result.output
     assert "Step 7: Optional MCP/OpenClaw integration" in result.output
@@ -3790,6 +3840,7 @@ def test_quickstart_json_reports_live_first_readiness(
     ]["packet"]["unknowns"]
     assert "demo_preview" not in body
     assert body["local_state"]["config_exists"] is False
+    assert body["local_state"]["workflow_status"] == "attention"
     assert body["local_state"]["token_source"] == "missing"
     assert body["local_state"]["daemon_reachable"] is False
     assert body["local_state"]["live_context_empty"] is True
@@ -3822,6 +3873,19 @@ def test_quickstart_json_reports_live_first_readiness(
         "daemon",
         "mcp",
     ]
+    assert [step["status_level"] for step in body["steps"]] == [
+        "ready",
+        "attention",
+        "attention",
+        "attention",
+        "attention",
+        "attention",
+        "attention",
+    ]
+    assert body["workflow_status"] == {
+        "overall": "attention",
+        "counts": {"ready": 1, "attention": 6, "blocked": 0},
+    }
     assert body["next_paths"]["get_action_packet"] == "devcd agentic action-packet"
     assert body["next_paths"]["capture_handoff"] == (
         'devcd handoff --goal "<current goal>" --next-action "<safe next step>"'

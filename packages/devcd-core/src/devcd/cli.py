@@ -28,6 +28,7 @@ from devcd.slices.ambient_context.agent_layer_service import (
     build_agent_layer_proposal,
     detect_workspace_agent_layer,
     load_agent_layer_profile,
+    resolve_agent_instruction_path,
     upsert_managed_agent_block,
 )
 from devcd.slices.ambient_context.models import (
@@ -109,9 +110,23 @@ def _app_callback(
         ),
     ] = False,
 ) -> None:
+    _configure_windows_utf8_stdio()
     if version:
         typer.echo(f"DevCD {__version__}")
         raise typer.Exit()
+
+
+def _configure_windows_utf8_stdio() -> None:
+    if platform.system().lower() != "windows":
+        return
+    for stream in (sys.stdout, sys.stderr):
+        reconfigure = getattr(stream, "reconfigure", None)
+        if not callable(reconfigure):
+            continue
+        try:
+            reconfigure(encoding="utf-8", errors="replace")
+        except (OSError, ValueError):
+            continue
 
 
 _LOCAL_TOKEN_PATH = Path(".devcd") / "token"
@@ -181,7 +196,7 @@ def welcome(
 def _build_welcome_report() -> dict[str, Any]:
     return {
         "status": "ready",
-        "next_command": "devcd onboard",
+        "next_command": "devcd setup --yes",
         "install_proof": {
             "command": "devcd smoke",
             "success": "CLI, Context Packs, and daemonless Quickstart contract pass.",
@@ -189,18 +204,18 @@ def _build_welcome_report() -> dict[str, Any]:
         "success_chain": [
             {
                 "label": "Start",
-                "command": "devcd onboard",
-                "success": "Run the full guided success chain with one command.",
+                "command": "devcd setup --yes",
+                "success": "Configure workspace defaults and seed the first handoff context.",
+            },
+            {
+                "label": "Verify",
+                "command": "devcd smoke",
+                "success": "Confirm local-first install and quickstart contract in one check.",
             },
             {
                 "label": "Prove",
                 "command": "devcd agentic action-packet",
                 "success": "Validate the next-agent handoff when you want packet details.",
-            },
-            {
-                "command": "devcd doctor",
-                "label": "Repair",
-                "success": "Use diagnostics only when onboard flags attention.",
             },
         ],
         "trust": {
@@ -263,6 +278,31 @@ def _print_welcome_report(report: dict[str, Any]) -> None:
         console.print(f"  {windows_note}", style="dim")
     console.print()
     console.print(f"Docs: {report['docs']}", style="dim")
+
+
+@app.command()
+def autocomplete() -> None:
+    """Show shell-completion install guidance for common shells."""
+    lines = [
+        "DevCD shell completion",
+        "",
+        "Install for the current shell:",
+        "- devcd --install-completion",
+        "",
+        "Preview generated completion script:",
+        "- devcd --show-completion",
+        "",
+        "Common shells",
+        "Bash:",
+        "- Open Bash, then run: devcd --install-completion",
+        "Zsh:",
+        "- Open Zsh, then run: devcd --install-completion",
+        "Fish:",
+        "- Open Fish, then run: devcd --install-completion",
+        "PowerShell:",
+        "- Open PowerShell, then run: devcd --install-completion",
+    ]
+    typer.echo("\n".join(lines))
 
 
 @app.command()
@@ -686,7 +726,7 @@ def _write_agent_ready_workspace(
         if target == "openclaw":
             report.append(_write_openclaw_mcp_snippet(workspace_root))
             continue
-        path = workspace_root / _agent_instruction_path(target)
+        path = workspace_root / _agent_instruction_path(target, workspace_root=workspace_root)
         product_intent_lines = (
             _resolve_product_intent_lines(
                 workspace_root=workspace_root,
@@ -713,9 +753,9 @@ def _write_agent_ready_workspace(
     return report
 
 
-def _agent_instruction_path(target: str) -> Path:
+def _agent_instruction_path(target: str, *, workspace_root: Path) -> Path:
     if target == "copilot":
-        return Path(".github") / "copilot-instructions.md"
+        return resolve_agent_instruction_path(target="copilot", workspace_root=workspace_root)
     if target == "claude":
         return Path("CLAUDE.md")
     if target == "codex":
@@ -741,7 +781,7 @@ def _upsert_managed_agent_block(*, path: Path, target: str, block: str) -> str:
 def _refresh_copilot_instruction_product_intent(
     *, workspace_root: Path, goal: str, config: Path | None
 ) -> None:
-    path = workspace_root / _agent_instruction_path("copilot")
+    path = workspace_root / _agent_instruction_path("copilot", workspace_root=workspace_root)
     product_intent_lines = _resolve_product_intent_lines(
         workspace_root=workspace_root,
         goal=goal,
@@ -1166,22 +1206,55 @@ def _render_agent_ready_report(report: list[dict[str, str]]) -> str:
 
 
 def _render_action_packet(packet: ActionPacket) -> str:
+    next_action = packet.next_action or "Use Scout Tasks to gather context."
+    current_goal = packet.current_goal or "unknown"
+    done_when = ""
+    if packet.session_contract is not None:
+        done_when = packet.session_contract.done_when.strip()
+
     lines = [
         "# DevCD Action Packet",
         "",
-        "## Immediate Path",
-        "- 1. Start from next_action before gathering more context.",
-        "- 2. Check blockers and evidence if the next action is not yet safe.",
-        "- 3. Open devcd context passport only when the packet is not enough.",
-        "",
-        "## Start Brief",
-        f"- ready_for_agent: {str(packet.ready_for_agent).lower()}",
-        f"- recommended_agent_mode: {packet.recommended_agent_mode}",
-        f"- current_goal: {packet.current_goal or 'unknown'}",
-        f"- next_action: {packet.next_action or 'Use Scout Tasks to gather context.'}",
-        "",
-        "## Evidence",
+        "## What To Do Next",
+        f"- Next action now: {next_action}",
+        "- If you need broader context: devcd context passport",
     ]
+    if packet.ready_for_agent:
+        lines.append("- This packet is ready: continue immediately from the next action.")
+    else:
+        lines.extend(
+            [
+                "- This packet is not ready yet:",
+                '  - Capture goal: devcd capture --kind goal --summary "<current_goal>"',
+                (
+                    '  - Capture failure + next action: devcd capture --kind failure '
+                    '--summary "<what failed>" --next-action "<safe next step>"'
+                ),
+                (
+                    '  - Or run: devcd handoff --goal "<current_goal>" '
+                    '--next-action "<safe next step>"'
+                ),
+                "  - Then rerun: devcd agentic action-packet",
+            ]
+        )
+
+    lines.extend(
+        [
+            "",
+            "## Status",
+            f"- ready_for_agent: {str(packet.ready_for_agent).lower()}",
+            f"- recommended_agent_mode: {packet.recommended_agent_mode}",
+            f"- current_goal: {current_goal}",
+            f"- done_when: {done_when or 'not specified'}",
+            "",
+            "## Immediate Path",
+            "- 1. Execute next_action first.",
+            "- 2. Check blockers/evidence only if execution is unsafe or unclear.",
+            "- 3. Run `devcd agentic completion-check` when you believe the step is complete.",
+            "",
+            "## Evidence",
+        ]
+    )
     if packet.evidence:
         for evidence in packet.evidence:
             lines.append(f"- {evidence.source}: {evidence.summary}")
@@ -1594,7 +1667,7 @@ def _agent_report_from_layer_profile(
         path = (
             Path(".devcd") / "openclaw-mcp.json"
             if target == "openclaw"
-            else _agent_instruction_path(target)
+            else _agent_instruction_path(target, workspace_root=workspace_root)
         )
         report.append(
             {
@@ -3740,7 +3813,7 @@ def _build_quickstart_report(
     config_exists = bool(status_report["config_exists"])
     live_context_empty = events_count == 0
     agent_layer = _build_quickstart_agent_layer_report(settings=settings)
-    workspace_command = "devcd status" if config_exists else "devcd init"
+    workspace_command = "devcd setup --yes"
     daemon_command = "devcd status" if daemon_reachable else "devcd run"
     capture_command = 'devcd handoff --goal "<current goal>" --next-action "<safe next step>"'
     steps = [
@@ -3762,12 +3835,12 @@ def _build_quickstart_report(
             "Prepare local workspace",
             workspace_command,
             (
-                "Existing devcd.toml is kept; missing config can be created "
-                "explicitly without leaving the primary flow."
+                "Setup applies workspace defaults, agent targets, and initial handoff metadata "
+                "in one step."
             ),
-            "devcd.toml exists with loopback, local storage, and policy defaults.",
+            "devcd.toml and agent-ready files are present for immediate Action Packet usage.",
             "devcd agentic action-packet",
-            "If config exists but looks wrong, run devcd doctor before choosing any reset.",
+            "If setup reports issues, run devcd doctor and re-run devcd setup --yes.",
             "present" if config_exists else "missing",
         ),
         _quickstart_step(
@@ -3843,6 +3916,7 @@ def _build_quickstart_report(
             "optional",
         ),
     ]
+    workflow_status = _quickstart_workflow_status(steps)
     report = {
         "value_proposition": (
             "DevCD lets a new agent continue from a local, policy-filtered Action Packet without "
@@ -3903,6 +3977,7 @@ def _build_quickstart_report(
             "active_goal": status_report["active_goal"],
             "next_command": status_report["next_command"],
             "doctor_status": doctor_report["summary"]["status"],
+            "workflow_status": workflow_status["overall"],
         },
         "agent_layer": agent_layer,
         "defaults": {
@@ -3934,6 +4009,7 @@ def _build_quickstart_report(
             "mcp_resources_read_only": True,
         },
         "steps": steps,
+        "workflow_status": workflow_status,
         "next_paths": {
             "continue_live": "devcd run",
             "get_action_packet": "devcd agentic action-packet",
@@ -4075,7 +4151,7 @@ def _build_smoke_report(*, config: Path | None, endpoint: str, demo_events: Path
     status = "pass" if all(item["status"] == "pass" for item in checks) else "fail"
     return {
         "status": status,
-        "next_command": "devcd onboard",
+        "next_command": "devcd setup --yes",
         "checks": checks,
     }
 
@@ -4168,7 +4244,49 @@ def _quickstart_step(
         "next": next_command,
         "if_fails": if_fails,
         "status": status_value,
+        "status_level": _quickstart_step_status_level(status_value),
     }
+
+
+def _quickstart_step_status_level(status_value: str) -> str:
+    normalized = status_value.strip().lower()
+    if normalized in {
+        "complete",
+        "present",
+        "ready",
+        "reachable",
+        "already has continuity",
+    }:
+        return "ready"
+    if normalized in {
+        "missing",
+        "needs continuity",
+        "recommended",
+        "empty guidance available",
+        "not running",
+        "optional",
+    }:
+        return "attention"
+    if normalized in {"fail", "failed", "error", "denied", "blocked"}:
+        return "blocked"
+    return "attention"
+
+
+def _quickstart_workflow_status(steps: list[dict[str, str]]) -> dict[str, Any]:
+    counts = {"ready": 0, "attention": 0, "blocked": 0}
+    for step in steps:
+        level = step.get("status_level", "attention")
+        if level not in counts:
+            level = "attention"
+        counts[level] += 1
+
+    overall = "ready"
+    if counts["blocked"] > 0:
+        overall = "blocked"
+    elif counts["attention"] > 0:
+        overall = "attention"
+
+    return {"overall": overall, "counts": counts}
 
 
 def _build_demo_continuity_packet(demo_events: Path) -> ContinuityPacket:
@@ -4642,6 +4760,9 @@ def _render_quickstart_report(report: dict[str, Any]) -> str:
     privacy = report["privacy"]
     repeat_use = report["repeat_use"]
     steps = list(report["steps"])
+    workflow_status = cast(dict[str, Any], report.get("workflow_status", {}))
+    workflow_overall = str(workflow_status.get("overall", "attention"))
+    workflow_counts = cast(dict[str, int], workflow_status.get("counts", {}))
     config_status = "present" if local_state["config_exists"] else "missing"
     daemon_status = "reachable" if local_state["daemon_reachable"] else "not reachable"
     live_context_status = "empty" if local_state["live_context_empty"] else "has events"
@@ -4655,7 +4776,7 @@ def _render_quickstart_report(report: dict[str, Any]) -> str:
         f"- {action_packet_first['command']}",
         "",
         "Happy path",
-        "- 1. Prepare workspace: devcd onboard",
+        "- 1. Prepare workspace: devcd setup --yes",
         "- 2. Warm-start the next agent: devcd agentic action-packet",
         "- 3. Open the follow-up report: devcd quickstart",
         "- 4. Broader continuity only if needed: devcd context passport",
@@ -4679,6 +4800,13 @@ def _render_quickstart_report(report: dict[str, Any]) -> str:
         "- MCP resources are read-only",
         "",
         "Current local state",
+        f"- Workflow: {workflow_overall}",
+        (
+            "- Workflow counts: "
+            f"ready={workflow_counts.get('ready', 0)}, "
+            f"attention={workflow_counts.get('attention', 0)}, "
+            f"blocked={workflow_counts.get('blocked', 0)}"
+        ),
         f"- Config: {config_status} ({local_state['config_path']})",
         f"- Token: {local_state['token_source']}",
         f"- Daemon: {daemon_status} ({local_state['daemon_endpoint']})",
@@ -4793,7 +4921,7 @@ def _render_quickstart_steps(steps: list[object], *, start_index: int) -> list[s
                 f"Success: {raw_step['success_looks_like']}",
                 f"Next: {raw_step['next']}",
                 f"If it fails: {raw_step['if_fails']}",
-                f"Status: {raw_step['status']}",
+                f"Status: {raw_step['status']} [{raw_step.get('status_level', 'attention')}]",
                 "",
             ]
         )

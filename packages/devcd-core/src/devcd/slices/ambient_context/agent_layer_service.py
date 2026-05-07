@@ -42,6 +42,11 @@ _AGENT_INSTRUCTION_PATHS: dict[AgentTarget, Path] = {
     AgentTarget.OPENCLAW: Path(".devcd") / "openclaw-mcp.json",
 }
 
+_COPILOT_INSTRUCTION_CANDIDATE_PATHS: tuple[Path, ...] = (
+    Path(".github") / "instructions" / "copilot.instructions.md",
+    Path(".github") / "copilot-instructions.md",
+)
+
 _DEVCD_AGENT_BLOCK_START = "<!-- DEVCD AGENT CONTINUITY START -->"
 _DEVCD_AGENT_BLOCK_END = "<!-- DEVCD AGENT CONTINUITY END -->"
 
@@ -405,7 +410,10 @@ def load_agent_layer_profile(workspace_root: Path) -> AgentLayerProfileLoadResul
 
 def _detect_agents(root: Path) -> list[DetectedAgentTarget]:
     agents: list[DetectedAgentTarget] = []
-    for target, relative_path in _AGENT_INSTRUCTION_PATHS.items():
+    for target in AgentTarget:
+        relative_path = _existing_agent_instruction_path(target=target, workspace_root=root)
+        if relative_path is None:
+            continue
         absolute_path = root / relative_path
         if absolute_path.exists():
             agents.append(
@@ -541,7 +549,7 @@ def _build_write_preview(
         ),
     ]
     for target in agent_targets:
-        relative_path = _AGENT_INSTRUCTION_PATHS[target]
+        relative_path = resolve_agent_instruction_path(target=target, workspace_root=root)
         writes.append(
             AgentLayerWritePreview(
                 path=relative_path.as_posix(),
@@ -608,9 +616,30 @@ def _write_openclaw_snippet(root: Path) -> None:
 
 
 def _write_agent_instruction(root: Path, target: AgentTarget) -> None:
-    path = root / _AGENT_INSTRUCTION_PATHS[target]
+    path = root / resolve_agent_instruction_path(target=target, workspace_root=root)
     block = build_agent_instruction_block(target)
     _ = upsert_managed_agent_block(path=path, target=target, block=block)
+
+
+def resolve_agent_instruction_path(*, target: AgentTarget | str, workspace_root: Path) -> Path:
+    normalized = _normalize_agent_target(target)
+    existing = _existing_agent_instruction_path(target=normalized, workspace_root=workspace_root)
+    if existing is not None:
+        return existing
+    return _AGENT_INSTRUCTION_PATHS[normalized]
+
+
+def _existing_agent_instruction_path(*, target: AgentTarget, workspace_root: Path) -> Path | None:
+    for candidate in _agent_instruction_candidates(target):
+        if (workspace_root / candidate).exists():
+            return candidate
+    return None
+
+
+def _agent_instruction_candidates(target: AgentTarget) -> tuple[Path, ...]:
+    if target == AgentTarget.COPILOT:
+        return _COPILOT_INSTRUCTION_CANDIDATE_PATHS
+    return (_AGENT_INSTRUCTION_PATHS[target],)
 
 
 def _agent_file_heading(target: AgentTarget) -> str:

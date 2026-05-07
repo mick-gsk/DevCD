@@ -107,8 +107,8 @@ title: DevCD — Context Layer for AI Developers
   <div class="devcd-qs-step">
     <div class="devcd-qs-num">2</div>
     <div class="devcd-qs-body">
-      <strong>Onboard your workspace</strong>
-      <code>devcd onboard</code>
+      <strong>Setup your workspace</strong>
+      <code>devcd setup --yes</code>
     </div>
   </div>
   <div class="devcd-qs-step">

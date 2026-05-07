@@ -127,6 +127,7 @@ def _sidebar(local_state: dict[str, Any], agent_layer: dict[str, Any] | None = N
     events_count = int(local_state.get("events_count", 0))
     goal: str | None = local_state.get("active_goal")
     token = str(local_state.get("token_source", "missing"))
+    workflow_status = str(local_state.get("workflow_status", "attention"))
     profile_status = str((agent_layer or {}).get("profile_status", "unknown"))
     archetype = str((agent_layer or {}).get("archetype", "auto"))
 
@@ -140,6 +141,10 @@ def _sidebar(local_state: dict[str, Any], agent_layer: dict[str, Any] | None = N
         row(f"  Token    {token[:18]}", "ok" if token != "missing" else "warn"),
         row(f"  Events   {events_count}", "ok" if events_count > 0 else "neutral"),
         row(f"  Goal     {(goal or '—')[:20]}", "ok" if goal else "neutral"),
+        row(
+            f"  Flow     {workflow_status[:18]}",
+            "ok" if workflow_status == "ready" else "warn",
+        ),
         row("Agent Layer", "title"),
         row(f"  Profile  {profile_status[:18]}", "ok" if profile_status == "ready" else "warn"),
         row(f"  Layer    {archetype[:18]}", "neutral"),
@@ -282,6 +287,8 @@ class LiveSetupScreen(Screen[None]):  # type: ignore[type-arg]
                 for step in self._steps:
                     argv = tuple(step["command"].split())
                     can_run = argv in ALLOWED_QUICKSTART_COMMANDS
+                    status_level = str(step.get("status_level", "attention"))
+                    status_text = str(step.get("status", "unknown"))
                     # Auto-expand the first step that hasn't been completed yet
                     already_done = step["status"] in {
                         "present",
@@ -289,7 +296,15 @@ class LiveSetupScreen(Screen[None]):  # type: ignore[type-arg]
                         "already has events",
                         "ready",
                     }
-                    with Collapsible(title=f"  {step['title']}", collapsed=already_done):
+                    with Collapsible(
+                        title=f"  {step['title']} [{status_level}]",
+                        collapsed=already_done,
+                    ):
+                        yield Label(
+                            f"Status: {status_text} [{status_level}]",
+                            classes="step-prose",
+                            markup=False,
+                        )
                         yield Label(step["what_happened"], classes="step-prose")
                         yield Static(
                             f"  $ {step['command']}",
