@@ -697,13 +697,20 @@ def test_handoff_captures_goal_failure_and_next_action_for_next_agent(
     assert "Captured handoff for next agent" in result.output
     assert "Next agent starts with: devcd agentic action-packet" in result.output
     records = _ledger_records(runtime_dir / "events.jsonl")
-    assert [record["event"]["type"] for record in records] == [
-        "goal_update",
-        "test_failure",
-        "next_action",
-    ]
-    assert records[0]["event"]["payload"]["current_goal"] == "Ship sticky onboarding"
-    assert records[1]["event"]["payload"] == {
+    by_type = [record["event"]["type"] for record in records]
+    assert "goal_update" in by_type
+    assert "test_failure" in by_type
+    assert "next_action" in by_type
+    assert by_type.count("decision") >= 2
+
+    goal_record = next(record for record in records if record["event"]["type"] == "goal_update")
+    failure_record = next(record for record in records if record["event"]["type"] == "test_failure")
+    next_action_record = next(
+        record for record in records if record["event"]["type"] == "next_action"
+    )
+
+    assert goal_record["event"]["payload"]["current_goal"] == "Ship sticky onboarding"
+    assert failure_record["event"]["payload"] == {
         "agent": "copilot",
         "basis": "agent_inference",
         "capture_kind": "failure",
@@ -712,9 +719,81 @@ def test_handoff_captures_goal_failure_and_next_action_for_next_agent(
         "session": "session-2",
         "suggested_next_action": "Inspect the failing quickstart assertion",
     }
-    assert records[2]["event"]["payload"]["suggested_next_action"] == (
+    assert next_action_record["event"]["payload"]["suggested_next_action"] == (
         "Inspect the failing quickstart assertion"
     )
+
+
+def test_agentic_action_packet_captures_before_after_hook_decisions(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.chdir(tmp_path)
+    config_path = tmp_path / "devcd.toml"
+    config_path.write_text(
+        '[devcd]\nruntime_dir = "runtime"\nworking_memory_ttl_seconds = 315360000\n',
+        encoding="utf-8",
+    )
+    runner = CliRunner()
+
+    handoff_result = runner.invoke(
+        app,
+        [
+            "handoff",
+            "--goal",
+            "Hook coverage",
+            "--next-action",
+            "Read packet",
+            "--config",
+            str(config_path),
+        ],
+    )
+    packet_result = runner.invoke(
+        app,
+        ["agentic", "action-packet", "--config", str(config_path)],
+    )
+
+    assert handoff_result.exit_code == 0
+    assert packet_result.exit_code == 0
+
+    records = _ledger_records(tmp_path / "runtime" / "events.jsonl")
+    decision_summaries = [
+        record["event"]["payload"].get("summary", "")
+        for record in records
+        if record["event"]["type"] == "decision"
+    ]
+    assert any(summary.startswith("hook:action-packet.before") for summary in decision_summaries)
+    assert any(summary.startswith("hook:action-packet.after") for summary in decision_summaries)
+
+
+def test_setup_captures_before_after_hook_decisions(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.chdir(tmp_path)
+    project = tmp_path / "project-one"
+    project.mkdir()
+    runner = CliRunner()
+
+    result = runner.invoke(
+        app,
+        [
+            "setup",
+            "--projects",
+            str(project),
+            "--agents",
+            "copilot",
+            "--yes",
+        ],
+    )
+
+    assert result.exit_code == 0
+    records = _ledger_records(tmp_path / ".devcd" / "events.jsonl")
+    decision_summaries = [
+        record["event"]["payload"].get("summary", "")
+        for record in records
+        if record["event"]["type"] == "decision"
+    ]
+    assert any(summary.startswith("hook:setup.before") for summary in decision_summaries)
+    assert any(summary.startswith("hook:setup.after") for summary in decision_summaries)
 
 
 def test_handoff_creates_copilot_instructions_with_product_intent(

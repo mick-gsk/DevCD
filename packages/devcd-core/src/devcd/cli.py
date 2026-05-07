@@ -78,6 +78,8 @@ from devcd.slices.policy_layer.service import PolicyEngine
 
 if TYPE_CHECKING:
     from devcd.slices.vision_layer.service import VisionService
+    from devcd.slices.workflow_layer.engine import CommandExecutionResult
+    from devcd.slices.workflow_layer.models import CommandStep
 
 app = typer.Typer(
     help=("DevCD terminal-first continuity for AI power users. Start with 'devcd setup'.")
@@ -96,6 +98,8 @@ app.add_typer(policy_app, name="policy")
 app.add_typer(recipe_app, name="recipe")
 vision_app = typer.Typer(help="Manage your persistent agent vision and North Star.")
 app.add_typer(vision_app, name="vision")
+workflow_app = typer.Typer(help="Run, resume, and inspect structured workflows with human gates.")
+app.add_typer(workflow_app, name="workflow")
 
 
 @app.callback(invoke_without_command=True)
@@ -358,6 +362,11 @@ def setup(
     ] = False,
 ) -> None:
     """Install-time setup wizard: configure projects and seed handoff continuity."""
+    _capture_hook_decision(
+        config=None,
+        summary=f"hook:setup.before projects={projects or 'interactive'}",
+    )
+
     project_paths = _setup_project_paths(projects, use_defaults=yes)
     agent_targets = _setup_agent_targets(agents, use_defaults=yes)
     setup_goal = _setup_capture_value(
@@ -447,6 +456,10 @@ def setup(
         return
 
     _print_setup_report(report)
+    _capture_hook_decision(
+        config=None,
+        summary=f"hook:setup.after configured={configured} failed={failed}",
+    )
 
 
 def _print_setup_report(report: dict[str, Any]) -> None:
@@ -2237,6 +2250,8 @@ def handoff(
     if rationale is not None and failure is None:
         raise typer.BadParameter("--rationale requires --failure")
 
+    _capture_hook_decision(config=config, summary="hook:handoff.before")
+
     settings = DevCDSettings.load(config)
     ledger = EventLedger(settings.ledger_path)
     capture_specs: list[tuple[str, str, str | None, str | None]] = [("goal", goal, None, None)]
@@ -2270,6 +2285,7 @@ def handoff(
         goal=goal,
         config=config,
     )
+    _capture_hook_decision(config=config, summary="hook:handoff.after")
 
 
 def _append_allowed_capture_event(
@@ -2288,6 +2304,28 @@ def _append_allowed_capture_event(
 
     ledger.append(event=event, decision=storage_decision)
     return storage_decision.reason
+
+
+def _capture_hook_decision(*, config: Path | None, summary: str) -> None:
+    try:
+        settings = DevCDSettings.load(config)
+        ledger = EventLedger(settings.ledger_path)
+        event = _build_capture_event(
+            kind="decision",
+            summary=summary,
+            basis="agent_inference",
+            confidence="inferred",
+            outcome=None,
+            next_action=None,
+            artifact=None,
+            rationale=None,
+            agent="devcd",
+            session=None,
+            fingerprint=None,
+        )
+        _append_allowed_capture_event(event=event, settings=settings, ledger=ledger)
+    except (OSError, ValueError, typer.BadParameter, typer.Exit):
+        return
 
 
 @app.command("git-snapshot")
@@ -2926,10 +2964,23 @@ def agentic_action_packet(
     ] = False,
 ) -> None:
     """Print the local Action Packet for the next agent run."""
+    _capture_hook_decision(
+        config=config,
+        summary=f"hook:action-packet.before surface={surface} pack={pack}",
+    )
+
     packet = _build_local_agentic_context_service(config).create_action_packet(
         surface=surface,
         context_pack=_context_pack_id(pack),
     )
+    _capture_hook_decision(
+        config=config,
+        summary=(
+            "hook:action-packet.after "
+            f"ready={packet.ready_for_agent} next_action={packet.next_action or ''}"
+        ),
+    )
+
     if output_json:
         typer.echo(json.dumps(packet.model_dump(mode="json"), indent=2))
         return
@@ -5787,6 +5838,220 @@ def vision_history(
             f"{i}. [{entry.replaced_at.isoformat()}] {entry.statement}"
             + (f" (reason: {entry.replaced_by_reason})" if entry.replaced_by_reason else "")
         )
+
+
+# ---------------------------------------------------------------------------
+# workflow commands
+# ---------------------------------------------------------------------------
+
+
+@workflow_app.callback()
+def _workflow_callback() -> None:
+    """Run, resume, and inspect structured workflows with human gates."""
+
+
+@workflow_app.command("run")
+def workflow_run(
+    path_or_name: Annotated[
+        str, typer.Argument(help="Path to a workflow YAML file or a catalog name.")
+    ],
+    as_json: Annotated[bool, typer.Option("--json", help="Output run state as JSON.")] = False,
+) -> None:
+    """Start a workflow. Pauses at gate steps and prints resume instructions."""
+    import yaml
+
+    from devcd.slices.policy_layer.service import PolicyEngine
+    from devcd.slices.workflow_layer.catalog import WorkflowCatalog
+    from devcd.slices.workflow_layer.engine import WorkflowEngine
+    from devcd.slices.workflow_layer.models import RunStatus, WorkflowDefinition
+
+    settings = DevCDSettings.load()
+    policy = PolicyEngine.from_settings(settings)
+    runs_dir = settings.runtime_dir / "workflows" / "runs"
+    engine = WorkflowEngine(
+        runs_dir=runs_dir,
+        policy_engine=policy,
+        command_runner=_invoke_devcd_command,
+    )
+
+    target = Path(path_or_name)
+    if target.is_file():
+        raw = yaml.safe_load(target.read_text(encoding="utf-8"))
+        definition = WorkflowDefinition.model_validate(raw)
+    else:
+        catalog = WorkflowCatalog.from_env(Path.cwd())
+        resolved = catalog.resolve(path_or_name)
+        if resolved is None:
+            typer.echo(f"Workflow '{path_or_name}' not found in any catalog.", err=True)
+            raise typer.Exit(code=1)
+        definition = resolved
+
+    state = engine.execute(definition)
+
+    if as_json:
+        typer.echo(state.model_dump_json(indent=2))
+        return
+
+    _print_run_state(state)
+    if state.status == RunStatus.PAUSED:
+        gate_result = next(
+            (r for r in reversed(state.step_results) if r.step_type == "gate"),
+            None,
+        )
+        gate_msg = gate_result.output if gate_result else ""
+        typer.echo(f"\nGate: {gate_msg}")
+        typer.echo(f"\nTo resume: devcd workflow resume {state.run_id}")
+
+
+@workflow_app.command("status")
+def workflow_status(
+    run_id: Annotated[
+        str | None,
+        typer.Argument(help="Run ID to inspect. Omit to list recent runs."),
+    ] = None,
+    as_json: Annotated[bool, typer.Option("--json", help="Output as JSON.")] = False,
+) -> None:
+    """Show run state for one run or a summary of recent runs."""
+    from devcd.slices.workflow_layer.engine import WorkflowEngine
+
+    settings = DevCDSettings.load()
+    runs_dir = settings.runtime_dir / "workflows" / "runs"
+    engine = WorkflowEngine(runs_dir=runs_dir)
+
+    if run_id:
+        state = engine.load_state(run_id)
+        if as_json:
+            typer.echo(state.model_dump_json(indent=2))
+        else:
+            _print_run_state(state)
+        return
+
+    runs = engine.list_runs()
+    if not runs:
+        typer.echo("No workflow runs found.")
+        return
+
+    if as_json:
+        typer.echo(json.dumps([r.model_dump(mode="json") for r in runs], indent=2))
+        return
+
+    for run in runs:
+        run_line = (
+            f"{run.run_id[:8]}  {run.workflow_name:<30}"
+            f" {run.status.value:<12} step {run.current_step_index}"
+        )
+        typer.echo(run_line)
+
+
+@workflow_app.command("resume")
+def workflow_resume(
+    run_id: Annotated[str, typer.Argument(help="Run ID of a paused workflow to resume.")],
+    as_json: Annotated[bool, typer.Option("--json", help="Output run state as JSON.")] = False,
+) -> None:
+    """Resume a paused workflow run from the last gate."""
+    from devcd.slices.policy_layer.service import PolicyEngine
+    from devcd.slices.workflow_layer.engine import WorkflowEngine
+    from devcd.slices.workflow_layer.models import RunStatus
+
+    settings = DevCDSettings.load()
+    policy = PolicyEngine.from_settings(settings)
+    runs_dir = settings.runtime_dir / "workflows" / "runs"
+    engine = WorkflowEngine(
+        runs_dir=runs_dir,
+        policy_engine=policy,
+        command_runner=_invoke_devcd_command,
+    )
+
+    state = engine.resume(run_id)
+
+    if as_json:
+        typer.echo(state.model_dump_json(indent=2))
+        return
+
+    _print_run_state(state)
+    if state.status == RunStatus.PAUSED:
+        typer.echo(f"\nStill paused. To resume again: devcd workflow resume {state.run_id}")
+
+
+@workflow_app.command("info")
+def workflow_info(
+    path_or_name: Annotated[
+        str, typer.Argument(help="Path to a workflow YAML file or a catalog name.")
+    ],
+    as_json: Annotated[bool, typer.Option("--json", help="Output as JSON.")] = False,
+) -> None:
+    """Describe a workflow definition without executing it."""
+    import yaml
+
+    from devcd.slices.workflow_layer.catalog import WorkflowCatalog
+    from devcd.slices.workflow_layer.models import WorkflowDefinition
+
+    target = Path(path_or_name)
+    if target.is_file():
+        raw = yaml.safe_load(target.read_text(encoding="utf-8"))
+        definition = WorkflowDefinition.model_validate(raw)
+    else:
+        catalog = WorkflowCatalog.from_env(Path.cwd())
+        resolved = catalog.resolve(path_or_name)
+        if resolved is None:
+            typer.echo(f"Workflow '{path_or_name}' not found in any catalog.", err=True)
+            raise typer.Exit(code=1)
+        definition = resolved
+
+    if as_json:
+        typer.echo(definition.model_dump_json(indent=2))
+        return
+
+    typer.echo(f"Name:        {definition.name}")
+    typer.echo(f"Description: {definition.description}")
+    typer.echo(f"Version:     {definition.version}")
+    typer.echo(f"Steps ({len(definition.steps)}):")
+    for i, step in enumerate(definition.steps):
+        label = (
+            getattr(step, "name", None)
+            or getattr(step, "run", None)
+            or getattr(step, "message", None)
+            or ""
+        )
+        typer.echo(f"  {i + 1}. [{step.type}] {label}")
+
+
+def _print_run_state(state: object) -> None:
+    from devcd.slices.workflow_layer.models import RunState
+
+    if not isinstance(state, RunState):
+        return
+    typer.echo(f"Run ID:   {state.run_id}")
+    typer.echo(f"Workflow: {state.workflow_name}")
+    typer.echo(f"Status:   {state.status.value}")
+    total = state.current_step_index + len(state.step_results)
+    typer.echo(f"Step:     {state.current_step_index}/{total}")
+    for result in state.step_results:
+        if result.status.value == "completed":
+            icon = "\u2713"
+        elif result.status.value in ("failed", "aborted"):
+            icon = "\u2717"
+        else:
+            icon = "\u23f8"
+        typer.echo(f"  {icon} [{result.step_type}] step {result.step_index}: {result.status.value}")
+
+
+def _invoke_devcd_command(step: CommandStep) -> CommandExecutionResult:
+    from typer.testing import CliRunner
+
+    from devcd.slices.workflow_layer.engine import CommandExecutionResult
+
+    runner = CliRunner()
+    result = runner.invoke(app, [step.name, *step.args], catch_exceptions=True)
+    stdout = result.output
+    stderr = ""
+    if result.exit_code != 0 and not stderr and result.exception is not None:
+        stderr = str(result.exception)
+    return CommandExecutionResult(
+        returncode=result.exit_code,
+        stdout=stdout,
+        stderr=stderr,
+    )
 
 
 def main() -> None:

@@ -6,10 +6,20 @@ The project follows Conventional Commits and Semantic Versioning once public rel
 
 ## 0.2.1 - 2026-05-07
 
-Short version: Action Packet now projects verification-ready session contracts, rejected dead-end paths, and additive vision-alignment signals for completion/compliance.
+Short version: Action Packet now projects verification-ready session contracts, rejected dead-end paths, and additive vision-alignment signals for completion/compliance. New workflow_layer slice adds resumable YAML workflow runner, trust-bounded catalog stack, and layered instruction resolver.
 
 ### Added
 
+- New `workflow_layer` slice: resumable YAML workflow runner with human-gate pause/resume, `WorkflowEngine` persisting run state under `.devcd/workflows/runs/`, and `CommandStep`/`ShellStep`/`GateStep` step types.
+- `WorkflowCatalog` with trust-bounded resolution stack (builtin → user → project → env); env-supplied URLs validated for HTTPS/localhost; `CatalogTrustError` on invalid sources.
+- `InstructionLayerResolver` composing agent instruction content from managed-core, team-preset (`.devcd/presets/<target>-*.md`), and workspace-override (`.devcd/instructions/<target>.md`) layers with replace/wrap strategies.
+- `_write_agent_instruction` now routes through `InstructionLayerResolver` so workspace overrides and team presets are automatically composed on top of the managed DevCD block.
+- New `devcd workflow` CLI sub-group with `run`, `status`, `resume`, and `info` commands.
+- Workflow command steps now support in-process CLI execution via an injected command runner, reducing reliance on external `devcd` subprocess lookup.
+- New read-only HTTP API surface for workflow catalog discovery and resolution: `GET /workflow/catalog` and `GET /workflow/catalog/{name}`.
+- Continuity hook capture points added around key orchestration commands: before/after `setup`, before/after `agentic action-packet`, and before/after `handoff`.
+- Three new `PolicyEngine` decision methods: `decide_workflow_step_execute`, `decide_catalog_install`, `decide_instruction_layer_write`.
+- ADR-019: architecture decision record for workflow orchestration, catalog trust stack, and layered instruction resolver.
 - Action Packet additive fields: `rejected_paths` and a dedicated `session_contract` shape (`next_action`, `done_when`, `verification_required`, `withheld_count`).
 - Local CLI and MCP Action Packet builders now inject configured workspace vision consistently, and `devcd agentic completion-check` / `devcd agentic compliance` add a policy-safe vision alignment note with warnings on clear drift.
 - Action Packet projection now derives `done_when` from `event_class="goal.done_when"` and sets verification requirements when completion criteria are missing.

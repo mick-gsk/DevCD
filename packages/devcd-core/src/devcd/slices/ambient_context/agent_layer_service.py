@@ -616,8 +616,13 @@ def _write_openclaw_snippet(root: Path) -> None:
 
 
 def _write_agent_instruction(root: Path, target: AgentTarget) -> None:
+    from devcd.slices.workflow_layer.resolver import InstructionLayerResolver
+
     path = root / resolve_agent_instruction_path(target=target, workspace_root=root)
-    block = build_agent_instruction_block(target)
+    managed_core = build_agent_instruction_block(target)
+    resolver = InstructionLayerResolver(workspace_root=root, managed_core_content=managed_core)
+    resolved = resolver.resolve(target.value)
+    block = resolved.content
     _ = upsert_managed_agent_block(path=path, target=target, block=block)
 
 
