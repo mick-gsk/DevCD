@@ -538,3 +538,30 @@ def test_preset_new_fails_if_file_exists(tmp_path: Path) -> None:
     finally:
         os.chdir(orig)
     assert result.exit_code != 0
+
+
+# ---------------------------------------------------------------------------
+# Fund 4: ENV catalog URL is ignored with warning
+# ---------------------------------------------------------------------------
+
+
+def test_env_catalog_url_is_ignored_with_warning(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture
+) -> None:
+    import logging
+
+    monkeypatch.setenv("DEVCD_WORKFLOW_CATALOG_URL", "https://example.com/catalog")
+    project_dir = tmp_path / ".devcd" / "workflows"
+    project_dir.mkdir(parents=True)
+    _write_yaml(
+        project_dir / "local.yaml",
+        {"name": "local", "steps": []},
+    )
+    catalog = WorkflowCatalog.from_env(tmp_path)
+
+    with caplog.at_level(logging.WARNING, logger="devcd.slices.workflow_layer.catalog"):
+        entries = catalog.list_available()
+
+    names = [e.name for e in entries]
+    assert "local" in names
+    assert any("not yet implemented" in msg for msg in caplog.messages)

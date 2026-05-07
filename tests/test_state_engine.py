@@ -302,3 +302,59 @@ def test_disabled_source_is_hidden_from_state_and_memory_views_after_rebuild(
         )
         == []
     )
+
+
+# ---------------------------------------------------------------------------
+# Fund 2: denied-event dedup + withheld_context cap
+# ---------------------------------------------------------------------------
+
+
+def test_denied_event_is_not_replayed_in_withheld_context() -> None:
+    engine = build_engine()
+    event = DevEvent(
+        event_id="denied-once",
+        source=EventSource.NOTES,
+        type="note_update",
+        payload={"body": "private content"},
+    )
+
+    engine.accept_event(event)
+    engine.accept_event(event)  # duplicate denied event
+
+    withheld = engine.state.metadata.get("withheld_context", [])
+    assert len(withheld) == 1, f"Expected exactly 1 withheld entry, got {len(withheld)}"
+
+
+def test_withheld_context_capped_at_50() -> None:
+    engine = build_engine()
+    for i in range(60):
+        event = DevEvent(
+            event_id=f"denied-{i}",
+            source=EventSource.NOTES,
+            type="note_update",
+            payload={"body": f"private content {i}"},
+        )
+        engine.accept_event(event)
+
+    withheld = engine.state.metadata.get("withheld_context", [])
+    assert len(withheld) == 50, f"Expected 50 withheld entries, got {len(withheld)}"
+
+
+# ---------------------------------------------------------------------------
+# Fund 3: _seen_event_ids sliding-window cap
+# ---------------------------------------------------------------------------
+
+
+def test_seen_event_ids_capped_at_max() -> None:
+    engine = build_engine()
+    limit = StateEngine._MAX_SEEN_EVENT_IDS
+    for i in range(limit + 5_000):
+        event = DevEvent(
+            event_id=f"evt-{i}",
+            source=EventSource.GIT,
+            type="branch_change",
+            payload={"branch": f"feature/branch-{i}"},
+        )
+        engine.accept_event(event)
+
+    assert len(engine._seen_event_ids) <= limit

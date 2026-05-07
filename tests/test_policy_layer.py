@@ -229,3 +229,23 @@ def test_agentic_runner_output_store_requires_metadata() -> None:
     assert decision.operation == "agentic_runner_output_store"
     assert decision.data_class == "full_text"
     assert "metadata" in decision.reason
+
+
+# ---------------------------------------------------------------------------
+# Fund 6: decide_local_storage fulltext defense-in-depth
+# ---------------------------------------------------------------------------
+
+
+def test_decide_local_storage_denies_fulltext_payload_directly() -> None:
+    policy = PolicyEngine.default()
+    event = DevEvent(
+        source=EventSource.NOTES,
+        type="note_update",
+        payload={"body": "full text payload that should be denied"},
+    )
+
+    decision = policy.decide_local_storage(event)
+
+    assert not decision.allowed
+    assert decision.operation == "store"
+    assert "metadata-only" in decision.reason

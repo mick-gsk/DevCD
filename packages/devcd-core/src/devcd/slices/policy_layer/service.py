@@ -121,6 +121,14 @@ class PolicyEngine:
                 source=event.source.value,
                 data_class=event.data_class,
             )
+        if self._contains_fulltext(event.payload.items()):
+            return PolicyDecision(
+                kind=PolicyDecisionKind.DENY,
+                reason="metadata-only policy denied full-text payload content",
+                operation="store",
+                source=event.source.value,
+                data_class=event.data_class,
+            )
         if self._allow_local_storage:
             return PolicyDecision(
                 kind=PolicyDecisionKind.ALLOW,

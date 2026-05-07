@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from collections import deque
 from datetime import datetime, timedelta
 from typing import Any
 
@@ -12,6 +13,8 @@ from devcd.slices.policy_layer.service import PolicyEngine
 
 
 class StateEngine:
+    _MAX_SEEN_EVENT_IDS: int = 10_000
+
     def __init__(
         self,
         policy_engine: PolicyEngine,
@@ -24,6 +27,7 @@ class StateEngine:
         self._event_ledger = event_ledger
         self._state = DevState()
         self._seen_event_ids: set[str] = set()
+        self._seen_event_order: deque[str] = deque(maxlen=self._MAX_SEEN_EVENT_IDS)
         self._coalesce_window = timedelta(milliseconds=coalesce_window_ms)
         self._last_coalesced_key: tuple[str, str, str] | None = None
         self._last_coalesced_timestamp: datetime | None = None
@@ -60,9 +64,10 @@ class StateEngine:
                 self._policy_engine.is_source_visible(event.source.value)
             )
             self._record_withheld_signal(event, decision)
+            self._add_seen_event_id(event.event_id)
             return decision
 
-        self._seen_event_ids.add(event.event_id)
+        self._add_seen_event_id(event.event_id)
         self._state.source_active_map[event.source.value] = self._policy_engine.is_source_visible(
             event.source.value
         )
@@ -76,7 +81,7 @@ class StateEngine:
 
     def rebuild_from_ledger(self) -> None:
         for event, decision in self._event_ledger.read_records():
-            self._seen_event_ids.add(event.event_id)
+            self._add_seen_event_id(event.event_id)
             self._state.source_active_map[event.source.value] = (
                 self._policy_engine.is_source_visible(event.source.value)
             )
@@ -85,6 +90,13 @@ class StateEngine:
 
     def is_source_visible(self, source: str | None) -> bool:
         return self._policy_engine.is_source_visible(source)
+
+    def _add_seen_event_id(self, event_id: str) -> None:
+        if len(self._seen_event_ids) >= self._MAX_SEEN_EVENT_IDS:
+            oldest = self._seen_event_order[0]
+            self._seen_event_ids.discard(oldest)
+        self._seen_event_ids.add(event_id)
+        self._seen_event_order.append(event_id)
 
     def _store_event_memory(
         self,
@@ -224,6 +236,7 @@ class StateEngine:
                 "timestamp": event.timestamp.isoformat(),
             }
         )
+        self._state.metadata["withheld_context"] = withheld_signals[-50:]
 
     def _withheld_category(self, event: DevEvent, decision: PolicyDecision) -> str:
         if "sensitive" in decision.reason:

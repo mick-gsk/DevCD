@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import logging
 from enum import StrEnum
 from pathlib import Path
 from typing import NamedTuple
@@ -8,6 +9,8 @@ from urllib.parse import urlparse
 import yaml
 
 from devcd.slices.workflow_layer.models import WorkflowDefinition
+
+_logger = logging.getLogger(__name__)
 
 
 class SourceTier(StrEnum):
@@ -91,7 +94,10 @@ class WorkflowCatalog:
             except CatalogTrustError:
                 pass
             else:
-                sources.append((SourceTier.ENV, self._env_url, False))
+                _logger.warning(
+                    "DEVCD_WORKFLOW_CATALOG_URL is set but ENV catalog loading is not yet "
+                    "implemented; the URL will be ignored."
+                )
         if self._project_dir:
             sources.append((SourceTier.PROJECT, self._project_dir, True))
         if self._user_dir:
