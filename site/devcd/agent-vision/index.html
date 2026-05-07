@@ -1310,6 +1310,12 @@ ein <code>vision</code>-Feld vom Typ <code>VisionBlock</code>:</p>
 }</code></p>
 <p>Wenn <code>withheld: true</code>, hat die Policy die Ausgabe blockiert.
 Wenn <code>vision: null</code>, wurde kein Vision Record angelegt.</p>
+<p>Zusätzlich verwenden <code>devcd agentic completion-check</code> und
+<code>devcd agentic compliance</code> die konfigurierte Vision jetzt als additives,
+policy-sicheres Orientierungssignal. Wenn Goal und Next Action noch sichtbar zur
+Vision passen, erscheint eine Alignment-Notiz. Wenn beide Signale klar davon
+wegdriften, erscheint eine Warnung. Die bestehende Ready-/Completion-Gate-Logik
+bleibt dabei unverändert.</p>
 <hr />
 <h2 id="policy">Policy<a class="headerlink" href="#policy" title="Permanent link">&para;</a></h2>
 <p>Die Vision-Injektion folgt dem DevCD-Policy-Prinzip:</p>

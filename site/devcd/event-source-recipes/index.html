@@ -1015,6 +1015,17 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#manual-event-classes-for-continuity-curation" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Manual Event Classes For Continuity Curation
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#research-session-recipe" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -1268,6 +1279,17 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#manual-event-classes-for-continuity-curation" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Manual Event Classes For Continuity Curation
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#research-session-recipe" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -1354,6 +1376,19 @@ from devcd.slices.events.recipes import PytestFailure, PytestFailureRecipeInput,
 )
 ```</p>
 <p>Feed the resulting events through <code>StateEngine.accept_event(...)</code> so normal policy, ledger, memory, and ambient-context behavior applies.</p>
+<h2 id="manual-event-classes-for-continuity-curation">Manual Event Classes For Continuity Curation<a class="headerlink" href="#manual-event-classes-for-continuity-curation" title="Permanent link">&para;</a></h2>
+<p>DevCD also supports explicit event classes on normal <code>POST /event</code> submissions
+for continuity curation workflows. These are metadata-only and developer-triggered.
+DevCD does not auto-emit them from chat text or command output.</p>
+<ul>
+<li><code>event_class: "dead_end"</code> marks a non-retriable approach and requires payload
+  fields: <code>approach_summary</code>, <code>reason</code>, <code>related_goal</code>.</li>
+<li><code>event_class: "goal.done_when"</code> records explicit completion criteria and
+  requires payload field: <code>done_when</code>.</li>
+</ul>
+<p>When policy allows storage, these event classes flow into memory-layer context
+so Action Packets can expose <code>rejected_paths</code> and a verification-aware
+<code>session_contract</code>.</p>
 <h2 id="research-session-recipe">Research Session Recipe<a class="headerlink" href="#research-session-recipe" title="Permanent link">&para;</a></h2>
 <p>The research-session recipe turns a local research export into DevCD events for the Research Context Pack. It accepts structured metadata as the safe path: research goal, reviewed source titles and references, source type, note titles or summaries, hypotheses, decisions, failed attempts, why attempts failed, and a suggested next step.</p>
 <p>Raw note text, article text, transcript text, and full content can be present in the input, but the recipe emits those as sensitive/full-text events so the default policy withholds them from agent-facing output. The recipe does not scrape browsers, import private notes directly, call remote APIs, or add telemetry.</p>

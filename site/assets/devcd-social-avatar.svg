@@ -1,0 +1,86 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1024" height="1024" viewBox="0 0 1024 1024" role="img" aria-labelledby="title desc">
+  <title id="title">DevCD — daemon mascot avatar</title>
+  <desc id="desc">DevCD ghost-daemon mascot for social avatars.</desc>
+  <defs>
+    <!-- Large amber halo for impact at small avatar sizes -->
+    <filter id="halo" x="-35%" y="-35%" width="170%" height="170%">
+      <feGaussianBlur in="SourceAlpha" stdDeviation="48" result="b"/>
+      <feFlood flood-color="#f7c948" flood-opacity="0.45" result="c"/>
+      <feComposite in="c" in2="b" operator="in" result="g"/>
+      <feMerge><feMergeNode in="g"/><feMergeNode in="SourceGraphic"/></feMerge>
+    </filter>
+    <radialGradient id="avatar-body-shade" cx="42%" cy="26%" r="78%">
+      <stop offset="0%" stop-color="#ffe189"/>
+      <stop offset="58%" stop-color="#f7c948"/>
+      <stop offset="100%" stop-color="#d28a29"/>
+    </radialGradient>
+    <radialGradient id="avatar-eye-core" cx="38%" cy="34%" r="70%">
+      <stop offset="0%" stop-color="#53dbc9"/>
+      <stop offset="100%" stop-color="#18b7a6"/>
+    </radialGradient>
+  </defs>
+
+  <!-- Background -->
+  <rect width="1024" height="1024" rx="200" fill="#080a0f"/>
+
+  <!-- Grounding shadow -->
+  <ellipse cx="512" cy="802" rx="210" ry="44" fill="#05070a" opacity="0.24"/>
+
+  <!-- Daemon mascot:
+       Local bbox x 60–240 (180px), y 30–310 (280px including horns).
+       Scale 2.5 → 450×700px. Centered: x=(1024-450)/2=287, y=(1024-700)/2=162.
+       translate: (287 - 60*2.5, 162 - 30*2.5) = (287-150, 162-75) = (137, 87)
+  -->
+  <g transform="translate(137,87) scale(2.5)" filter="url(#halo)">
+
+    <!-- Body -->
+    <path d="
+      M 60,265
+      L 60,170
+      C 60,90 90,55 150,55
+      C 210,55 240,90 240,170
+      L 240,265
+      C 216,308 204,308 180,265
+      C 156,308 144,308 120,265
+      C  96,308  84,308  60,265
+      Z"
+      fill="url(#avatar-body-shade)"/>
+
+    <!-- Top rim highlight -->
+    <path d="M 74,160 C 80,92 105,66 150,64 C 195,66 220,92 226,160"
+          fill="none" stroke="#ffe9a9" stroke-width="7" stroke-linecap="round" opacity="0.22"/>
+
+    <!-- Belly depth shadow -->
+    <path d="M 84,246 C 110,273 190,273 216,246 L 216,272 L 84,272 Z"
+          fill="#b46f1e" opacity="0.28"/>
+
+    <!-- Left eye -->
+    <circle cx="120" cy="182" r="21" fill="#080a0f"/>
+    <circle cx="128" cy="175" r="9"  fill="url(#avatar-eye-core)"/>
+    <circle cx="124" cy="170" r="2.8" fill="#d7fff6" opacity="0.78"/>
+
+    <!-- Right eye -->
+    <circle cx="180" cy="182" r="21" fill="#080a0f"/>
+    <circle cx="188" cy="175" r="9"  fill="url(#avatar-eye-core)"/>
+    <circle cx="184" cy="170" r="2.8" fill="#d7fff6" opacity="0.78"/>
+
+    <!-- Smirk -->
+    <path d="M 132,224 Q 151,242 168,222"
+          fill="none" stroke="#080a0f" stroke-width="6" stroke-linecap="round"/>
+
+    <!-- Smirk highlight for livelier expression -->
+    <path d="M 136,220 Q 150,232 164,220"
+          fill="none" stroke="#ffd66e" stroke-width="2.5" stroke-linecap="round" opacity="0.35"/>
+
+    <!-- Daemon horns -->
+    <path d="M 100,68 L 90,30 L 116,60"  fill="url(#avatar-body-shade)"/>
+    <path d="M 200,68 L 210,30 L 184,60" fill="url(#avatar-body-shade)"/>
+  </g>
+
+  <!-- "devcd" label at bottom -->
+  <text x="512" y="960"
+        text-anchor="middle"
+        font-family="Cascadia Mono, Consolas, Menlo, monospace"
+        font-size="38" letter-spacing="10" font-weight="700"
+        fill="#f7c948" opacity="0.65">devcd</text>
+</svg>

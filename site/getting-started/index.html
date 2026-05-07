@@ -1256,6 +1256,10 @@
 
 
 <h1 id="getting-started">Getting Started<a class="headerlink" href="#getting-started" title="Permanent link">&para;</a></h1>
+<p align="center">
+    <img src="assets/devcd-wordmark.svg?v=20260507" alt="DevCD" width="440">
+</p>
+
 <p>DevCD lets a new agent continue from local, policy-filtered context without asking you to recap. The first success point is a warm-started agent workspace, not a running daemon and not a demo fixture. The goal is: Stop re-explaining yourself to AI agents.</p>
 <p>Use this guide when you want DevCD to solve the real frustration: a new agent starts cold and asks you to re-explain the work. The path below gets from a fresh checkout to a local Action Packet in 2 to 5 minutes, then leaves live daemon ingestion and MCP integration as explicit follow-up paths. The primary entry point is <code>devcd setup</code>, which guides the full install-time setup chain.</p>
 <div class="devcd-happy-path">
@@ -1338,8 +1342,10 @@ what still needs attention without starting the daemon.</p>
 <li>Copilot: <code>.github/copilot-instructions.md</code></li>
 <li>Claude: <code>CLAUDE.md</code></li>
 <li>Codex and compatible coding agents: <code>AGENTS.md</code></li>
-<li>OpenClaw: <code>.devcd/openclaw-mcp.json</code></li>
+<li>DevCD startup skill: <code>.github/skills/devcd-startup-gate/SKILL.md</code></li>
+<li>DevCD continuity templates: <code>.devcd/templates/devcd-first-turn.template.md</code>, <code>.devcd/templates/devcd-capture-loop.template.md</code></li>
 </ul>
+<p>OpenClaw MCP remains optional and is only created when <code>openclaw</code> is explicitly selected.</p>
 <p>If you want a narrower target list, pass <code>--agents</code> with a comma-separated subset.
 Use <code>--archetype builder</code>, <code>reviewer</code>, <code>researcher</code>, or <code>orchestrator</code> when you
 want to override the recommendation explicitly.</p>
@@ -1352,6 +1358,9 @@ devcd context profile</code></p>
 <p>If you only want the lower-level config primitive, use <code>init</code> directly. Most
 users should stay on <code>devcd onboard</code>:</p>
 <p><code>bash
+devcd init --agent-ready --agents copilot,claude,codex</code></p>
+<p>Optional MCP snippet path:</p>
+<p><code>bash
 devcd init --agent-ready --agents copilot,claude,codex,openclaw</code></p>
 <p>Next: read the Action Packet the next agent should see first.</p>
 <p>If it fails: if config already exists, do not overwrite it blindly; run <code>devcd doctor</code> and decide whether to keep, modify, or intentionally reset. Existing instruction files are preserved; DevCD only adds or replaces its marked managed block.</p>
@@ -1362,6 +1371,15 @@ devcd agentic action-packet</code></p>
 <p>Success looks like: the output starts from the work instead of the tool. With an empty ledger, it should say the packet is not ready yet and point to safe metadata capture rather than pretending a demo solved the problem.</p>
 <p>Next: if the packet is empty, seed one safe piece of continuity metadata.</p>
 <p>If it fails: run <code>devcd doctor</code>; it validates local config, policy, ledger, docs, and MCP readiness.</p>
+<p>Before ending a session or switching to a fresh agent, enforce closure with:</p>
+<p><code>bash
+devcd agentic completion-check</code></p>
+<p>If you configured a North Star with <code>devcd vision init</code>, this output now also
+shows a vision alignment note and warns on obvious drift without changing the
+underlying ready/not-ready gate.</p>
+<p>To inspect startup/capture/handoff compliance coverage, run:</p>
+<p><code>bash
+devcd agentic compliance</code></p>
 <h3 id="step-4-seed-safe-continuity-when-the-ledger-is-empty">Step 4: Seed safe continuity when the ledger is empty<a class="headerlink" href="#step-4-seed-safe-continuity-when-the-ledger-is-empty" title="Permanent link">&para;</a></h3>
 <p><code>bash
 devcd handoff --goal "Try DevCD live continuity" --next-action "Ask the next agent to read the Action Packet"
@@ -1400,6 +1418,8 @@ devcd status
 devcd doctor
 devcd doctor --fix</code></p>
 <p>What happened: <code>status</code> summarizes local state; <code>doctor</code> gives remediation without mutating external tool configs. <code>doctor --fix</code> applies only safe local repairs (for example missing <code>devcd.toml</code> and missing <code>.devcd/agent-layer-profile.json</code>) and records policy receipts for each repair.</p>
+<p>Important: <code>doctor --fix</code> does not auto-start the daemon. When <code>daemon_reachable</code>
+is the only warning, the expected manual recovery step remains <code>devcd run</code>.</p>
 <p>Success looks like: config, token, daemon, ledger, policy, docs, and MCP checks are understandable.</p>
 <p>Next: start the daemon when you are ready for live context.</p>
 <p>If it fails: follow the first non-pass <code>doctor</code> next step. If the issue is only missing local scaffolding, run <code>devcd doctor --fix</code> and review the repair receipts.</p>

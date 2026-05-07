@@ -668,6 +668,17 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#skill-loading-contract-progressive-disclosure" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Skill loading contract (progressive disclosure)
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#action-packet-path" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -1245,6 +1256,17 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#skill-loading-contract-progressive-disclosure" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Skill loading contract (progressive disclosure)
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#action-packet-path" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -1356,30 +1378,50 @@ updates standard workspace files that those agents already read:</p>
 <li>Copilot: <code>.github/copilot-instructions.md</code></li>
 <li>Claude: <code>CLAUDE.md</code></li>
 <li>Codex and compatible coding agents: <code>AGENTS.md</code></li>
-<li>OpenClaw: <code>.devcd/openclaw-mcp.json</code></li>
+<li>DevCD startup skill: <code>.github/skills/devcd-startup-gate/SKILL.md</code></li>
+<li>DevCD continuity templates: <code>.devcd/templates/devcd-first-turn.template.md</code>, <code>.devcd/templates/devcd-capture-loop.template.md</code></li>
 </ul>
+<p>OpenClaw MCP is optional and only written when <code>openclaw</code> is explicitly selected.</p>
 <p>Non-interactive equivalent:</p>
+<p><code>bash
+devcd init --agent-ready --agents copilot,claude,codex</code></p>
+<p>Optional MCP target:</p>
 <p><code>bash
 devcd init --agent-ready --agents copilot,claude,codex,openclaw</code></p>
 <p>If you only want the single-workspace guided variant, use:</p>
 <p><code>bash
-devcd onboard --agents copilot,claude,codex,openclaw</code></p>
+devcd onboard --agents copilot,claude,codex</code></p>
 <p>Existing instruction files are preserved. DevCD only adds or replaces a marked
 managed block that tells agents to consult <code>devcd agentic action-packet</code>, fall
-back to <code>devcd agentic tasks</code> or <code>devcd context passport</code>, or read the
-read-only <code>devcd://context/action-packet</code> MCP resource before asking the user to
-recap. The same block gives shell-capable agents a small continuity capture
+back to <code>devcd agentic tasks</code> or <code>devcd context passport</code> before asking the user
+to recap. The same block gives shell-capable agents a small continuity capture
 routine so the user does not need to perform DevCD bookkeeping after onboarding.</p>
+<h2 id="skill-loading-contract-progressive-disclosure">Skill loading contract (progressive disclosure)<a class="headerlink" href="#skill-loading-contract-progressive-disclosure" title="Permanent link">&para;</a></h2>
+<p>DevCD workspace skills use a three-level structure:</p>
+<ul>
+<li>Level 1: YAML frontmatter (<code>name</code>, <code>description</code>) is the discovery signal.</li>
+<li>Level 2: the SKILL.md body is the full instruction text loaded on demand.</li>
+<li>Level 3: optional referenced support files (for example templates) provide deeper detail.</li>
+</ul>
+<p>Only Level-1 metadata should be treated as auto-loaded discovery context.
+Skills without frontmatter remain usable, but lose Level-1 discoverability.</p>
 <h2 id="action-packet-path">Action Packet path<a class="headerlink" href="#action-packet-path" title="Permanent link">&para;</a></h2>
 <p>Use the Action Packet when you need to continue work, not just inspect state:</p>
 <p><code>bash
 devcd agentic action-packet
 devcd agentic action-packet --json</code></p>
-<p>The JSON Action Packet includes a <code>session_contract</code> with one next action, a
-definition of done, the local verification command, and whether the next agent
-should leave a clean state. It also includes <code>context_references</code> and a
-<code>context_budget</code> so agents can load details just in time instead of asking for a
-raw recap.</p>
+<p>The JSON Action Packet includes a <code>session_contract</code> with one next action,
+<code>done_when</code>, <code>verification_required</code>, and <code>withheld_count</code>. It also includes
+<code>context_references</code> and a <code>context_budget</code> so agents can load details just in
+time instead of asking for a raw recap. <code>rejected_paths</code> captures policy-visible
+dead-end approaches so fresh agents can avoid retrying non-retriable paths.</p>
+<p><code>context_budget</code> exposes two additive rotation thresholds for long-running sessions:</p>
+<ul>
+<li><code>sync_warning_ab</code>: advisory threshold where an agent should start actively
+    syncing progress into compact continuity metadata</li>
+<li><code>switch_recommended_ab</code>: stronger threshold where agent/session rotation is
+    recommended before context exhaustion risk increases</li>
+</ul>
 <p>Before handing off to a fresh agent, inspect the same budget directly:</p>
 <p><code>bash
 devcd context budget
@@ -1414,6 +1456,20 @@ devcd capture --kind failure --summary "make check failed" --next-action "Inspec
 devcd capture --kind decision --summary "Keep MCP read-only for now"
 devcd capture --kind blocker --summary "Agent has no shell access"
 devcd capture --kind artifact_ref --summary "CLI entrypoint" --artifact packages/devcd-core/src/devcd/cli.py</code></p>
+<p>Enforce closure before ending a session or switching agents:</p>
+<p><code>bash
+devcd agentic completion-check</code></p>
+<p>If a workspace North Star is configured, the completion gate now includes a
+policy-safe vision alignment note. Clear drift between the visible goal/next
+action and the configured vision shows up as an additive warning, not as a new
+hard readiness blocker.</p>
+<p>Track startup/capture/handoff compliance coverage:</p>
+<p><code>bash
+devcd agentic compliance
+devcd agentic compliance --json</code></p>
+<p>The compliance report carries the same vision alignment signal in
+<code>completion_gate</code>, so agents and operators can see whether the current handoff
+still points at the workspace North Star.</p>
 <p><code>devcd capture</code> does not require the daemon. It writes to the configured local
 ledger only after the existing observation and storage policy decisions allow the
 event. The stored data is metadata-only and may include provenance and confidence
@@ -1463,18 +1519,31 @@ devcd mcp serve</code></p>
 <p>It exposes only read-only resources:</p>
 <ul>
 <li><code>devcd://context/action-packet</code></li>
-<li><code>devcd://context/session-contract</code></li>
-<li><code>devcd://context/agent-handoff-packet</code></li>
-<li><code>devcd://context/continuity-packet</code></li>
-<li><code>devcd://context/brief</code></li>
-<li><code>devcd://context/work-state</code></li>
-<li><code>devcd://context/recent-events</code></li>
-<li><code>devcd://context/policy-decisions</code></li>
-<li><code>devcd://context/withheld-context</code></li>
-<li><code>devcd://context/recent-timeline</code></li>
-<li><code>devcd://context/policy-summary</code></li>
+<li><code>devcd://context/action-packet/concise</code></li>
 </ul>
-<p>Agents that need the next concrete handoff action should prefer <code>devcd://context/action-packet</code>. Agents that only need the next-session contract, budget, and context-reference loading hints can read <code>devcd://context/session-contract</code>. Agents that need domain-neutral continuity should use <code>devcd://context/continuity-packet</code>. Developer-only compatibility consumers can continue using <code>devcd://context/agent-handoff-packet</code>.</p>
+<p>The MCP server does not discover, parse, or stream SKILL.md content. It serves
+DevCD context resources only, so skill full-text context loading remains a host
+runtime concern, not an MCP resource behavior.
+- <code>devcd://context/action-packet/detailed</code>
+- <code>devcd://context/session-contract</code>
+- <code>devcd://context/session-contract/concise</code>
+- <code>devcd://context/session-contract/detailed</code>
+- <code>devcd://context/agent-handoff-packet</code>
+- <code>devcd://context/continuity-packet</code>
+- <code>devcd://context/continuity-packet/concise</code>
+- <code>devcd://context/continuity-packet/detailed</code>
+- <code>devcd://context/brief</code>
+- <code>devcd://context/work-state</code>
+- <code>devcd://context/recent-events</code>
+- <code>devcd://context/policy-decisions</code>
+- <code>devcd://context/withheld-context</code>
+- <code>devcd://context/recent-timeline</code>
+- <code>devcd://context/policy-summary</code></p>
+<p>Agents that need the next concrete handoff action should prefer <code>devcd://context/action-packet/concise</code> and escalate to <code>devcd://context/action-packet/detailed</code> when deeper context is required. Existing consumers can continue using <code>devcd://context/action-packet</code> as a compatible default. Agents that only need the next-session contract and budget should start with <code>devcd://context/session-contract/concise</code> and escalate to <code>devcd://context/session-contract/detailed</code> for full context references. Agents that need domain-neutral continuity should start with <code>devcd://context/continuity-packet/concise</code> and escalate to <code>devcd://context/continuity-packet/detailed</code> for full context. Developer-only compatibility consumers can continue using <code>devcd://context/agent-handoff-packet</code>.</p>
+<p><code>devcd://context/session-contract</code> and <code>devcd://context/session-contract/concise</code>
+include the Action Packet session contract (<code>next_action</code>, <code>done_when</code>,
+<code>verification_required</code>, <code>withheld_count</code>) plus context budget data including
+<code>sync_warning_ab</code> and <code>switch_recommended_ab</code>.</p>
 <p>It does not expose MCP tools, prompts, shell execution, browser automation, memory writes, or remote HTTP MCP.</p>
 <h2 id="policy-rules-for-agents">Policy rules for agents<a class="headerlink" href="#policy-rules-for-agents" title="Permanent link">&para;</a></h2>
 <ul>

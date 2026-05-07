@@ -2,174 +2,190 @@
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
     <url>
          <loc>https://mick-gsk.github.io/DevCD/</loc>
-         <lastmod>2026-05-06</lastmod>
+         <lastmod>2026-05-07</lastmod>
     </url>
     <url>
          <loc>https://mick-gsk.github.io/DevCD/getting-started/</loc>
-         <lastmod>2026-05-06</lastmod>
+         <lastmod>2026-05-07</lastmod>
     </url>
     <url>
          <loc>https://mick-gsk.github.io/DevCD/use-cases/</loc>
-         <lastmod>2026-05-06</lastmod>
+         <lastmod>2026-05-07</lastmod>
     </url>
     <url>
          <loc>https://mick-gsk.github.io/DevCD/decisions/ADR-001-vertical-slice-architecture/</loc>
-         <lastmod>2026-05-06</lastmod>
+         <lastmod>2026-05-07</lastmod>
     </url>
     <url>
          <loc>https://mick-gsk.github.io/DevCD/decisions/ADR-002-agent-context-brief-handoff/</loc>
-         <lastmod>2026-05-06</lastmod>
+         <lastmod>2026-05-07</lastmod>
     </url>
     <url>
          <loc>https://mick-gsk.github.io/DevCD/decisions/ADR-003-read-only-mcp-context-server/</loc>
-         <lastmod>2026-05-06</lastmod>
+         <lastmod>2026-05-07</lastmod>
     </url>
     <url>
          <loc>https://mick-gsk.github.io/DevCD/decisions/ADR-004-context-surfaces/</loc>
-         <lastmod>2026-05-06</lastmod>
+         <lastmod>2026-05-07</lastmod>
     </url>
     <url>
          <loc>https://mick-gsk.github.io/DevCD/decisions/ADR-005-policy-explainability-cli/</loc>
-         <lastmod>2026-05-06</lastmod>
+         <lastmod>2026-05-07</lastmod>
     </url>
     <url>
          <loc>https://mick-gsk.github.io/DevCD/decisions/ADR-006-operational-readiness-cli/</loc>
-         <lastmod>2026-05-06</lastmod>
+         <lastmod>2026-05-07</lastmod>
     </url>
     <url>
          <loc>https://mick-gsk.github.io/DevCD/decisions/ADR-007-agent-continuity-golden-path-contract/</loc>
-         <lastmod>2026-05-06</lastmod>
+         <lastmod>2026-05-07</lastmod>
     </url>
     <url>
          <loc>https://mick-gsk.github.io/DevCD/decisions/ADR-008-agent-continuity-layer-and-context-packs/</loc>
-         <lastmod>2026-05-06</lastmod>
+         <lastmod>2026-05-07</lastmod>
     </url>
     <url>
          <loc>https://mick-gsk.github.io/DevCD/decisions/ADR-009-agent-ready-init/</loc>
-         <lastmod>2026-05-06</lastmod>
+         <lastmod>2026-05-07</lastmod>
     </url>
     <url>
          <loc>https://mick-gsk.github.io/DevCD/decisions/ADR-010-zero-effort-agent-capture/</loc>
-         <lastmod>2026-05-06</lastmod>
+         <lastmod>2026-05-07</lastmod>
     </url>
     <url>
          <loc>https://mick-gsk.github.io/DevCD/decisions/ADR-011-local-agentic-context-runner/</loc>
-         <lastmod>2026-05-06</lastmod>
+         <lastmod>2026-05-07</lastmod>
     </url>
     <url>
          <loc>https://mick-gsk.github.io/DevCD/decisions/ADR-012-public-alpha-agent-passport-surface/</loc>
-         <lastmod>2026-05-06</lastmod>
+         <lastmod>2026-05-07</lastmod>
     </url>
     <url>
          <loc>https://mick-gsk.github.io/DevCD/decisions/ADR-013-context-curation-agentops-contracts/</loc>
-         <lastmod>2026-05-06</lastmod>
+         <lastmod>2026-05-07</lastmod>
+    </url>
+    <url>
+         <loc>https://mick-gsk.github.io/DevCD/decisions/ADR-014-per-event-class-memory-ttl-config/</loc>
+         <lastmod>2026-05-07</lastmod>
+    </url>
+    <url>
+         <loc>https://mick-gsk.github.io/DevCD/decisions/ADR-015-mcp-resource-detail-level-uris/</loc>
+         <lastmod>2026-05-07</lastmod>
+    </url>
+    <url>
+         <loc>https://mick-gsk.github.io/DevCD/decisions/ADR-016-do-not-repeat-rationale-contract/</loc>
+         <lastmod>2026-05-07</lastmod>
     </url>
     <url>
          <loc>https://mick-gsk.github.io/DevCD/devcd/agent-consumption/</loc>
-         <lastmod>2026-05-06</lastmod>
+         <lastmod>2026-05-07</lastmod>
     </url>
     <url>
          <loc>https://mick-gsk.github.io/DevCD/devcd/agent-landscape/</loc>
-         <lastmod>2026-05-06</lastmod>
+         <lastmod>2026-05-07</lastmod>
     </url>
     <url>
          <loc>https://mick-gsk.github.io/DevCD/devcd/agent-vision/</loc>
-         <lastmod>2026-05-06</lastmod>
+         <lastmod>2026-05-07</lastmod>
     </url>
     <url>
          <loc>https://mick-gsk.github.io/DevCD/devcd/architecture/</loc>
-         <lastmod>2026-05-06</lastmod>
+         <lastmod>2026-05-07</lastmod>
     </url>
     <url>
          <loc>https://mick-gsk.github.io/DevCD/devcd/brand-system/</loc>
-         <lastmod>2026-05-06</lastmod>
+         <lastmod>2026-05-07</lastmod>
     </url>
     <url>
          <loc>https://mick-gsk.github.io/DevCD/devcd/container/</loc>
-         <lastmod>2026-05-06</lastmod>
+         <lastmod>2026-05-07</lastmod>
     </url>
     <url>
          <loc>https://mick-gsk.github.io/DevCD/devcd/context-packs/</loc>
-         <lastmod>2026-05-06</lastmod>
+         <lastmod>2026-05-07</lastmod>
     </url>
     <url>
          <loc>https://mick-gsk.github.io/DevCD/devcd/event-source-recipes/</loc>
-         <lastmod>2026-05-06</lastmod>
+         <lastmod>2026-05-07</lastmod>
+    </url>
+    <url>
+         <loc>https://mick-gsk.github.io/DevCD/devcd/internal-benchmark-runbook/</loc>
+         <lastmod>2026-05-07</lastmod>
     </url>
     <url>
          <loc>https://mick-gsk.github.io/DevCD/devcd/memory/</loc>
-         <lastmod>2026-05-06</lastmod>
+         <lastmod>2026-05-07</lastmod>
     </url>
     <url>
          <loc>https://mick-gsk.github.io/DevCD/devcd/naming-and-positioning/</loc>
-         <lastmod>2026-05-06</lastmod>
+         <lastmod>2026-05-07</lastmod>
     </url>
     <url>
          <loc>https://mick-gsk.github.io/DevCD/devcd/openclaw-integration/</loc>
-         <lastmod>2026-05-06</lastmod>
+         <lastmod>2026-05-07</lastmod>
     </url>
     <url>
          <loc>https://mick-gsk.github.io/DevCD/devcd/openclaw-packaging-spike/</loc>
-         <lastmod>2026-05-06</lastmod>
+         <lastmod>2026-05-07</lastmod>
     </url>
     <url>
          <loc>https://mick-gsk.github.io/DevCD/devcd/openclaw-product-benchmark/</loc>
-         <lastmod>2026-05-06</lastmod>
+         <lastmod>2026-05-07</lastmod>
     </url>
     <url>
          <loc>https://mick-gsk.github.io/DevCD/devcd/openclaw-usecase-draft/</loc>
-         <lastmod>2026-05-06</lastmod>
+         <lastmod>2026-05-07</lastmod>
     </url>
     <url>
          <loc>https://mick-gsk.github.io/DevCD/devcd/policy/</loc>
-         <lastmod>2026-05-06</lastmod>
+         <lastmod>2026-05-07</lastmod>
     </url>
     <url>
          <loc>https://mick-gsk.github.io/DevCD/devcd/publishing/</loc>
-         <lastmod>2026-05-06</lastmod>
+         <lastmod>2026-05-07</lastmod>
     </url>
     <url>
          <loc>https://mick-gsk.github.io/DevCD/devcd/reality-testing/</loc>
-         <lastmod>2026-05-06</lastmod>
+         <lastmod>2026-05-07</lastmod>
     </url>
     <url>
          <loc>https://mick-gsk.github.io/DevCD/devcd/release-readiness/</loc>
-         <lastmod>2026-05-06</lastmod>
+         <lastmod>2026-05-07</lastmod>
     </url>
     <url>
          <loc>https://mick-gsk.github.io/DevCD/superpowers/agent-resurrection/</loc>
-         <lastmod>2026-05-06</lastmod>
+         <lastmod>2026-05-07</lastmod>
     </url>
     <url>
          <loc>https://mick-gsk.github.io/DevCD/superpowers/plans/2026-05-04-operational-readiness-cli/</loc>
-         <lastmod>2026-05-06</lastmod>
+         <lastmod>2026-05-07</lastmod>
     </url>
     <url>
          <loc>https://mick-gsk.github.io/DevCD/superpowers/plans/2026-05-05-agentic-context-runner/</loc>
-         <lastmod>2026-05-06</lastmod>
+         <lastmod>2026-05-07</lastmod>
     </url>
     <url>
          <loc>https://mick-gsk.github.io/DevCD/superpowers/plans/2026-05-06-agentic-action-packet-start-brief/</loc>
-         <lastmod>2026-05-06</lastmod>
+         <lastmod>2026-05-07</lastmod>
     </url>
     <url>
          <loc>https://mick-gsk.github.io/DevCD/superpowers/plans/2026-05-06-openclaw-continuity-moment/</loc>
-         <lastmod>2026-05-06</lastmod>
+         <lastmod>2026-05-07</lastmod>
     </url>
     <url>
          <loc>https://mick-gsk.github.io/DevCD/superpowers/plans/2026-05-06-warm-start-first-run/</loc>
-         <lastmod>2026-05-06</lastmod>
+         <lastmod>2026-05-07</lastmod>
     </url>
     <url>
          <loc>https://mick-gsk.github.io/DevCD/superpowers/specs/2026-05-05-agent-continuity-layer-design/</loc>
-         <lastmod>2026-05-06</lastmod>
+         <lastmod>2026-05-07</lastmod>
     </url>
     <url>
          <loc>https://mick-gsk.github.io/DevCD/superpowers/specs/2026-05-05-agentic-context-runner-design/</loc>
-         <lastmod>2026-05-06</lastmod>
+         <lastmod>2026-05-07</lastmod>
     </url>
     <url>
          <loc>https://mick-gsk.github.io/DevCD/superpowers/specs/2026-05-06-openclaw-continuity-moment-design/</loc>
-         <lastmod>2026-05-06</lastmod>
+         <lastmod>2026-05-07</lastmod>
     </url>
 </urlset>
