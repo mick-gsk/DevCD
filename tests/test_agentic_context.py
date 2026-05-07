@@ -151,7 +151,7 @@ def test_service_creates_action_packet_without_runner(tmp_path) -> None:
 
     packet = service.create_action_packet(surface="coding-agent", context_pack="developer")
 
-    assert packet.schema_version == "1.0"
+    assert packet.schema_version == "1.1"
     assert packet.ready_for_agent in {True, False}
     assert packet.policy_summary is not None
 
@@ -200,17 +200,106 @@ def test_action_packet_projects_session_contract_and_context_budget(tmp_path) ->
 
     assert body["session_contract"] == {
         "next_action": "Project the session contract into the action packet",
-        "definition_of_done": "Run make check and leave the workspace in a clean state.",
-        "verification_command": "make check",
-        "clean_state_required": True,
-        "sync_warning_ab": 0.5,
-        "switch_recommended_ab": 0.7,
+        "done_when": "",
+        "verification_required": True,
+        "withheld_count": 0,
     }
     assert body["verification_required"] is True
     assert body["context_budget"]["reference_count"] == len(body["context_references"])
     assert body["context_budget"]["estimated_tokens"] > 0
     assert body["context_budget"]["sync_warning_ab"] == 0.5
     assert body["context_budget"]["switch_recommended_ab"] == 0.7
+
+
+def test_action_packet_session_contract_uses_done_when_event_class(tmp_path) -> None:
+    service, state_engine = build_agentic_context_service(tmp_path)
+    state_engine.accept_event(
+        DevEvent(
+            source=EventSource.TASK,
+            type="goal_update",
+            event_class="goal.done_when",
+            timestamp=datetime(2026, 5, 5, 12, 0, tzinfo=UTC),
+            payload={
+                "current_goal": "Ship action packet session contracts",
+                "done_when": "All touched tests pass and make check succeeds.",
+            },
+        )
+    )
+
+    packet = service.create_action_packet(surface="coding-agent", context_pack="developer")
+
+    assert packet.session_contract is not None
+    assert packet.session_contract.done_when == "All touched tests pass and make check succeeds."
+    assert packet.session_contract.verification_required is False
+    assert packet.verification_required is False
+
+
+def test_action_packet_rejected_paths_empty_without_dead_end_events(tmp_path) -> None:
+    service, state_engine = build_agentic_context_service(tmp_path)
+    state_engine.accept_event(
+        DevEvent(
+            source=EventSource.TASK,
+            type="goal_update",
+            timestamp=datetime(2026, 5, 5, 12, 0, tzinfo=UTC),
+            payload={"current_goal": "Ship additive action packet improvements"},
+        )
+    )
+
+    packet = service.create_action_packet(surface="coding-agent", context_pack="developer")
+
+    assert packet.rejected_paths == []
+
+
+def test_action_packet_rejected_paths_include_dead_end_events(tmp_path) -> None:
+    service, state_engine = build_agentic_context_service(tmp_path)
+    state_engine.accept_event(
+        DevEvent(
+            source=EventSource.TASK,
+            type="failed_attempt",
+            event_class="dead_end",
+            timestamp=datetime(2026, 5, 5, 12, 10, tzinfo=UTC),
+            payload={
+                "approach_summary": "Retry the same patch without changing tests",
+                "reason": "Already failed twice with unchanged assertion strategy",
+                "related_goal": "Stabilize action packet contract",
+            },
+        )
+    )
+
+    packet = service.create_action_packet(surface="coding-agent", context_pack="developer")
+
+    assert len(packet.rejected_paths) == 1
+    assert (
+        packet.rejected_paths[0].approach_summary
+        == "Retry the same patch without changing tests"
+    )
+    assert (
+        packet.rejected_paths[0].reason
+        == "Already failed twice with unchanged assertion strategy"
+    )
+    assert packet.rejected_paths[0].timestamp == datetime(2026, 5, 5, 12, 10, tzinfo=UTC)
+
+
+def test_action_packet_rejected_paths_skip_policy_withheld_dead_end_events(tmp_path) -> None:
+    service, state_engine = build_agentic_context_service(tmp_path)
+    state_engine.accept_event(
+        DevEvent(
+            source=EventSource.NOTES,
+            type="failed_attempt",
+            event_class="dead_end",
+            timestamp=datetime(2026, 5, 5, 12, 10, tzinfo=UTC),
+            sensitivity=EventSensitivity.SENSITIVE,
+            payload={
+                "approach_summary": "Leak sensitive note into retry loop",
+                "reason": "Sensitive note events are denied by default policy",
+                "related_goal": "Stabilize action packet contract",
+            },
+        )
+    )
+
+    packet = service.create_action_packet(surface="coding-agent", context_pack="developer")
+
+    assert packet.rejected_paths == []
 
 
 def test_service_maps_resume_signals_into_action_packet(tmp_path) -> None:
@@ -258,9 +347,15 @@ def test_service_maps_resume_signals_into_action_packet(tmp_path) -> None:
     body = packet.model_dump(mode="json")
 
     assert body["blockers"][0]["summary"] == "make check failed on policy assertions"
-    assert body["do_not_repeat"] == ["Do not tweak the renderer without checking the contract"]
+    assert body["do_not_repeat"] == [
+        {
+            "path": "Do not tweak the renderer without checking the contract",
+            "rationale": None,
+        }
+    ]
     assert body["withheld_context"][0]["category"] == "sensitivity"
     assert "sensitive events" in body["withheld_context"][0]["policy_reason"]
+    assert body["session_contract"]["withheld_count"] == 1
     assert "PRIVATE_NOTE_PAYLOAD" not in json.dumps(body)
 
 

@@ -8,7 +8,12 @@ from pathlib import Path
 from devcd.slices.events.ledger import EventLedger
 from devcd.slices.events.models import DevEvent, EventSource
 from devcd.slices.policy_layer.service import PolicyEngine
-from devcd.slices.vision_layer.models import NorthStarVersion, VisionBlock, VisionRecord
+from devcd.slices.vision_layer.models import (
+    NorthStarVersion,
+    VisionAlignmentSignal,
+    VisionBlock,
+    VisionRecord,
+)
 
 _SENSITIVE_PATTERNS = [
     re.compile(r"[A-Za-z0-9+/]{40,}={0,2}"),  # long base64-like token
@@ -17,6 +22,24 @@ _SENSITIVE_PATTERNS = [
 ]
 
 _HISTORY_MAX = 100
+_ALIGNMENT_TOKEN_PATTERN = re.compile(r"[a-z0-9]+")
+_ALIGNMENT_STOP_WORDS = {
+    "about",
+    "agent",
+    "agents",
+    "build",
+    "check",
+    "current",
+    "into",
+    "keep",
+    "next",
+    "run",
+    "surface",
+    "that",
+    "their",
+    "this",
+    "with",
+}
 
 
 class VisionService:
@@ -121,6 +144,75 @@ class VisionService:
             withheld=False,
         )
 
+    def assess_alignment(
+        self,
+        policy_engine: PolicyEngine,
+        *,
+        surface: str = "agent",
+        current_goal: str | None,
+        next_action: str | None,
+    ) -> VisionAlignmentSignal:
+        record = self.load()
+        if record is None:
+            return VisionAlignmentSignal(note="No vision configured for this workspace.")
+
+        decision = policy_engine.decide_vision_inject(surface)
+        if not decision.allowed:
+            return VisionAlignmentSignal(
+                configured=True,
+                visible_to_surface=False,
+                status="withheld",
+                note="Vision is configured but withheld from this surface by policy.",
+            )
+
+        if not current_goal and not next_action:
+            return VisionAlignmentSignal(
+                configured=True,
+                visible_to_surface=True,
+                status="configured",
+                note=(
+                    "Vision is configured for this surface, but alignment needs a current "
+                    "goal or next action."
+                ),
+            )
+
+        keywords = self._alignment_terms(record.north_star)
+        if not keywords:
+            return VisionAlignmentSignal(
+                configured=True,
+                visible_to_surface=True,
+                status="configured",
+                note=(
+                    "Vision is configured for this surface, but alignment could not be "
+                    "assessed safely from the current North Star text."
+                ),
+            )
+
+        goal_overlap = bool(keywords & self._alignment_terms(current_goal or ""))
+        action_overlap = bool(keywords & self._alignment_terms(next_action or ""))
+        if goal_overlap or action_overlap:
+            return VisionAlignmentSignal(
+                configured=True,
+                visible_to_surface=True,
+                status="aligned",
+                note="Vision is configured and the current goal or next action still reflects it.",
+            )
+
+        warning = (
+            "Configured vision appears weakly aligned with both the current goal and next action. "
+            "Reconfirm the next step against the workspace North Star."
+        )
+        return VisionAlignmentSignal(
+            configured=True,
+            visible_to_surface=True,
+            status="warn",
+            note=(
+                "Vision is configured, but the current goal and next action appear to drift "
+                "from it."
+            ),
+            warnings=[warning],
+        )
+
     @staticmethod
     def check_for_sensitive_content(text: str) -> list[str]:
         warnings: list[str] = []
@@ -159,3 +251,11 @@ class VisionService:
             operation=event_type,
         )
         self._event_ledger.append(event, decision)
+
+    @staticmethod
+    def _alignment_terms(text: str) -> set[str]:
+        return {
+            token
+            for token in _ALIGNMENT_TOKEN_PATTERN.findall(text.lower())
+            if len(token) >= 4 and token not in _ALIGNMENT_STOP_WORDS
+        }

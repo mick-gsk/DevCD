@@ -5,7 +5,7 @@ from enum import StrEnum
 from typing import Any, Literal
 from uuid import uuid4
 
-from pydantic import BaseModel, Field, field_validator
+from pydantic import BaseModel, Field, field_validator, model_validator
 
 from devcd.slices.vision_layer.models import VisionBlock
 
@@ -200,6 +200,18 @@ class ProactiveSuggestion(BaseModel):
     suppressed_until: datetime | None = None
 
 
+class DoNotRepeatEntry(BaseModel):
+    path: str = Field(min_length=1, max_length=500)
+    rationale: str | None = Field(default=None, max_length=500)
+
+    @model_validator(mode="before")
+    @classmethod
+    def coerce_legacy_string(cls, value: Any) -> Any:
+        if isinstance(value, str):
+            return {"path": value, "rationale": None}
+        return value
+
+
 class AgentResurrectionContext(BaseModel):
     current_goal: str | None = None
     last_attempt: RecentAttempt | None = None
@@ -207,7 +219,7 @@ class AgentResurrectionContext(BaseModel):
     last_attempted_fix: str | None = None
     why_attempt_failed: str | None = None
     why_it_failed: str | None = None
-    do_not_repeat: list[str] = Field(default_factory=list)
+    do_not_repeat: list[DoNotRepeatEntry] = Field(default_factory=list)
     suggested_next_action: str | None = None
     unknowns: list[str] = Field(default_factory=list)
 
@@ -313,7 +325,7 @@ class ContinuityPacket(BaseModel):
     attempts: list[ContinuityAttempt] = Field(default_factory=list)
     blockers: list[ContinuityBlocker] = Field(default_factory=list)
     preferences: list[ContinuityPreference] = Field(default_factory=list)
-    do_not_repeat: list[str] = Field(default_factory=list)
+    do_not_repeat: list[DoNotRepeatEntry] = Field(default_factory=list)
     suggested_next_steps: list[str] = Field(default_factory=list)
     unknowns: list[str] = Field(default_factory=list)
     context_quality_notes: list[str] = Field(default_factory=list)

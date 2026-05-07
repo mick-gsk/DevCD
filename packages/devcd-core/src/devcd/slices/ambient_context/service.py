@@ -31,6 +31,7 @@ from devcd.slices.ambient_context.models import (
     ContinuityIntent,
     ContinuityPacket,
     DetailLevel,
+    DoNotRepeatEntry,
     EvidenceItem,
     FreshnessState,
     FreshnessStatus,
@@ -1515,16 +1516,33 @@ class AmbientContextService:
         last_attempt = self._latest_attempt_context(entries)
         last_fix = self._latest_fix_before_failure(entries, failure_timestamp)
         resolving_attempt = self._latest_success_after_failure(entries, failure_timestamp)
+        why_attempt_failed = self._why_attempt_failed(
+            entries,
+            last_failure,
+            last_fix,
+            resolving_attempt,
+        )
+        failure_rationale = self._failure_do_not_repeat_rationale(entries, last_failure)
         explicit_do_not_repeat = self._explicit_do_not_repeat(entries, last_failure)
         do_not_repeat = explicit_do_not_repeat
         if not do_not_repeat and last_fix is not None and last_failure is not None:
-            do_not_repeat = [f"Do not repeat the last attempted fix unchanged: {last_fix.summary}"]
+            do_not_repeat = [
+                DoNotRepeatEntry(
+                    path=f"Do not repeat the last attempted fix unchanged: {last_fix.summary}",
+                    rationale=failure_rationale or why_attempt_failed,
+                )
+            ]
         elif (
             not do_not_repeat
             and last_failure is not None
             and self._is_failure_event_type(last_failure.type)
         ):
-            do_not_repeat = [f"Do not repeat the failed attempt unchanged: {last_failure.summary}"]
+            do_not_repeat = [
+                DoNotRepeatEntry(
+                    path=f"Do not repeat the failed attempt unchanged: {last_failure.summary}",
+                    rationale=failure_rationale or why_attempt_failed,
+                )
+            ]
 
         explicit_suggested_next_action = self._explicit_suggested_next_action(
             entries,
@@ -1566,12 +1584,6 @@ class AmbientContextService:
         elif last_failure is not None and not failure_appears_resolved:
             suggested_next_action = f"Investigate {last_failure.summary}"
 
-        why_attempt_failed = self._why_attempt_failed(
-            entries,
-            last_failure,
-            last_fix,
-            resolving_attempt,
-        )
         unknowns = ["Original chat history is not available in the handoff packet."]
         if last_fix is None:
             unknowns.append("No prior attempted fix is visible in policy-allowed context.")
@@ -1715,18 +1727,37 @@ class AmbientContextService:
         self,
         entries: list[MemoryEntry],
         last_failure: RecentAttempt | None,
-    ) -> list[str]:
+    ) -> list[DoNotRepeatEntry]:
         if last_failure is None:
             return []
         for entry in sorted(entries, key=lambda item: item.timestamp, reverse=True):
             if entry.timestamp != last_failure.timestamp:
                 continue
             value = self._payload_value(entry.content, "do_not_repeat")
-            if isinstance(value, str) and value.strip():
-                return [value]
-            if isinstance(value, list):
-                return [item for item in value if isinstance(item, str) and item.strip()]
+            rationale = self._first_payload_string(
+                entry.content,
+                ("do_not_repeat_rationale", "rationale"),
+            )
+            parsed = _parse_do_not_repeat_entries(value, rationale=rationale)
+            if parsed:
+                return parsed
         return []
+
+    def _failure_do_not_repeat_rationale(
+        self,
+        entries: list[MemoryEntry],
+        last_failure: RecentAttempt | None,
+    ) -> str | None:
+        if last_failure is None:
+            return None
+        for entry in sorted(entries, key=lambda item: item.timestamp, reverse=True):
+            if entry.timestamp != last_failure.timestamp:
+                continue
+            return self._first_payload_string(
+                entry.content,
+                ("do_not_repeat_rationale", "rationale"),
+            )
+        return None
 
     def _explicit_suggested_next_action(
         self,
@@ -2323,13 +2354,12 @@ class AmbientContextService:
             return "unknown"
         return "unknown"
 
-    def _research_do_not_repeat(self, entries: list[MemoryEntry]) -> list[str]:
+    def _research_do_not_repeat(self, entries: list[MemoryEntry]) -> list[DoNotRepeatEntry]:
         for entry in sorted(entries, key=lambda item: item.timestamp, reverse=True):
             value = self._payload_value(entry.content, "do_not_repeat")
-            if isinstance(value, str) and value.strip():
-                return [value]
-            if isinstance(value, list):
-                return [item for item in value if isinstance(item, str) and item.strip()]
+            parsed = _parse_do_not_repeat_entries(value, rationale=None)
+            if parsed:
+                return parsed
         return []
 
     def _research_suggested_next_steps(self, entries: list[MemoryEntry]) -> list[str]:
@@ -2443,7 +2473,7 @@ def render_context_brief_markdown(brief: ContextBrief) -> str:
     lines.extend(["## do_not_repeat"])
     if brief.resurrection.do_not_repeat:
         for item in brief.resurrection.do_not_repeat:
-            lines.append(f"- {item}")
+            lines.append(f"- {_do_not_repeat_text(item)}")
     else:
         lines.append("- No repeated failed fix pattern is visible.")
     lines.append("")
@@ -2596,7 +2626,7 @@ def _render_research_continuity_packet_markdown(packet: ContinuityPacket) -> str
     lines.extend(["## do_not_repeat"])
     if packet.do_not_repeat:
         for item in packet.do_not_repeat:
-            lines.append(f"- {item}")
+            lines.append(f"- {_do_not_repeat_text(item)}")
     else:
         lines.append("- No failed research pattern is visible.")
     lines.append("")
@@ -2700,7 +2730,7 @@ def _render_generic_continuity_packet_markdown(packet: ContinuityPacket) -> str:
     lines.extend(["## do_not_repeat"])
     if packet.do_not_repeat:
         for item in packet.do_not_repeat:
-            lines.append(f"- {item}")
+            lines.append(f"- {_do_not_repeat_text(item)}")
     else:
         lines.append("- No repeated failed pattern is visible.")
     lines.append("")
@@ -3042,7 +3072,10 @@ def _estimate_context_tokens(
     if packet.intent is not None:
         text_parts.append(packet.intent.summary)
     text_parts.extend(reference.summary for reference in context_references)
-    text_parts.extend(packet.do_not_repeat)
+    for item in packet.do_not_repeat:
+        text_parts.append(item.path)
+        if item.rationale:
+            text_parts.append(item.rationale)
     text_parts.extend(packet.suggested_next_steps)
     text_parts.extend(withheld.safe_summary for withheld in packet.withheld_context)
     character_count = sum(len(part) for part in text_parts if part)
@@ -3115,7 +3148,7 @@ def agent_handoff_packet_from_continuity_packet(packet: ContinuityPacket) -> dic
         "last_attempt": last_attempt,
         "last_failure": last_failure,
         "why_attempt_failed": why_attempt_failed,
-        "do_not_repeat": packet.do_not_repeat,
+        "do_not_repeat": [item.model_dump(mode="json") for item in packet.do_not_repeat],
         "blockers": [
             {"summary": blocker.summary, "confidence": blocker.confidence}
             for blocker in packet.blockers
@@ -3151,3 +3184,38 @@ def _mapping_from_pack_metadata(packet: ContinuityPacket, key: str) -> dict[str,
 
 def _optional_string(value: object) -> str | None:
     return value if isinstance(value, str) else None
+
+
+def _parse_do_not_repeat_entries(
+    value: Any,
+    *,
+    rationale: str | None,
+) -> list[DoNotRepeatEntry]:
+    if value is None:
+        return []
+    if isinstance(value, str):
+        stripped = value.strip()
+        if not stripped:
+            return []
+        return [DoNotRepeatEntry(path=stripped, rationale=rationale)]
+    if isinstance(value, dict):
+        return [DoNotRepeatEntry.model_validate(value)]
+    if isinstance(value, list):
+        parsed: list[DoNotRepeatEntry] = []
+        for item in value:
+            if isinstance(item, str):
+                stripped = item.strip()
+                if not stripped:
+                    continue
+                parsed.append(DoNotRepeatEntry(path=stripped, rationale=rationale))
+                continue
+            if isinstance(item, dict):
+                parsed.append(DoNotRepeatEntry.model_validate(item))
+        return parsed
+    return []
+
+
+def _do_not_repeat_text(item: DoNotRepeatEntry) -> str:
+    if item.rationale:
+        return f"{item.path} (rationale: {item.rationale})"
+    return item.path

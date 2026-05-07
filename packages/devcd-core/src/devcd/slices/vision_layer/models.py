@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from datetime import UTC, datetime
+from typing import Literal
 
 from pydantic import BaseModel, Field, field_validator, model_validator
 
@@ -45,3 +46,13 @@ class VisionBlock(BaseModel):
     active_since: datetime
     policy_reason: str = Field(min_length=1, max_length=500)
     withheld: bool = False
+
+
+class VisionAlignmentSignal(BaseModel):
+    configured: bool = False
+    visible_to_surface: bool = False
+    status: Literal["not_configured", "configured", "aligned", "warn", "withheld"] = (
+        "not_configured"
+    )
+    note: str = Field(min_length=1, max_length=500)
+    warnings: list[str] = Field(default_factory=list, max_length=5)

@@ -10,7 +10,7 @@ import typer
 from typer.testing import CliRunner
 
 from devcd import __version__
-from devcd.cli import _ensure_mcp_token, _post_event, app
+from devcd.cli import _build_mcp_server, _ensure_mcp_token, _post_event, app
 from devcd.kernel.settings import DevCDSettings
 from devcd.slices.events.ledger import EventLedger
 from devcd.slices.events.models import DevEvent, EventSource
@@ -18,6 +18,7 @@ from devcd.slices.git_source.service import GitEventSource
 from devcd.slices.host_state_engine.service import StateEngine
 from devcd.slices.memory_layer.service import MemoryStore
 from devcd.slices.policy_layer.service import PolicyEngine
+from devcd.slices.vision_layer.service import VisionService
 
 ANSI_ESCAPE_RE = re.compile(r"\x1b\[[0-?]*[ -/]*[@-~]")
 
@@ -763,6 +764,153 @@ def test_agentic_completion_check_passes_after_handoff(
     assert handoff_result.exit_code == 0
     assert completion_result.exit_code == 0
     assert "Completion gate passed" in completion_result.output
+
+
+def test_agentic_action_packet_json_includes_vision_when_configured_locally(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.chdir(tmp_path)
+    config_path = tmp_path / "devcd.toml"
+    config_path.write_text(
+        '[devcd]\nruntime_dir = "runtime"\nworking_memory_ttl_seconds = 315360000\n',
+        encoding="utf-8",
+    )
+    settings = DevCDSettings.load(config_path)
+    VisionService(settings.runtime_dir).init_vision(
+        domain="devcd",
+        north_star="Keep agents aligned to local-first product intent.",
+    )
+    runner = CliRunner()
+
+    runner.invoke(
+        app,
+        [
+            "handoff",
+            "--goal",
+            "Keep agents aligned to local-first product intent",
+            "--next-action",
+            "Inspect the action packet JSON",
+            "--config",
+            str(config_path),
+        ],
+    )
+    result = runner.invoke(
+        app,
+        ["agentic", "action-packet", "--json", "--config", str(config_path)],
+    )
+
+    assert result.exit_code == 0
+    body = json.loads(result.output)
+    assert body["vision"]["north_star"] == "Keep agents aligned to local-first product intent."
+
+
+def test_agentic_completion_check_json_reports_vision_alignment_when_configured(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.chdir(tmp_path)
+    config_path = tmp_path / "devcd.toml"
+    config_path.write_text(
+        '[devcd]\nruntime_dir = "runtime"\nworking_memory_ttl_seconds = 315360000\n',
+        encoding="utf-8",
+    )
+    settings = DevCDSettings.load(config_path)
+    VisionService(settings.runtime_dir).init_vision(
+        domain="devcd",
+        north_star="Keep agents aligned to local-first product intent.",
+    )
+    runner = CliRunner()
+
+    runner.invoke(
+        app,
+        [
+            "handoff",
+            "--goal",
+            "Keep agents aligned to local-first product intent",
+            "--next-action",
+            "Run the completion check",
+            "--config",
+            str(config_path),
+        ],
+    )
+    result = runner.invoke(
+        app,
+        ["agentic", "completion-check", "--json", "--config", str(config_path)],
+    )
+
+    assert result.exit_code == 0
+    body = json.loads(result.output)
+    assert body["signals"]["vision_alignment"]["configured"] is True
+    assert body["signals"]["vision_alignment"]["status"] == "aligned"
+    assert body["notes"]
+
+
+def test_agentic_compliance_json_warns_on_clear_vision_drift(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.chdir(tmp_path)
+    config_path = tmp_path / "devcd.toml"
+    config_path.write_text(
+        '[devcd]\nruntime_dir = "runtime"\nworking_memory_ttl_seconds = 315360000\n',
+        encoding="utf-8",
+    )
+    settings = DevCDSettings.load(config_path)
+    VisionService(settings.runtime_dir).init_vision(
+        domain="devcd",
+        north_star="Keep agents aligned to local-first product intent.",
+    )
+    runner = CliRunner()
+
+    runner.invoke(
+        app,
+        [
+            "handoff",
+            "--goal",
+            "Rename a temporary variable in a throwaway benchmark fixture",
+            "--next-action",
+            "Alphabetize some unrelated markdown bullets",
+            "--config",
+            str(config_path),
+        ],
+    )
+    result = runner.invoke(
+        app,
+        ["agentic", "compliance", "--json", "--config", str(config_path)],
+    )
+
+    assert result.exit_code == 0
+    body = json.loads(result.output)
+    assert body["completion_gate"]["signals"]["vision_alignment"]["status"] == "warn"
+    assert body["completion_gate"]["warnings"]
+
+
+def test_mcp_action_packet_includes_vision_when_configured_locally(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.chdir(tmp_path)
+    config_path = tmp_path / "devcd.toml"
+    config_path.write_text(
+        '[devcd]\nruntime_dir = "runtime"\nworking_memory_ttl_seconds = 315360000\n',
+        encoding="utf-8",
+    )
+    settings = DevCDSettings.load(config_path)
+    VisionService(settings.runtime_dir).init_vision(
+        domain="devcd",
+        north_star="Keep agents aligned to local-first product intent.",
+    )
+    server = _build_mcp_server(settings)
+
+    response = server.handle_message(
+        {
+            "jsonrpc": "2.0",
+            "id": 1,
+            "method": "resources/read",
+            "params": {"uri": "devcd://context/action-packet"},
+        }
+    )
+
+    assert response is not None
+    body = json.loads(response["result"]["contents"][0]["text"])
+    assert body["vision"]["north_star"] == "Keep agents aligned to local-first product intent."
 
 
 def test_agentic_compliance_reports_skill_metrics_json(
@@ -1956,8 +2104,13 @@ def test_research_continuity_example_withholds_full_text_and_private_context() -
     )
     assert contract["pack_metadata"]["research"]["current_hypothesis"] == expected_hypothesis
     assert contract["do_not_repeat"] == [
-        "Do not compare latency outcomes across sources until source set size is matched or "
-        "explicitly controlled."
+        {
+            "path": (
+                "Do not compare latency outcomes across sources until source set size is matched "
+                "or explicitly controlled."
+            ),
+            "rationale": None,
+        }
     ]
     assert contract["suggested_next_steps"] == [
         "Review one synthetic source with matched source set size before updating the hypothesis."
@@ -2821,9 +2974,7 @@ def test_agentic_action_packet_json_returns_ready_field(tmp_path: Path) -> None:
     assert result.exit_code == 0
     body = json.loads(result.output)
     assert "ready_for_agent" in body
-    assert body["schema_version"] == "1.0"
-    assert body["session_contract"]["sync_warning_ab"] == 0.5
-    assert body["session_contract"]["switch_recommended_ab"] == 0.7
+    assert body["schema_version"] == "1.1"
     assert body["context_budget"]["sync_warning_ab"] == 0.5
     assert body["context_budget"]["switch_recommended_ab"] == 0.7
 
@@ -2940,7 +3091,9 @@ def test_agentic_action_packet_ignores_stale_failure_next_action_after_success(
     assert result.exit_code == 0
     body = json.loads(result.output)
     assert body["current_goal"] == "Stabilize action packet guidance"
-    assert body["next_action"] is None
+    assert body["next_action"] == (
+        "Continue from the visible goal and inspect the context references first."
+    )
     assert body["session_contract"]["next_action"] == (
         "Continue from the visible goal and inspect the context references first."
     )
@@ -2974,7 +3127,9 @@ def test_agentic_action_packet_demo_json_emits_safe_contract() -> None:
     body = json.loads(result.output)
     assert body["current_goal"] == "Resume the failing release gate after Agent A lost context"
     assert body["blockers"][0]["summary"] == "make check failed on policy assertions"
-    assert body["do_not_repeat"] == ["Do not rerun the renderer-only patch unchanged"]
+    assert body["do_not_repeat"] == [
+        {"path": "Do not rerun the renderer-only patch unchanged", "rationale": None}
+    ]
     assert body["withheld_context"][0]["category"] == "sensitivity"
     assert "PRIVATE_AGENT_A_NOTE" not in result.output
 
@@ -3557,10 +3712,9 @@ def test_quickstart_json_reports_live_first_readiness(
     assert body["action_packet_first"]["packet"]["ready_for_agent"] is False
     assert body["live_first"]["daemon_required"] is False
     assert body["live_first"]["packet"]["intent"] is None
-    assert (
-        "No local ledger events are visible in this passport yet."
-        in body["live_first"]["packet"]["unknowns"]
-    )
+    assert "Original chat history is not available in the handoff packet." in body[
+        "live_first"
+    ]["packet"]["unknowns"]
     assert "demo_preview" not in body
     assert body["local_state"]["config_exists"] is False
     assert body["local_state"]["token_source"] == "missing"

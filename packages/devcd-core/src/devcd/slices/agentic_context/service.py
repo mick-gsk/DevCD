@@ -4,10 +4,12 @@ from devcd.slices.agentic_context.models import (
     ActionPacket,
     ActionPacketBlocker,
     ActionPacketWithheldContext,
+    RejectedPath,
     ScoutEvidence,
     ScoutReport,
     ScoutTask,
     ScoutTaskKind,
+    SessionContract,
 )
 from devcd.slices.ambient_context.models import (
     AgentContextSurface,
@@ -20,6 +22,7 @@ from devcd.slices.ambient_context.models import (
 from devcd.slices.ambient_context.service import AmbientContextService
 from devcd.slices.events.ledger import EventLedger
 from devcd.slices.events.models import DevEvent, EventSource
+from devcd.slices.memory_layer.models import MemoryEntry, MemoryScope
 from devcd.slices.policy_layer.models import PolicyDecision, PolicyDecisionKind
 from devcd.slices.policy_layer.service import PolicyEngine
 from devcd.slices.vision_layer.service import VisionService
@@ -90,10 +93,24 @@ class AgenticContextService:
             current_packet=packet,
         )
         next_action = self._resolve_warm_start_next_action(persisted_passport)
+        if next_action is None and packet.session_contract is not None:
+            next_action = packet.session_contract.next_action
         report_evidence = [evidence for report in self._reports for evidence in report.evidence]
         latest_report = self._reports[-1] if self._reports else None
         if latest_report is not None:
             next_action = latest_report.next_action or latest_report.summary
+        done_when = self._resolve_done_when()
+        verification_required = not bool(done_when)
+        rejected_paths = self._rejected_paths_from_memory()
+        inherited_next_action = (
+            packet.session_contract.next_action if packet.session_contract is not None else ""
+        )
+        session_contract = SessionContract(
+            next_action=next_action or inherited_next_action,
+            done_when=done_when or "",
+            verification_required=verification_required,
+            withheld_count=packet.context_budget.withheld_context_count,
+        )
         action_packet = ActionPacket(
             current_goal=current_goal,
             next_action=next_action,
@@ -103,8 +120,9 @@ class AgenticContextService:
             do_not_repeat=packet.do_not_repeat[:20],
             context_references=packet.context_references[:30],
             context_budget=packet.context_budget,
-            session_contract=packet.session_contract,
-            verification_required=True,
+            session_contract=session_contract,
+            rejected_paths=rejected_paths,
+            verification_required=verification_required,
             withheld_context=[
                 self._action_withheld_context(withheld) for withheld in packet.withheld_context[:20]
             ],
@@ -230,3 +248,48 @@ class AgenticContextService:
             policy_reason=policy_reason,
             safe_summary=safe_summary,
         )
+
+    def _visible_working_memory(self) -> list[MemoryEntry]:
+        return self.ambient_context_service.memory_store.list_by_scope(
+            MemoryScope.WORKING,
+            self.ambient_context_service.state_engine.is_source_visible,
+        )
+
+    def _resolve_done_when(self) -> str:
+        for entry in self._visible_working_memory():
+            event_class = entry.content.get("event_class")
+            if event_class != "goal.done_when":
+                continue
+            payload = entry.content.get("payload")
+            if not isinstance(payload, dict):
+                continue
+            done_when = payload.get("done_when")
+            if isinstance(done_when, str) and done_when.strip():
+                return done_when
+        return ""
+
+    def _rejected_paths_from_memory(self) -> list[RejectedPath]:
+        rejected: list[RejectedPath] = []
+        for entry in self._visible_working_memory():
+            event_class = entry.content.get("event_class")
+            if event_class != "dead_end":
+                continue
+            payload = entry.content.get("payload")
+            if not isinstance(payload, dict):
+                continue
+            approach_summary = payload.get("approach_summary")
+            reason = payload.get("reason")
+            if not isinstance(approach_summary, str) or not approach_summary.strip():
+                continue
+            if not isinstance(reason, str) or not reason.strip():
+                continue
+            rejected.append(
+                RejectedPath(
+                    approach_summary=approach_summary,
+                    reason=reason,
+                    timestamp=entry.timestamp,
+                )
+            )
+            if len(rejected) == 20:
+                break
+        return rejected

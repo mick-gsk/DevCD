@@ -66,7 +66,18 @@
     },
     "last_failure": { "type": ["string", "null"] },
     "why_attempt_failed": { "type": ["string", "null"] },
-    "do_not_repeat": { "type": "array", "items": { "type": "string" } },
+    "do_not_repeat": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["path", "rationale"],
+        "properties": {
+          "path": { "type": "string" },
+          "rationale": { "type": ["string", "null"] }
+        },
+        "additionalProperties": false
+      }
+    },
     "blockers": {
       "type": "array",
       "items": {

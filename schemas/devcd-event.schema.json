@@ -24,6 +24,10 @@
     "payload": {
       "type": "object"
     },
+    "event_class": {
+      "type": ["string", "null"],
+      "enum": ["dead_end", "goal.done_when", null]
+    },
     "sensitivity": {
       "type": "string",
       "enum": ["normal", "sensitive"],
@@ -35,5 +39,47 @@
       "default": "metadata"
     }
   },
+  "allOf": [
+    {
+      "if": {
+        "properties": {
+          "event_class": { "const": "dead_end" }
+        },
+        "required": ["event_class"]
+      },
+      "then": {
+        "properties": {
+          "payload": {
+            "type": "object",
+            "required": ["approach_summary", "reason", "related_goal"],
+            "properties": {
+              "approach_summary": { "type": "string", "minLength": 1 },
+              "reason": { "type": "string", "minLength": 1 },
+              "related_goal": { "type": "string", "minLength": 1 }
+            }
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "event_class": { "const": "goal.done_when" }
+        },
+        "required": ["event_class"]
+      },
+      "then": {
+        "properties": {
+          "payload": {
+            "type": "object",
+            "required": ["done_when"],
+            "properties": {
+              "done_when": { "type": "string", "minLength": 1 }
+            }
+          }
+        }
+      }
+    }
+  ],
   "additionalProperties": false
 }

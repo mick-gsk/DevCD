@@ -6,7 +6,11 @@ from uuid import uuid4
 
 from pydantic import BaseModel, Field, field_validator, model_validator
 
-from devcd.slices.ambient_context.models import ContextBudget, ContextReference, SessionContract
+from devcd.slices.ambient_context.models import (
+    ContextBudget,
+    ContextReference,
+    DoNotRepeatEntry,
+)
 from devcd.slices.vision_layer.models import VisionBlock
 
 
@@ -133,17 +137,31 @@ class ActionPacketWithheldContext(BaseModel):
     safe_summary: str = Field(min_length=1, max_length=500)
 
 
+class RejectedPath(BaseModel):
+    approach_summary: str = Field(min_length=1, max_length=500)
+    reason: str = Field(min_length=1, max_length=500)
+    timestamp: datetime
+
+
+class SessionContract(BaseModel):
+    next_action: str = Field(default="", max_length=500)
+    done_when: str = Field(default="", max_length=500)
+    verification_required: bool = False
+    withheld_count: int = Field(default=0, ge=0)
+
+
 class ActionPacket(BaseModel):
-    schema_version: str = "1.0"
+    schema_version: str = "1.1"
     current_goal: str | None = Field(default=None, max_length=1200)
     next_action: str | None = Field(default=None, max_length=500)
     recommended_agent_mode: str = Field(default="continuation", max_length=80)
     evidence: list[ScoutEvidence] = Field(default_factory=list, max_length=30)
     blockers: list[ActionPacketBlocker] = Field(default_factory=list, max_length=20)
-    do_not_repeat: list[str] = Field(default_factory=list, max_length=20)
+    do_not_repeat: list[DoNotRepeatEntry] = Field(default_factory=list, max_length=20)
     context_references: list[ContextReference] = Field(default_factory=list, max_length=30)
     context_budget: ContextBudget = Field(default_factory=ContextBudget)
     session_contract: SessionContract | None = None
+    rejected_paths: list[RejectedPath] = Field(default_factory=list, max_length=20)
     verification_required: bool = True
     withheld_context: list[ActionPacketWithheldContext] = Field(default_factory=list, max_length=20)
     policy_summary: str | None = Field(default=None, max_length=1000)

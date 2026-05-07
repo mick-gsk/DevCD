@@ -218,7 +218,16 @@ def test_mcp_server_agent_handoff_packet_matches_cli_contract_fields(tmp_path) -
     assert body["goal"] == "Continue after chat context loss"
     assert body["last_failure"] == "JSON handoff still omits stale attempt guidance"
     assert body["do_not_repeat"] == [
-        "Do not repeat the last attempted fix unchanged: Only changed the Markdown handoff"
+        {
+            "path": (
+                "Do not repeat the last attempted fix unchanged: "
+                "Only changed the Markdown handoff"
+            ),
+            "rationale": (
+                "The latest failure happened after the attempted fix, so the fix did not "
+                "resolve the blocker: JSON handoff still omits stale attempt guidance"
+            ),
+        }
     ]
     assert body["suggested_next_action"] == "Add stale attempt guidance to the JSON contract"
     assert set(body.keys()) >= {
@@ -490,13 +499,18 @@ def test_mcp_server_action_packet_contains_ready_agent_context(tmp_path) -> None
 
     body = read_resource(server, "devcd://context/action-packet")
 
-    assert body["schema_version"] == "1.0"
+    assert body["schema_version"] == "1.1"
     assert body["current_goal"] == "Read agentic action packet through MCP"
     assert "next_action" in body
     assert "ready_for_agent" in body
     assert "policy_summary" in body
     assert body["blockers"][0]["summary"] == "MCP action packet lacks resume signals"
-    assert body["do_not_repeat"] == ["Do not ship an action packet without stale-attempt warnings"]
+    assert body["do_not_repeat"] == [
+        {
+            "path": "Do not ship an action packet without stale-attempt warnings",
+            "rationale": None,
+        }
+    ]
     assert body["withheld_context"][0]["category"] == "sensitivity"
     assert "sensitive events" in body["withheld_context"][0]["policy_reason"]
     assert "PRIVATE_NOTE_PAYLOAD" not in json.dumps(body)
@@ -529,9 +543,9 @@ def test_mcp_server_reads_session_contract_resource(tmp_path) -> None:
     assert body["session_contract"]["next_action"] == (
         "Add read-only MCP session-contract resource"
     )
-    assert body["session_contract"]["verification_command"] == "make check"
-    assert body["session_contract"]["sync_warning_ab"] == 0.5
-    assert body["session_contract"]["switch_recommended_ab"] == 0.7
+    assert body["session_contract"]["done_when"] == ""
+    assert body["session_contract"]["verification_required"] is True
+    assert body["session_contract"]["withheld_count"] == 0
     assert body["context_budget"]["reference_count"] == len(body["context_references"])
     assert body["context_budget"]["sync_warning_ab"] == 0.5
     assert body["context_budget"]["switch_recommended_ab"] == 0.7
@@ -626,11 +640,11 @@ def test_mcp_server_action_packet_detailed_includes_full_context(tmp_path) -> No
     assert "context_references" in detailed
     assert "context_budget" in detailed
     assert "session_contract" in detailed
+    assert "rejected_paths" in detailed
     assert "verification_required" in detailed
     assert detailed["context_budget"]["sync_warning_ab"] == 0.5
     assert detailed["context_budget"]["switch_recommended_ab"] == 0.7
-    assert detailed["session_contract"]["sync_warning_ab"] == 0.5
-    assert detailed["session_contract"]["switch_recommended_ab"] == 0.7
+    assert "withheld_count" in detailed["session_contract"]
 
 
 def test_mcp_server_continuity_packet_concise_reduces_payload_fields(tmp_path) -> None:
@@ -688,10 +702,43 @@ def test_mcp_server_session_contract_concise_removes_context_references(tmp_path
     assert "context_budget" in concise
     assert "policy_summary" in concise
     assert "context_references" not in concise
-    assert concise["session_contract"]["sync_warning_ab"] == 0.5
-    assert concise["session_contract"]["switch_recommended_ab"] == 0.7
+    assert concise["session_contract"]["verification_required"] is True
     assert concise["context_budget"]["sync_warning_ab"] == 0.5
     assert concise["context_budget"]["switch_recommended_ab"] == 0.7
+
+
+def test_mcp_server_session_contract_lists_and_reads_resource(tmp_path) -> None:
+    server, _state_engine = build_mcp_server(tmp_path)
+
+    resources_response = server.handle_message(
+        {"jsonrpc": "2.0", "id": 29, "method": "resources/list"}
+    )
+    assert resources_response is not None
+    uris = [r["uri"] for r in resources_response["result"]["resources"]]
+    assert "devcd://context/session-contract" in uris
+
+    body = read_resource(server, "devcd://context/session-contract")
+    assert "session_contract" in body
+    assert "context_budget" in body
+
+
+def test_mcp_server_session_contract_withheld_count_matches_withheld_items(tmp_path) -> None:
+    server, state_engine = build_mcp_server(tmp_path)
+    state_engine.accept_event(
+        DevEvent(
+            source=EventSource.NOTES,
+            type="note_update",
+            timestamp=datetime(2026, 5, 5, 10, 0, tzinfo=UTC),
+            payload={"title": "PRIVATE_NOTE_PAYLOAD"},
+            sensitivity=EventSensitivity.SENSITIVE,
+        )
+    )
+
+    body = read_resource(server, "devcd://context/session-contract")
+
+    assert body["session_contract"]["withheld_count"] == body["context_budget"][
+        "withheld_context_count"
+    ]
 
 
 def test_mcp_server_session_contract_detailed_includes_context_references(tmp_path) -> None:

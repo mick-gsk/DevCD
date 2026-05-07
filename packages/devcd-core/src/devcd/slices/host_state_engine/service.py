@@ -96,6 +96,7 @@ class StateEngine:
             "source": event.source.value,
             "type": event.type,
             "payload": event.payload,
+            "event_class": event.event_class,
             "observation_policy_reason": observation_decision.reason,
             "storage_policy_reason": storage_reason,
         }

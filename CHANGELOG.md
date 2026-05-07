@@ -4,6 +4,19 @@ All notable changes to DevCD will be documented in this file.
 
 The project follows Conventional Commits and Semantic Versioning once public releases begin.
 
+## 0.2.1 - 2026-05-07
+
+Short version: Action Packet now projects verification-ready session contracts, rejected dead-end paths, and additive vision-alignment signals for completion/compliance.
+
+### Added
+
+- Action Packet additive fields: `rejected_paths` and a dedicated `session_contract` shape (`next_action`, `done_when`, `verification_required`, `withheld_count`).
+- Local CLI and MCP Action Packet builders now inject configured workspace vision consistently, and `devcd agentic completion-check` / `devcd agentic compliance` add a policy-safe vision alignment note with warnings on clear drift.
+- Action Packet projection now derives `done_when` from `event_class="goal.done_when"` and sets verification requirements when completion criteria are missing.
+- Read-only MCP `devcd://context/session-contract` now exposes the Action Packet session contract contract with matching context budget metadata.
+- New `event_class` support on `DevEvent` with validated `dead_end` and `goal.done_when` payload contracts.
+- `dead_end` continuity curation support for developer-triggered non-retriable approach tracking (`approach_summary`, `reason`, `related_goal`).
+
 ## 0.2.0 - 2026-05-06
 
 Short version: Initial local-first context daemon foundation with context quality scoring, control-plane report, research-session recipe, live Agent Passport, MCP integration snippets, and daemonless Action Packet demo.

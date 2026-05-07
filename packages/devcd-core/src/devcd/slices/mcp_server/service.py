@@ -300,10 +300,9 @@ class ReadOnlyMCPServer:
         return packet.model_dump(mode="json")
 
     def _session_contract_payload(self) -> JsonObject:
-        packet = self._ambient_context_service.create_continuity_packet(
-            self._mcp_surface(),
+        packet = self._agentic_context_service.create_action_packet(
+            surface="mcp",
             context_pack="developer",
-            include_empty_guidance=True,
         )
         return {
             "session_contract": packet.session_contract.model_dump(mode="json")
@@ -313,7 +312,7 @@ class ReadOnlyMCPServer:
             "context_references": [
                 reference.model_dump(mode="json") for reference in packet.context_references
             ],
-            "policy_summary": packet.policy_decision.reason,
+            "policy_summary": packet.policy_summary or "",
         }
 
     def _concise_action_packet(self, payload: JsonObject) -> JsonObject:

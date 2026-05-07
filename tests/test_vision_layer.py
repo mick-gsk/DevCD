@@ -174,6 +174,40 @@ class TestVisionServiceGetBlock:
         policy = PolicyEngine.default()
         assert svc.get_block(policy) is None
 
+    def test_assess_alignment_reports_aligned_when_goal_matches_vision(
+        self, tmp_path: Path
+    ) -> None:
+        svc = VisionService(tmp_path)
+        svc.init_vision(domain="d", north_star="Keep agents aligned to local-first product intent.")
+
+        signal = svc.assess_alignment(
+            PolicyEngine.default(),
+            surface="coding-agent",
+            current_goal="Keep agents aligned to local-first product intent",
+            next_action="Run the completion check",
+        )
+
+        assert signal.configured is True
+        assert signal.visible_to_surface is True
+        assert signal.status == "aligned"
+        assert signal.warnings == []
+
+    def test_assess_alignment_warns_when_goal_and_action_drift(self, tmp_path: Path) -> None:
+        svc = VisionService(tmp_path)
+        svc.init_vision(domain="d", north_star="Keep agents aligned to local-first product intent.")
+
+        signal = svc.assess_alignment(
+            PolicyEngine.default(),
+            surface="coding-agent",
+            current_goal="Rename a temporary variable in a throwaway benchmark fixture",
+            next_action="Alphabetize some unrelated markdown bullets",
+        )
+
+        assert signal.configured is True
+        assert signal.visible_to_surface is True
+        assert signal.status == "warn"
+        assert signal.warnings
+
 
 class TestVisionServiceCorruptFile:
     def test_corrupted_json_raises_value_error(self, tmp_path: Path) -> None:

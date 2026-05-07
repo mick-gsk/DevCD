@@ -853,10 +853,11 @@ def test_context_brief_derives_agent_resurrection_context(tmp_path) -> None:
         == "Added only a Last failure section to the markdown renderer"
     )
     assert "happened after the attempted fix" in brief.resurrection.why_attempt_failed
-    assert brief.resurrection.do_not_repeat == [
+    assert [item.path for item in brief.resurrection.do_not_repeat] == [
         "Do not repeat the last attempted fix unchanged: Added only a Last failure section "
         "to the markdown renderer"
     ]
+    assert brief.resurrection.do_not_repeat[0].rationale is not None
     assert (
         brief.resurrection.suggested_next_action
         == "Add a first-class resurrection context before rendering"
@@ -914,7 +915,7 @@ def test_resurrection_context_keeps_failure_history_after_later_success(tmp_path
         brief.resurrection.last_attempt.summary == "Added why_attempt_failed to the JSON contract"
     )
     assert brief.resurrection.last_failure == "handoff JSON still omits why_attempt_failed"
-    assert brief.resurrection.do_not_repeat == [
+    assert [item.path for item in brief.resurrection.do_not_repeat] == [
         "Do not repeat the last attempted fix unchanged: Only renamed the renderer heading"
     ]
     assert "appears resolved by" in brief.resurrection.why_attempt_failed
@@ -971,7 +972,7 @@ def test_resurrection_context_generates_do_not_repeat_for_failed_attempt(tmp_pat
     assert brief.resurrection.last_attempt is not None
     assert brief.resurrection.last_attempt.outcome == "failure"
     assert brief.resurrection.last_failure == "Retried the stale renderer-only patch"
-    assert brief.resurrection.do_not_repeat == [
+    assert [item.path for item in brief.resurrection.do_not_repeat] == [
         "Do not repeat the failed attempt unchanged: Retried the stale renderer-only patch"
     ]
     assert (
@@ -1661,7 +1662,7 @@ def test_agent_resurrection_fixture_maps_to_neutral_continuity_packet(tmp_path) 
     assert packet.blockers[0].summary == "make check still fails: do_not_repeat is absent"
     assert packet.blockers[0].reason is not None
     assert "happened after the attempted fix" in packet.blockers[0].reason
-    assert packet.do_not_repeat == [
+    assert [item.path for item in packet.do_not_repeat] == [
         "Do not repeat the last attempted fix unchanged: Added only a Last failure section "
         "to the markdown renderer"
     ]
@@ -1831,7 +1832,10 @@ def test_research_like_continuity_packet_is_not_developer_specific() -> None:
     assert dumped["attempts"][0]["outcome"] == "failure"
     assert dumped["blockers"][0]["kind"] == "missing_source"
     assert dumped["do_not_repeat"] == [
-        "Do not compare latency studies without normalizing dataset size."
+        {
+            "path": "Do not compare latency studies without normalizing dataset size.",
+            "rationale": None,
+        }
     ]
     assert "git_context" not in dumped["pack_metadata"]
 
@@ -1898,7 +1902,9 @@ def test_research_session_recipe_feeds_policy_filtered_research_packet(tmp_path)
     assert packet.attempts[0].failure_reason == (
         "The comparison mixed latency with source-count effects."
     )
-    assert packet.do_not_repeat == ["Do not compare sources without matching source count."]
+    assert [item.path for item in packet.do_not_repeat] == [
+        "Do not compare sources without matching source count."
+    ]
     assert packet.suggested_next_steps == ["Find a matched source-count comparison"]
     assert {item.category for item in packet.withheld_context} >= {"payload_content"}
     assert "PRIVATE_ARTICLE_TEXT" not in dumped

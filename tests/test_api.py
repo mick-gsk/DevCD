@@ -358,7 +358,12 @@ def test_agentic_context_action_packet_route_returns_packet() -> None:
     assert body["current_goal"] == "Expose the agentic action packet"
     assert body["ready_for_agent"] in {True, False}
     assert body["blockers"][0]["summary"] == "action packet route lacks resume signals"
-    assert body["do_not_repeat"] == ["Do not expose only current_goal and readiness"]
+    assert body["do_not_repeat"] == [
+        {
+            "path": "Do not expose only current_goal and readiness",
+            "rationale": None,
+        }
+    ]
     assert body["withheld_context"][0]["category"] == "sensitivity"
     assert "sensitive events" in body["withheld_context"][0]["policy_reason"]
     assert "PRIVATE_NOTE_PAYLOAD" not in response.text

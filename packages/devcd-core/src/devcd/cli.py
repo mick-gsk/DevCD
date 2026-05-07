@@ -576,6 +576,7 @@ def _seed_setup_handoff(*, config: Path, goal: str, next_action: str) -> None:
             outcome=None,
             next_action=capture_next_action,
             artifact=None,
+            rationale=None,
             agent="devcd-setup",
             session="setup-wizard",
             fingerprint=None,
@@ -1227,7 +1228,11 @@ def _render_action_packet(packet: ActionPacket) -> str:
         lines.append("- No visible blockers are attached.")
     lines.extend(["", "## Do Not Repeat"])
     if packet.do_not_repeat:
-        lines.extend(f"- {item}" for item in packet.do_not_repeat)
+        for item in packet.do_not_repeat:
+            if item.rationale:
+                lines.append(f"- {item.path} (rationale: {item.rationale})")
+            else:
+                lines.append(f"- {item.path}")
     else:
         lines.append("- No stale attempt warning is attached.")
     lines.extend(["", "## Session Contract"])
@@ -1235,15 +1240,20 @@ def _render_action_packet(packet: ActionPacket) -> str:
         lines.append("- No session contract is attached.")
     else:
         lines.append(f"- next_action: {packet.session_contract.next_action}")
-        lines.append(f"- definition_of_done: {packet.session_contract.definition_of_done}")
-        lines.append(f"- verification_command: {packet.session_contract.verification_command}")
+        lines.append(f"- done_when: {packet.session_contract.done_when}")
         lines.append(
-            f"- clean_state_required: {str(packet.session_contract.clean_state_required).lower()}"
+            "- verification_required: "
+            f"{str(packet.session_contract.verification_required).lower()}"
         )
-        lines.append(f"- sync_warning_ab: {packet.session_contract.sync_warning_ab}")
-        lines.append(
-            f"- switch_recommended_ab: {packet.session_contract.switch_recommended_ab}"
-        )
+        lines.append(f"- withheld_count: {packet.session_contract.withheld_count}")
+    lines.extend(["", "## Rejected Paths"])
+    if packet.rejected_paths:
+        for rejected_path in packet.rejected_paths:
+            lines.append(f"- {rejected_path.approach_summary}")
+            lines.append(f"  reason: {rejected_path.reason}")
+            lines.append(f"  timestamp: {rejected_path.timestamp.isoformat()}")
+    else:
+        lines.append("- No rejected path is attached.")
     lines.extend(["", "## Context Budget"])
     lines.append(f"- estimated_tokens: {packet.context_budget.estimated_tokens}")
     lines.append(f"- references: {packet.context_budget.reference_count}")
@@ -2105,6 +2115,10 @@ def capture(
         str | None,
         typer.Option("--artifact", help="Artifact path or identifier metadata only."),
     ] = None,
+    rationale: Annotated[
+        str | None,
+        typer.Option("--rationale", help="Optional rationale for failure-derived do_not_repeat."),
+    ] = None,
     agent: Annotated[str, typer.Option("--agent", help="Capturing agent name.")] = "unknown-agent",
     session: Annotated[
         str | None,
@@ -2127,6 +2141,7 @@ def capture(
         outcome=outcome,
         next_action=next_action,
         artifact=artifact,
+        rationale=rationale,
         agent=agent,
         session=session,
         fingerprint=fingerprint,
@@ -2156,6 +2171,10 @@ def handoff(
         str | None,
         typer.Option("--failure", help="Latest failure or blocker metadata."),
     ] = None,
+    rationale: Annotated[
+        str | None,
+        typer.Option("--rationale", help="Optional rationale for failure-derived do_not_repeat."),
+    ] = None,
     agent: Annotated[str, typer.Option("--agent", help="Capturing agent name.")] = "unknown-agent",
     session: Annotated[
         str | None,
@@ -2172,15 +2191,18 @@ def handoff(
     config: Annotated[Path | None, typer.Option("--config", help="Config file to load.")] = None,
 ) -> None:
     """Capture a compact next-agent handoff without starting the daemon."""
+    if rationale is not None and failure is None:
+        raise typer.BadParameter("--rationale requires --failure")
+
     settings = DevCDSettings.load(config)
     ledger = EventLedger(settings.ledger_path)
-    capture_specs: list[tuple[str, str, str | None]] = [("goal", goal, None)]
+    capture_specs: list[tuple[str, str, str | None, str | None]] = [("goal", goal, None, None)]
     if failure is not None:
-        capture_specs.append(("failure", failure, next_action))
-    capture_specs.append(("next_action", next_action, next_action))
+        capture_specs.append(("failure", failure, next_action, rationale))
+    capture_specs.append(("next_action", next_action, next_action, None))
 
     captured_kinds: list[str] = []
-    for capture_kind, capture_summary, capture_next_action in capture_specs:
+    for capture_kind, capture_summary, capture_next_action, capture_rationale in capture_specs:
         event = _build_capture_event(
             kind=capture_kind,
             summary=capture_summary,
@@ -2189,6 +2211,7 @@ def handoff(
             outcome=None,
             next_action=capture_next_action,
             artifact=None,
+            rationale=capture_rationale,
             agent=agent,
             session=session,
             fingerprint=None,
@@ -3035,9 +3058,16 @@ def _build_agentic_compliance_report(
         elif capture_kind == "artifact_ref":
             counts["artifact_events"] += 1
 
-    packet = _build_local_agentic_context_service(config).create_action_packet(
+    agentic_service = _build_local_agentic_context_service(config)
+    packet = agentic_service.create_action_packet(
         surface=surface,
         context_pack=_context_pack_id(pack),
+    )
+    vision_alignment = _vision_service(settings).assess_alignment(
+        agentic_service.policy_engine,
+        surface=surface,
+        current_goal=packet.current_goal,
+        next_action=packet.next_action,
     )
     has_handoff = counts["handoff_events"] > 0
     ready = bool(packet.ready_for_agent and has_handoff)
@@ -3058,7 +3088,10 @@ def _build_agentic_compliance_report(
             "has_handoff": has_handoff,
             "current_goal": packet.current_goal,
             "next_action": packet.next_action,
+            "vision_alignment": vision_alignment.model_dump(mode="json"),
         },
+        "notes": [vision_alignment.note] if vision_alignment.configured else [],
+        "warnings": vision_alignment.warnings,
         "next_step": "devcd handoff --goal \"...\" --next-action \"...\"" if not ready else "done",
     }
     return {
@@ -3084,6 +3117,10 @@ def _render_agentic_completion_gate(report: dict[str, Any]) -> str:
     lines.append(f"- has_handoff: {str(bool(signals.get('has_handoff', False))).lower()}")
     lines.append(f"- current_goal: {signals.get('current_goal') or 'unknown'}")
     lines.append(f"- next_action: {signals.get('next_action') or 'missing'}")
+    for note in cast(list[str], report.get("notes", [])):
+        lines.append(f"- note: {note}")
+    for warning in cast(list[str], report.get("warnings", [])):
+        lines.append(f"- warning: {warning}")
     lines.append(f"- next: {report.get('next_step', 'done')}")
     return "\n".join(lines)
 
@@ -3106,6 +3143,10 @@ def _render_agentic_compliance(report: dict[str, Any]) -> str:
         f"- completion_gate_ready: {str(bool(gate.get('ready', False))).lower()}",
         f"- completion_next: {gate.get('next_step', 'done')}",
     ]
+    for note in cast(list[str], gate.get("notes", [])):
+        lines.append(f"- completion_note: {note}")
+    for warning in cast(list[str], gate.get("warnings", [])):
+        lines.append(f"- completion_warning: {warning}")
     return "\n".join(lines)
 
 
@@ -3118,6 +3159,7 @@ def _build_capture_event(
     outcome: str | None,
     next_action: str | None,
     artifact: str | None,
+    rationale: str | None,
     agent: str,
     session: str | None,
     fingerprint: str | None,
@@ -3134,10 +3176,13 @@ def _build_capture_event(
         capture_outcome = _capture_choice(outcome, _CAPTURE_OUTCOMES, "capture outcome")
         if capture_kind != "attempt":
             raise typer.BadParameter("--outcome is only valid with --kind attempt")
+    if rationale is not None and capture_kind != "failure":
+        raise typer.BadParameter("--rationale is only valid with --kind failure")
 
     _validate_capture_text("summary", summary, required=True)
     _validate_capture_text("next-action", next_action, required=False)
     _validate_capture_text("artifact", artifact, required=False)
+    _validate_capture_text("rationale", rationale, required=False)
     _validate_capture_text("agent", agent, required=True)
     _validate_capture_text("session", session, required=False)
     _validate_capture_text("fingerprint", fingerprint, required=False)
@@ -3151,6 +3196,7 @@ def _build_capture_event(
         outcome=capture_outcome,
         next_action=next_action.strip() if next_action is not None else None,
         artifact=artifact.strip() if artifact is not None else None,
+        rationale=rationale.strip() if rationale is not None else None,
         agent=agent.strip() or "unknown-agent",
         session=session.strip() if session is not None else None,
         fingerprint=fingerprint.strip() if fingerprint is not None else None,
@@ -3208,6 +3254,7 @@ def _capture_payload(
     outcome: str | None,
     next_action: str | None,
     artifact: str | None,
+    rationale: str | None,
     agent: str,
     session: str | None,
     fingerprint: str | None,
@@ -3222,6 +3269,8 @@ def _capture_payload(
         payload["current_goal"] = summary
     elif capture_kind == "failure":
         payload["reason"] = summary
+        if rationale is not None:
+            payload["do_not_repeat_rationale"] = rationale
     elif capture_kind == "next_action":
         payload["summary"] = summary
         payload["suggested_next_action"] = next_action or summary
@@ -4814,16 +4863,19 @@ def _build_demo_agentic_context_service(
     policy_engine = PolicyEngine.default()
     memory_store = MemoryStore.with_ttl_seconds(315360000)
     event_ledger = EventLedger(temporary_directory / "events.jsonl")
+    vision_service = _vision_service_for_runtime_dir(temporary_directory, event_ledger=event_ledger)
     state_engine = StateEngine(policy_engine, memory_store, event_ledger)
     ambient_service = AmbientContextService(
         state_engine,
         memory_store,
         policy_engine,
+        vision_service=vision_service,
         feedback_path=temporary_directory / "context-feedback.jsonl",
     )
     return AgenticContextService(
         ambient_service,
         policy_engine,
+        vision_service=vision_service,
         event_ledger=event_ledger,
     ), state_engine
 
@@ -4835,6 +4887,7 @@ def _build_mcp_server(settings: DevCDSettings) -> ReadOnlyMCPServer:
         settings.episodic_memory_ttl_seconds,
     )
     event_ledger = EventLedger(settings.ledger_path)
+    vision_service = _vision_service(settings, event_ledger=event_ledger)
     state_engine = StateEngine(
         policy_engine=policy_engine,
         memory_store=memory_store,
@@ -4846,13 +4899,21 @@ def _build_mcp_server(settings: DevCDSettings) -> ReadOnlyMCPServer:
         state_engine=state_engine,
         memory_store=memory_store,
         policy_engine=policy_engine,
+        vision_service=vision_service,
         repo_path=Path.cwd(),
+    )
+    agentic_context_service = AgenticContextService(
+        ambient_context_service=ambient_context_service,
+        policy_engine=policy_engine,
+        vision_service=vision_service,
+        event_ledger=event_ledger,
     )
     return ReadOnlyMCPServer(
         ambient_context_service=ambient_context_service,
         state_engine=state_engine,
         event_ledger=event_ledger,
         policy_engine=policy_engine,
+        agentic_context_service=agentic_context_service,
     )
 
 
@@ -4866,6 +4927,7 @@ def _build_local_context_service(config: Path | None = None) -> AmbientContextSe
         settings.episodic_memory_ttl_seconds,
     )
     event_ledger = EventLedger(settings.ledger_path)
+    vision_service = _vision_service(settings, event_ledger=event_ledger)
     state_engine = StateEngine(
         policy_engine=policy_engine,
         memory_store=memory_store,
@@ -4877,6 +4939,7 @@ def _build_local_context_service(config: Path | None = None) -> AmbientContextSe
         state_engine=state_engine,
         memory_store=memory_store,
         policy_engine=policy_engine,
+        vision_service=vision_service,
         feedback_path=settings.runtime_dir / "context-feedback.jsonl",
         repo_path=Path.cwd(),
     )
@@ -4890,6 +4953,7 @@ def _build_local_agentic_context_service(config: Path | None = None) -> AgenticC
         settings.episodic_memory_ttl_seconds,
     )
     event_ledger = EventLedger(settings.ledger_path)
+    vision_service = _vision_service(settings, event_ledger=event_ledger)
     state_engine = StateEngine(
         policy_engine=policy_engine,
         memory_store=memory_store,
@@ -4901,12 +4965,14 @@ def _build_local_agentic_context_service(config: Path | None = None) -> AgenticC
         state_engine=state_engine,
         memory_store=memory_store,
         policy_engine=policy_engine,
+        vision_service=vision_service,
         feedback_path=settings.runtime_dir / "context-feedback.jsonl",
         repo_path=Path.cwd(),
     )
     return AgenticContextService(
         ambient_context_service=ambient_context_service,
         policy_engine=policy_engine,
+        vision_service=vision_service,
         event_ledger=event_ledger,
     )
 
@@ -5412,10 +5478,20 @@ def _is_loopback_endpoint(endpoint: str) -> bool:
 # ---------------------------------------------------------------------------
 
 
-def _vision_service(settings: DevCDSettings) -> VisionService:
+def _vision_service(
+    settings: DevCDSettings, event_ledger: EventLedger | None = None
+) -> VisionService:
     from devcd.slices.vision_layer.service import VisionService
 
-    return VisionService(settings.runtime_dir)
+    return VisionService(settings.runtime_dir, event_ledger=event_ledger)
+
+
+def _vision_service_for_runtime_dir(
+    runtime_dir: Path, event_ledger: EventLedger | None = None
+) -> VisionService:
+    from devcd.slices.vision_layer.service import VisionService
+
+    return VisionService(runtime_dir, event_ledger=event_ledger)
 
 
 @vision_app.command("init")
