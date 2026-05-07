@@ -77,6 +77,14 @@
          <lastmod>2026-05-07</lastmod>
     </url>
     <url>
+         <loc>https://mick-gsk.github.io/DevCD/decisions/ADR-017-context-pack-metadata-first-preload/</loc>
+         <lastmod>2026-05-07</lastmod>
+    </url>
+    <url>
+         <loc>https://mick-gsk.github.io/DevCD/decisions/ADR-018-vision-product-intent-instruction-injection/</loc>
+         <lastmod>2026-05-07</lastmod>
+    </url>
+    <url>
          <loc>https://mick-gsk.github.io/DevCD/devcd/agent-consumption/</loc>
          <lastmod>2026-05-07</lastmod>
     </url>
@@ -86,6 +94,10 @@
     </url>
     <url>
          <loc>https://mick-gsk.github.io/DevCD/devcd/agent-vision/</loc>
+         <lastmod>2026-05-07</lastmod>
+    </url>
+    <url>
+         <loc>https://mick-gsk.github.io/DevCD/devcd/agentic-complexity-blueprint/</loc>
          <lastmod>2026-05-07</lastmod>
     </url>
     <url>
