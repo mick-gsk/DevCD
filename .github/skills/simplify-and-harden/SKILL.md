@@ -4,6 +4,17 @@ description: "Post-completion self-review for coding agents that runs simplify, 
 argument-hint: "Run after completing a coding task. Provide the list of modified files if not auto-detected."
 ---
 
+## Progressive Disclosure
+
+### Level 1 - Metadata (Auto-Loaded)
+The YAML frontmatter keys `name` and `description` are the discovery signal loaded automatically.
+
+### Level 2 - Full Instructions
+The remaining SKILL.md body is the complete skill guidance and is loaded on demand.
+
+### Level 3 - Referenced Supporting Files
+- None.
+
 # Agent Skill: Simplify & Harden
 
 Post-completion self-review: clean, harden, and document your work before moving on.

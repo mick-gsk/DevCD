@@ -3,6 +3,17 @@ name: devcd-startup-gate
 description: Mandatory first move for local DevCD continuity before asking for recap.
 ---
 
+## Progressive Disclosure
+
+### Level 1 - Metadata (Auto-Loaded)
+The YAML frontmatter keys `name` and `description` are the discovery signal loaded automatically.
+
+### Level 2 - Full Instructions
+The remaining SKILL.md body is the complete skill guidance and is loaded on demand.
+
+### Level 3 - Referenced Supporting Files
+- .devcd/templates/devcd-first-turn.template.md
+
 # DevCD Startup Gate
 
 ## When to invoke

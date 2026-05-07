@@ -4,6 +4,17 @@ description: "Use when an agent ignores instructions, loses context, misuses too
 argument-hint: "Describe the unreliable agent behavior, the workflow being operated, or the handoff/observability problem to diagnose and harden."
 ---
 
+## Progressive Disclosure
+
+### Level 1 - Metadata (Auto-Loaded)
+The YAML frontmatter keys `name` and `description` are the discovery signal loaded automatically.
+
+### Level 2 - Full Instructions
+The remaining SKILL.md body is the complete skill guidance and is loaded on demand.
+
+### Level 3 - Referenced Supporting Files
+- None.
+
 # Agent Ops And Observability
 
 Diagnose unreliable agent work by finding the first operational layer that drifted, then harden only that layer.

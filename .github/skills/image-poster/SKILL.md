@@ -4,6 +4,17 @@ description: "Installiert aus nexu-io/open-design: erzeugt ein einzelnes Bildmot
 argument-hint: "Beschreibe das Motiv oder die visuelle Richtung, die als einzelnes Marken- oder Logo-Explorationsbild erzeugt werden soll."
 ---
 
+## Progressive Disclosure
+
+### Level 1 - Metadata (Auto-Loaded)
+The YAML frontmatter keys `name` and `description` are the discovery signal loaded automatically.
+
+### Level 2 - Full Instructions
+The remaining SKILL.md body is the complete skill guidance and is loaded on demand.
+
+### Level 3 - Referenced Supporting Files
+- None.
+
 # Image Poster
 
 Quelle: adaptiert aus nexu-io/open-design, Skill image-poster.

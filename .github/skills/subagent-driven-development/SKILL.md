@@ -4,6 +4,17 @@ description: "Use when executing implementation plans with independent tasks in 
 argument-hint: "Provide the path to the implementation plan to execute."
 ---
 
+## Progressive Disclosure
+
+### Level 1 - Metadata (Auto-Loaded)
+The YAML frontmatter keys `name` and `description` are the discovery signal loaded automatically.
+
+### Level 2 - Full Instructions
+The remaining SKILL.md body is the complete skill guidance and is loaded on demand.
+
+### Level 3 - Referenced Supporting Files
+- None.
+
 # Subagent-Driven Development
 
 Execute plan by dispatching fresh subagent per task, with two-stage review after each: spec compliance review first, then code quality review.

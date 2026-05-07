@@ -4,6 +4,17 @@ description: "Use when asked to audit, review, or improve the codebase architect
 argument-hint: "Describe the scope: full codebase audit, a specific slice, or a known coupling problem."
 ---
 
+## Progressive Disclosure
+
+### Level 1 - Metadata (Auto-Loaded)
+The YAML frontmatter keys `name` and `description` are the discovery signal loaded automatically.
+
+### Level 2 - Full Instructions
+The remaining SKILL.md body is the complete skill guidance and is loaded on demand.
+
+### Level 3 - Referenced Supporting Files
+- None.
+
 # Improve Codebase Architecture
 
 Surface architectural friction in DevCD, design better interfaces, and capture refactor RFCs — without touching production code.

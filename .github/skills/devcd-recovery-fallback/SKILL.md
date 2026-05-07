@@ -3,6 +3,17 @@ name: devcd-recovery-fallback
 description: Recovery path when continuity packet readiness or tooling is limited.
 ---
 
+## Progressive Disclosure
+
+### Level 1 - Metadata (Auto-Loaded)
+The YAML frontmatter keys `name` and `description` are the discovery signal loaded automatically.
+
+### Level 2 - Full Instructions
+The remaining SKILL.md body is the complete skill guidance and is loaded on demand.
+
+### Level 3 - Referenced Supporting Files
+- None.
+
 # DevCD Recovery Fallback
 
 ## When to invoke

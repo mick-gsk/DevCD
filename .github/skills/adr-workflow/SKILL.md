@@ -4,6 +4,17 @@ description: "Use when a change affects architecture, slice boundaries, API cont
 argument-hint: "Describe the planned change and whether you need a new ADR, an ADR update, or validation of an existing draft."
 ---
 
+## Progressive Disclosure
+
+### Level 1 - Metadata (Auto-Loaded)
+The YAML frontmatter keys `name` and `description` are the discovery signal loaded automatically.
+
+### Level 2 - Full Instructions
+The remaining SKILL.md body is the complete skill guidance and is loaded on demand.
+
+### Level 3 - Referenced Supporting Files
+- None.
+
 # ADR Workflow Skill
 
 Use this skill when a DevCD change needs a documented architectural or product decision before implementation.

@@ -4,6 +4,17 @@ description: "Log learnings, errors, and corrections to .learnings/ for continuo
 argument-hint: "Describe what happened: error, correction, knowledge gap, or feature request."
 ---
 
+## Progressive Disclosure
+
+### Level 1 - Metadata (Auto-Loaded)
+The YAML frontmatter keys `name` and `description` are the discovery signal loaded automatically.
+
+### Level 2 - Full Instructions
+The remaining SKILL.md body is the complete skill guidance and is loaded on demand.
+
+### Level 3 - Referenced Supporting Files
+- None.
+
 # Self-Improvement Skill
 
 Log learnings and errors to markdown files for continuous improvement. Important learnings get promoted to project memory files.
