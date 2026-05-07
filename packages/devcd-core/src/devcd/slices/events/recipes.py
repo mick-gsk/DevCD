@@ -274,6 +274,35 @@ def _root_sensitive_payloads(
     return payloads
 
 
+class GitCommitRecipeInput(BaseModel):
+    message: str = Field(min_length=1)
+    sha: str | None = None
+    branch: str | None = None
+    repo: str | None = None
+    timestamp: datetime = Field(default_factory=lambda: datetime.now(UTC))
+
+
+def events_from_git_commit(report: GitCommitRecipeInput) -> list[DevEvent]:
+    payload: dict[str, object] = {
+        "recipe": "git_commit",
+        "message": report.message,
+    }
+    if report.sha is not None:
+        payload["sha"] = report.sha
+    if report.branch is not None:
+        payload["branch"] = report.branch
+    if report.repo is not None:
+        payload["repo"] = report.repo
+    return [
+        DevEvent(
+            source=EventSource.GIT,
+            type="commit",
+            timestamp=report.timestamp,
+            payload=payload,
+        )
+    ]
+
+
 def _failure_reason(first_failure: PytestFailure | None, failure_count: int) -> str:
     if first_failure is None:
         return "pytest failed"
