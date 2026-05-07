@@ -1130,7 +1130,7 @@ def test_smoke_command_verifies_local_first_run() -> None:
     result = runner.invoke(app, ["smoke"])
 
     assert result.exit_code == 0
-    assert "â–ˆâ–ˆâ–ˆâ–ˆ â–ˆâ–ˆâ–ˆâ–ˆâ–ˆâ–ˆ   â–ˆ â–ˆâ–ˆâ–ˆâ–ˆâ–ˆâ–ˆâ–ˆâ–ˆ " in result.output
+    assert "████ ██████   █ ████████ " in result.output
     assert "DevCD install check" in result.output
     assert "devcd --help: ok" in result.output
     assert "devcd context packs: ok" in result.output
@@ -2161,6 +2161,11 @@ def test_cli_live_passport_json_emits_continuity_packet(
     assert body["context_pack"] == "developer"
     assert body["surface"] == "coding-agent"
     assert body["intent"]["summary"] == "Emit live passport JSON"
+    assert body["state_snapshot"] == {"keys": [], "values": []}
+    assert body["narrative_context"] == ""
+    assert body["decision_log"] == []
+    assert body["priority_queue"] == []
+    assert body["warnings"] == []
     assert "brief_id" not in body
     assert "# DevCD Agent Passport" not in result.output
 
@@ -2915,7 +2920,7 @@ def test_agentic_action_packet_ignores_stale_failure_next_action_after_success(
     assert result.exit_code == 0
     body = json.loads(result.output)
     assert body["current_goal"] == "Stabilize action packet guidance"
-    assert body["next_action"] == "Use Scout Tasks to identify the next safe action."
+    assert body["next_action"] is None
     assert body["session_contract"]["next_action"] == (
         "Continue from the visible goal and inspect the context references first."
     )

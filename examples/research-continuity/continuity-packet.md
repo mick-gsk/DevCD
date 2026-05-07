@@ -50,3 +50,19 @@ Assess whether retrieval latency changes answer quality in multi-source research
 - allowed: true
 - operation: export
 - reason: local context export to 'research-agent' is allowed by policy; surface 'research-agent' allows state areas summary, active_goal, active_intent, relevant_artifacts, open_loops, recent_attempts, blockers, suggested_next_steps and memory scopes working, episodic
+
+## state_snapshot
+- keys: []
+- values: []
+
+## narrative_context
+
+
+## decision_log
+- None.
+
+## priority_queue
+- Review one synthetic source with matched source set size before updating the hypothesis.
+
+## warnings
+- None.

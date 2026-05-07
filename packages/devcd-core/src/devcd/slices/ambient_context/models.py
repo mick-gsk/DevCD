@@ -5,7 +5,7 @@ from enum import StrEnum
 from typing import Any, Literal
 from uuid import uuid4
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
 
 from devcd.slices.vision_layer.models import VisionBlock
 
@@ -286,6 +286,11 @@ class ContextBudget(BaseModel):
     suggested_actions: list[str] = Field(default_factory=list)
 
 
+class StateSnapshotModel(BaseModel):
+    keys: list[str] = Field(default_factory=list)
+    values: list[str | int | bool] = Field(default_factory=list)
+
+
 class SessionContract(BaseModel):
     next_action: str = Field(min_length=1)
     definition_of_done: str = Field(min_length=1)
@@ -310,6 +315,11 @@ class ContinuityPacket(BaseModel):
     context_quality_notes: list[str] = Field(default_factory=list)
     context_references: list[ContextReference] = Field(default_factory=list)
     context_budget: ContextBudget = Field(default_factory=ContextBudget)
+    state_snapshot: StateSnapshotModel = Field(default_factory=StateSnapshotModel)
+    narrative_context: str = ""
+    decision_log: list[str] = Field(default_factory=list)
+    priority_queue: list[str] = Field(default_factory=list)
+    warnings: list[str] = Field(default_factory=list)
     session_contract: SessionContract | None = None
     withheld_context: list[WithheldContext] = Field(default_factory=list)
     policy_decision: PolicySummary
@@ -318,6 +328,13 @@ class ContinuityPacket(BaseModel):
     pack_metadata: dict[str, Any] = Field(default_factory=dict)
     confidence: float = Field(default=0.0, ge=0.0, le=1.0)
     generated_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
+
+    @field_validator("narrative_context")
+    @classmethod
+    def narrative_context_max_length(cls, value: str) -> str:
+        if len(value) > 500:
+            raise ValueError("narrative_context must be 500 characters or fewer")
+        return value
 
 
 class ContextMemoryItem(BaseModel):

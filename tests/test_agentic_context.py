@@ -19,9 +19,15 @@ from devcd.slices.agentic_context.runner import SubprocessScoutRunner
 from devcd.slices.agentic_context.service import AgenticContextService
 from devcd.slices.ambient_context.service import AmbientContextService
 from devcd.slices.events.ledger import EventLedger
-from devcd.slices.events.models import DevEvent, EventSensitivity, EventSource
+from devcd.slices.events.models import (
+    DevEvent,
+    EventSensitivity,
+    EventSource,
+    SubtaskCompletionEvent,
+)
 from devcd.slices.host_state_engine.service import StateEngine
 from devcd.slices.memory_layer.service import MemoryStore
+from devcd.slices.policy_layer.models import PolicyDecision, PolicyDecisionKind
 from devcd.slices.policy_layer.service import PolicyEngine
 
 
@@ -254,6 +260,49 @@ def test_service_maps_resume_signals_into_action_packet(tmp_path) -> None:
     assert "PRIVATE_NOTE_PAYLOAD" not in json.dumps(body)
 
 
+def test_action_packet_warm_start_picks_first_incomplete_priority_subtask(tmp_path) -> None:
+    service, state_engine = build_agentic_context_service(tmp_path)
+    state_engine.accept_event(
+        DevEvent(
+            source=EventSource.TASK,
+            type="goal_update",
+            timestamp=datetime(2026, 5, 6, 9, 0, tzinfo=UTC),
+            payload={"current_goal": "Resume queued subtasks"},
+        )
+    )
+
+    storage_decision = PolicyDecision(
+        kind=PolicyDecisionKind.ALLOW,
+        reason="local storage is allowed by policy",
+        operation="store",
+        source="task",
+        data_class="metadata",
+    )
+    assert service._event_ledger is not None
+    service._event_ledger.append(
+        SubtaskCompletionEvent(
+            event_type="subtask_completion",
+            subtask_id="task-a",
+            status="complete",
+            completion_marker="done",
+            timestamp=datetime(2026, 5, 6, 9, 1, tzinfo=UTC),
+        ),
+        storage_decision,
+    )
+
+    original_create_packet = service.ambient_context_service.create_continuity_packet
+
+    def _with_priority_queue(*args, **kwargs):
+        packet = original_create_packet(*args, **kwargs)
+        return packet.model_copy(update={"priority_queue": ["task-a", "task-b"]})
+
+    service.ambient_context_service.create_continuity_packet = _with_priority_queue  # type: ignore[method-assign]
+
+    action_packet = service.create_action_packet(surface="coding-agent", context_pack="developer")
+
+    assert action_packet.next_action == "task-b"
+
+
 def test_accept_scout_report_updates_next_action(tmp_path) -> None:
     service, _state_engine = build_agentic_context_service(tmp_path)
     report = ScoutReport(
@@ -434,6 +483,7 @@ def build_agentic_context_service(tmp_path) -> tuple[AgenticContextService, Stat
         AgenticContextService(
             ambient_context_service=ambient_service,
             policy_engine=policy_engine,
+            event_ledger=event_ledger,
         ),
         state_engine,
     )

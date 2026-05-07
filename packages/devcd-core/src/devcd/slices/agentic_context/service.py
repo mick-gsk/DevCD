@@ -86,9 +86,10 @@ class AgenticContextService:
             include_empty_guidance=True,
         )
         current_goal = packet.intent.summary if packet.intent is not None else None
-        next_action = packet.suggested_next_steps[0] if packet.suggested_next_steps else None
-        if current_goal is not None and next_action is None:
-            next_action = "Use Scout Tasks to identify the next safe action."
+        persisted_passport = self._load_most_recent_persisted_passport(
+            current_packet=packet,
+        )
+        next_action = self._resolve_warm_start_next_action(persisted_passport)
         report_evidence = [evidence for report in self._reports for evidence in report.evidence]
         latest_report = self._reports[-1] if self._reports else None
         if latest_report is not None:
@@ -131,6 +132,40 @@ class AgenticContextService:
                     ),
                 )
         return action_packet
+
+    def _load_most_recent_persisted_passport(
+        self,
+        *,
+        current_packet: ContinuityPacket,
+    ) -> ContinuityPacket | None:
+        if self._event_ledger is None:
+            return None
+        if (
+            not self._event_ledger.read_records()
+            and not self._event_ledger.read_subtask_completion_events()
+        ):
+            return None
+        return current_packet
+
+    def _resolve_warm_start_next_action(
+        self, persisted_passport: ContinuityPacket | None
+    ) -> str | None:
+        if persisted_passport is None:
+            return None
+        priority_queue = persisted_passport.priority_queue
+        if not priority_queue:
+            return None
+        if self._event_ledger is None:
+            return None
+        completed_subtasks = {
+            event.subtask_id
+            for event in self._event_ledger.read_subtask_completion_events()
+            if event.status == "complete"
+        }
+        for subtask_id in priority_queue:
+            if subtask_id not in completed_subtasks:
+                return subtask_id
+        return None
 
     def accept_scout_report(self, report: ScoutReport) -> ScoutReport:
         if not report.evidence:

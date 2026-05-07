@@ -2638,6 +2638,17 @@ def _render_research_continuity_packet_markdown(packet: ContinuityPacket) -> str
     lines.append(f"- allowed: {str(packet.policy_decision.allowed).lower()}")
     lines.append(f"- operation: {packet.policy_decision.operation}")
     lines.append(f"- reason: {packet.policy_decision.reason}")
+    lines.extend(["", "## state_snapshot"])
+    lines.append(f"- keys: {packet.state_snapshot.keys}")
+    lines.append(f"- values: {packet.state_snapshot.values}")
+    lines.extend(["", "## narrative_context"])
+    lines.append(packet.narrative_context or "")
+    lines.extend(["", "## decision_log"])
+    lines.extend(_bullet_lines(packet.decision_log, empty="None."))
+    lines.extend(["", "## priority_queue"])
+    lines.extend(_bullet_lines(packet.priority_queue, empty="None."))
+    lines.extend(["", "## warnings"])
+    lines.extend(_bullet_lines(packet.warnings, empty="None."))
     return "\n".join(lines) + "\n"
 
 
@@ -2731,6 +2742,17 @@ def _render_generic_continuity_packet_markdown(packet: ContinuityPacket) -> str:
     lines.append(f"- allowed: {str(packet.policy_decision.allowed).lower()}")
     lines.append(f"- operation: {packet.policy_decision.operation}")
     lines.append(f"- reason: {packet.policy_decision.reason}")
+    lines.extend(["", "## state_snapshot"])
+    lines.append(f"- keys: {packet.state_snapshot.keys}")
+    lines.append(f"- values: {packet.state_snapshot.values}")
+    lines.extend(["", "## narrative_context"])
+    lines.append(packet.narrative_context or "")
+    lines.extend(["", "## decision_log"])
+    lines.extend(_bullet_lines(packet.decision_log, empty="None."))
+    lines.extend(["", "## priority_queue"])
+    lines.extend(_bullet_lines(packet.priority_queue, empty="None."))
+    lines.extend(["", "## warnings"])
+    lines.extend(_bullet_lines(packet.warnings, empty="None."))
     return "\n".join(lines) + "\n"
 
 
@@ -2881,11 +2903,13 @@ def _with_context_contracts(packet: ContinuityPacket) -> ContinuityPacket:
     context_references = _context_references_from_packet(packet)
     context_budget = _context_budget_from_packet(packet, context_references)
     session_contract = _session_contract_from_packet(packet)
+    priority_queue = packet.priority_queue or list(packet.suggested_next_steps)
     return packet.model_copy(
         update={
             "context_references": context_references,
             "context_budget": context_budget,
             "session_contract": session_contract,
+            "priority_queue": priority_queue,
         }
     )
 
