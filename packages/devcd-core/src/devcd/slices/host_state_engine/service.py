@@ -161,6 +161,8 @@ class StateEngine:
             next_action = self._optional_string(payload.get("suggested_next_action"))
             if next_action is not None:
                 self._ensure_next_action(next_action)
+        elif event.type.endswith("_passed") or event.type.endswith("success"):
+            self._clear_blocker_state()
 
     def _coalesce_recent_action(self, event: DevEvent, decision: PolicyDecision) -> bool:
         coalesce_key = self._coalesce_key(event)

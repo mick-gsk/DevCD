@@ -1528,6 +1528,7 @@ class AmbientContextService:
             last_failure,
         )
         captured_next_action = self._latest_captured_next_action(entries)
+        failure_appears_resolved = self._has_success_after_failure(entries, failure_timestamp)
         suggested_next_action = None
         if resolving_attempt is not None and not self._is_low_signal_success_attempt(
             resolving_attempt.summary
@@ -1535,17 +1536,31 @@ class AmbientContextService:
             suggested_next_action = (
                 f"Continue from the successful attempt: {resolving_attempt.summary}"
             )
-        elif explicit_suggested_next_action is not None and not self._is_low_signal_next_action(
+        elif (
+            not failure_appears_resolved
+            and explicit_suggested_next_action is not None
+            and not self._is_low_signal_next_action(
             explicit_suggested_next_action
+            )
         ):
             suggested_next_action = explicit_suggested_next_action
         elif captured_next_action is not None:
             suggested_next_action = captured_next_action
         elif suggested_next_steps:
-            candidate = suggested_next_steps[0].summary
-            if not self._is_low_signal_next_action(candidate):
+            for suggestion in suggested_next_steps:
+                candidate = suggestion.summary
+                if self._is_low_signal_next_action(candidate):
+                    continue
+                if (
+                    failure_appears_resolved
+                    and last_failure is not None
+                    and candidate.strip().lower()
+                    == f"Investigate {last_failure.summary}".strip().lower()
+                ):
+                    continue
                 suggested_next_action = candidate
-        elif last_failure is not None:
+                break
+        elif last_failure is not None and not failure_appears_resolved:
             suggested_next_action = f"Investigate {last_failure.summary}"
 
         why_attempt_failed = self._why_attempt_failed(
@@ -1646,6 +1661,21 @@ class AmbientContextService:
             if summary is not None:
                 return self._recent_attempt_from_entry(entry, event_type, summary)
         return None
+
+    def _has_success_after_failure(
+        self,
+        entries: list[MemoryEntry],
+        failure_timestamp: datetime | None,
+    ) -> bool:
+        if failure_timestamp is None:
+            return False
+        for entry in sorted(entries, key=lambda item: item.timestamp, reverse=True):
+            if entry.timestamp <= failure_timestamp:
+                continue
+            event_type = self._string_from_content(entry.content, "type")
+            if event_type is not None and self._outcome_for_action(event_type) == "success":
+                return True
+        return False
 
     def _recent_attempt_from_entry(
         self,
