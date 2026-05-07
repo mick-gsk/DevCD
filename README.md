@@ -36,7 +36,7 @@ DevCD is **pre-alpha**. The core local continuity loop is implemented and tested
 | Surface | Status |
 | --- | --- |
 | PyPI install (`pip install devcd`) | Working |
-| `devcd onboard` first-run path | Working |
+| `devcd setup` first-run path | Working |
 | Agent Passport / Continuity Packet | Working |
 | Action Packet for the next agent | Working |
 | Read-only MCP resources | Working |
@@ -47,122 +47,90 @@ DevCD is **pre-alpha**. The core local continuity loop is implemented and tested
 
 See [Release Readiness](docs/devcd/release-readiness.md) for the full alpha bar.
 
-## Install
+## Quick Start
+
+For first-time users, this is the recommended path.
+
+1. Install DevCD:
 
 ```bash
-python -m pip install --disable-pip-version-check --quiet devcd && devcd setup --yes
+python -m pip install --disable-pip-version-check --quiet devcd
 ```
 
-Use this as the default first-run flow. `devcd setup --yes` is the install-time
-wizard: it configures the current directory, selects default agent targets
-(Copilot, Claude, Codex), and seeds an initial local handoff so the next agent can continue
-without an extra manual setup step. The `--yes` flag accepts all defaults without
-interactive prompts — ideal for one-liner installs. Drop `--yes` to run the
-interactive wizard and customise projects, agents, and initial goal.
-The `--quiet` install keeps first-run output focused.
+2. Initialize your workspace with defaults:
 
-Want a quick install confirmation first?
+```bash
+devcd setup --yes
+```
+
+3. Open the next-agent handoff packet:
+
+```bash
+devcd agentic action-packet
+```
+
+4. Optional: run a quick health check:
 
 ```bash
 devcd smoke
 ```
 
-`pipx` and `uvx` work too:
+Use `devcd setup` without `--yes` if you want an interactive setup wizard.
+
+### Cross-Platform Notes
+
+- The Quick Start commands are shell-agnostic and work in PowerShell, Bash, and Zsh.
+- Commands are written one-per-line (no shell-specific chaining), so they are safe to copy on Windows, macOS, and Linux.
+- For automation, prefer commands with `--json` where available.
+
+### Expected Output Formats
+
+Use these commands when you need machine-readable output:
+
+```bash
+devcd setup --yes --json
+devcd context packs --json
+devcd agentic action-packet --json
+```
+
+The `--json` variants are valid JSON objects/arrays and intended for scripts and CI.
+`devcd smoke` is a human-readable diagnostic command and should not be parsed as
+a strict machine format.
+
+### Optional Local Demo
+
+If you want to see the handoff behavior before using your own workspace:
+
+```bash
+devcd agentic action-packet-demo --events examples/agentic-action-packet/sample-events.jsonl
+```
+
+### Common First-Week Commands
+
+```bash
+devcd handoff --goal "Ship the failing release gate" --failure "make check failed on policy tests" --rationale "Policy assertion structure changed" --next-action "Inspect the failing policy assertion"
+devcd quickstart
+devcd context passport
+devcd context control
+devcd run
+```
+
+Use `devcd handoff` when ending a session or switching agents. Use `devcd run`
+only when you need live API event ingestion.
+
+### Alternative Installers
 
 ```bash
 pipx install devcd
 uvx devcd smoke
 ```
 
-**From source (contributors only):**
+### From Source (Contributors)
 
 ```bash
 git clone https://github.com/mick-gsk/DevCD.git
 cd DevCD
 python -m pip install -e ".[dev]"
-```
-
-For local development loops, use the fast gate first and keep the full gate for
-pre-push confidence:
-
-```bash
-make check-dev  # lint + dmypy + pytest-testmon (falls back automatically)
-make test-fast-parallel  # pytest -m "not slow" with xdist when installed
-make check      # full lint + mypy + full pytest suite
-```
-
-## Primary Path
-
-DevCD now has one primary first-run path for real workspaces:
-
-1. Run `devcd setup`.
-2. Select project paths and agent targets in the wizard.
-3. Start or resume work from `devcd agentic action-packet`.
-
-Need proof before touching a real workspace?
-
-```bash
-devcd agentic action-packet-demo --events examples/agentic-action-packet/sample-events.jsonl
-```
-
-That demo is the shortest honest proof: a fresh agent gets a useful handoff,
-including withheld-context notes, without a daemon, remote service, or pasted
-chat recap.
-
-When you are ready for the real workspace, start here:
-
-```bash
-devcd setup
-```
-
-`devcd setup` applies the local-first setup path directly and seeds the initial
-goal plus next action for the first handoff. Use `--projects` for
-comma-separated paths and `--agents` for an explicit target subset.
-
-`devcd onboard` remains available when you want a single-workspace guided flow
-with stage-by-stage output (`--preview`, `--yes`, `--no-tui`).
-
-Start from the handoff surface the next agent should read first:
-
-```bash
-devcd agentic action-packet
-```
-
-By default, `devcd setup` prepares workspace instruction targets plus a local
-DevCD startup skill and continuity templates. OpenClaw MCP is optional and can
-be added explicitly with `--agents ...openclaw` or via integration commands.
-
-If the local ledger is still empty, seed safe metadata instead of pasting raw
-logs, transcripts, or file contents:
-
-```bash
-devcd handoff --goal "Ship the failing release gate" --failure "make check failed on policy tests" --rationale "Policy assertion structure changed; old fix no longer applies" --next-action "Inspect the failing policy assertion"
-devcd capture --kind goal --summary "Ship the failing release gate"
-devcd capture --kind failure --summary "make check failed on policy tests" --rationale "Policy assertion structure changed; old fix no longer applies" --next-action "Inspect the failing policy assertion"
-```
-
-Use `devcd handoff` at the end of a session or before switching agents. Use
-`devcd capture` when you want to record one granular continuity fact during
-work.
-
-Then inspect the broader interactive activation report:
-
-```bash
-devcd quickstart
-```
-
-Use `devcd context passport` when you want the broader policy-filtered passport directly.
-
-Optional: connect an MCP-capable runtime such as OpenClaw:
-
-```bash
-devcd integrations openclaw --smoke-test
-```
-
-Run the local daemon only when you want live API event ingestion:
-
-```bash
-devcd run
 ```
 
 ## What The Next Agent Gets
@@ -349,7 +317,7 @@ here until that surface actually exists.
 
 ## Operator Quick Refs
 
-- First run: `devcd onboard`
+- First run: `devcd setup`
 - Quick health check: `devcd smoke`
 - Full local verification: `make check`
 - Distribution verification: `make distribution`
@@ -397,6 +365,14 @@ make check         # ruff + mypy + pytest
 make distribution  # build, twine check, wheel content check, installed CLI smoke
 make docs          # strict MkDocs build
 make run           # run the local daemon
+```
+
+If `make` is unavailable in your environment, run the equivalent tools directly:
+
+```bash
+python -m ruff check .
+python -m mypy packages/devcd-core/src/devcd
+python -m pytest
 ```
 
 ## Configuration
