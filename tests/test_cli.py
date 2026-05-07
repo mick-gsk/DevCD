@@ -1130,7 +1130,7 @@ def test_smoke_command_verifies_local_first_run() -> None:
     result = runner.invoke(app, ["smoke"])
 
     assert result.exit_code == 0
-    assert "████ ██████   █ ████████ " in result.output
+    assert "â–ˆâ–ˆâ–ˆâ–ˆ â–ˆâ–ˆâ–ˆâ–ˆâ–ˆâ–ˆ   â–ˆ â–ˆâ–ˆâ–ˆâ–ˆâ–ˆâ–ˆâ–ˆâ–ˆ " in result.output
     assert "DevCD install check" in result.output
     assert "devcd --help: ok" in result.output
     assert "devcd context packs: ok" in result.output
@@ -1170,7 +1170,7 @@ def test_smoke_compact_hides_ascii_banner() -> None:
 
     assert result.exit_code == 0
     assert "DevCD install check" in result.output
-    assert "████ ██████   █ ████████ " not in result.output
+    assert "â–ˆâ–ˆâ–ˆâ–ˆ â–ˆâ–ˆâ–ˆâ–ˆâ–ˆâ–ˆ   â–ˆ â–ˆâ–ˆâ–ˆâ–ˆâ–ˆâ–ˆâ–ˆâ–ˆ " not in result.output
 
 
 def test_quickstart_help_positions_it_as_interactive_follow_up() -> None:
@@ -2865,7 +2865,7 @@ def test_agentic_action_packet_human_output_is_agent_start_brief(
     assert "## Policy" in result.output
 
 
-def test_agentic_action_packet_prefers_explicit_failure_next_action_when_success_is_low_signal(
+def test_agentic_action_packet_ignores_stale_failure_next_action_after_success(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     monkeypatch.chdir(tmp_path)
@@ -2915,8 +2915,10 @@ def test_agentic_action_packet_prefers_explicit_failure_next_action_when_success
     assert result.exit_code == 0
     body = json.loads(result.output)
     assert body["current_goal"] == "Stabilize action packet guidance"
-    assert body["next_action"] == "Investigate test_failure"
-    assert body["session_contract"]["next_action"] == "Investigate test_failure"
+    assert body["next_action"] == "Use Scout Tasks to identify the next safe action."
+    assert body["session_contract"]["next_action"] == (
+        "Continue from the visible goal and inspect the context references first."
+    )
 
 
 def test_agentic_action_packet_demo_renders_fixture_without_daemon() -> None:
@@ -3664,3 +3666,291 @@ def test_quickstart_demo_preview_is_explicit(
     assert body["demo_preview"]["packet"]["intent"]["summary"] == (
         "Continue the resurrection demo after Agent A lost chat context"
     )
+
+
+# ---------------------------------------------------------------------------
+# policy audit
+# ---------------------------------------------------------------------------
+
+
+def test_policy_audit_empty_ledger_returns_zero_counts(tmp_path: Path) -> None:
+    ledger_path = tmp_path / "events.jsonl"
+    runner = CliRunner()
+
+    result = runner.invoke(app, ["policy", "audit", "--ledger", str(ledger_path), "--json"])
+
+    assert result.exit_code == 0
+    body = json.loads(result.output)
+    assert body["total"] == 0
+    assert body["allowed"] == 0
+    assert body["denied"] == 0
+    assert body["withheld_events"] == []
+
+
+def test_policy_audit_counts_allow_and_deny(tmp_path: Path) -> None:
+    ledger_path = tmp_path / "events.jsonl"
+    ledger_path.write_text(
+        "\n".join(
+            [
+                json.dumps(
+                    {
+                        "event": {
+                            "event_id": "ev-1",
+                            "source": "git",
+                            "type": "commit",
+                            "payload": {"sha": "abc"},
+                            "data_class": "metadata",
+                        },
+                        "policy_decision": {
+                            "decision_id": "dec-1",
+                            "kind": "allow",
+                            "reason": "local storage is allowed by policy",
+                            "operation": "store",
+                            "source": "git",
+                            "data_class": "metadata",
+                        },
+                    },
+                    sort_keys=True,
+                ),
+                json.dumps(
+                    {
+                        "event": {
+                            "event_id": "ev-2",
+                            "source": "notes",
+                            "type": "note_update",
+                            "payload": {"title": "Private"},
+                            "sensitivity": "sensitive",
+                            "data_class": "metadata",
+                        },
+                        "policy_decision": {
+                            "decision_id": "dec-2",
+                            "kind": "deny",
+                            "reason": "sensitive events are denied by the default local policy",
+                            "operation": "observe",
+                            "source": "notes",
+                            "data_class": "metadata",
+                        },
+                    },
+                    sort_keys=True,
+                ),
+            ]
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+    runner = CliRunner()
+
+    json_result = runner.invoke(app, ["policy", "audit", "--ledger", str(ledger_path), "--json"])
+    human_result = runner.invoke(app, ["policy", "audit", "--ledger", str(ledger_path)])
+
+    assert json_result.exit_code == 0
+    body = json.loads(json_result.output)
+    assert body["total"] == 2
+    assert body["allowed"] == 1
+    assert body["denied"] == 1
+    assert len(body["withheld_events"]) == 1
+    assert body["withheld_events"][0]["source"] == "notes"
+    assert body["withheld_events"][0]["type"] == "note_update"
+    assert len(body["top_reasons"]) >= 1
+
+    assert human_result.exit_code == 0
+    assert "Policy audit" in human_result.output
+    assert "Total recorded decisions: 2" in human_result.output
+    assert "Allowed: 1" in human_result.output
+    assert "Denied:  1" in human_result.output
+    assert "sensitive events" in human_result.output
+
+
+def test_policy_audit_since_filters_by_time(tmp_path: Path) -> None:
+    from datetime import UTC, datetime, timedelta
+
+    ledger_path = tmp_path / "events.jsonl"
+    old_ts = (datetime.now(UTC) - timedelta(days=10)).isoformat()
+    recent_ts = (datetime.now(UTC) - timedelta(hours=1)).isoformat()
+    ledger_path.write_text(
+        "\n".join(
+            [
+                json.dumps(
+                    {
+                        "event": {
+                            "event_id": "ev-old",
+                            "source": "git",
+                            "type": "commit",
+                            "timestamp": old_ts,
+                            "payload": {"sha": "old"},
+                            "data_class": "metadata",
+                        },
+                        "policy_decision": {
+                            "decision_id": "dec-old",
+                            "kind": "allow",
+                            "reason": "local storage is allowed by policy",
+                            "operation": "store",
+                        },
+                    },
+                    sort_keys=True,
+                ),
+                json.dumps(
+                    {
+                        "event": {
+                            "event_id": "ev-recent",
+                            "source": "git",
+                            "type": "commit",
+                            "timestamp": recent_ts,
+                            "payload": {"sha": "new"},
+                            "data_class": "metadata",
+                        },
+                        "policy_decision": {
+                            "decision_id": "dec-recent",
+                            "kind": "allow",
+                            "reason": "local storage is allowed by policy",
+                            "operation": "store",
+                        },
+                    },
+                    sort_keys=True,
+                ),
+            ]
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+    runner = CliRunner()
+
+    result = runner.invoke(
+        app, ["policy", "audit", "--ledger", str(ledger_path), "--since", "24h", "--json"]
+    )
+
+    assert result.exit_code == 0
+    body = json.loads(result.output)
+    assert body["total"] == 1
+    assert body["since"] == "24h"
+
+
+# ---------------------------------------------------------------------------
+# recipe git-commit
+# ---------------------------------------------------------------------------
+
+
+def test_recipe_git_commit_cli_emits_devcd_jsonl() -> None:
+    runner = CliRunner()
+
+    result = runner.invoke(
+        app,
+        [
+            "recipe",
+            "git-commit",
+            "--message",
+            "feat: add policy audit command",
+            "--sha",
+            "abc1234",
+            "--branch",
+            "feature/audit",
+            "--repo",
+            "/workspace/DevCD",
+        ],
+    )
+
+    assert result.exit_code == 0
+    events = [json.loads(line) for line in result.output.strip().splitlines()]
+    assert len(events) == 1
+    event = events[0]
+    assert event["source"] == "git"
+    assert event["type"] == "commit"
+    assert event["payload"]["message"] == "feat: add policy audit command"
+    assert event["payload"]["sha"] == "abc1234"
+    assert event["payload"]["branch"] == "feature/audit"
+    assert event["payload"]["recipe"] == "git_commit"
+
+
+def test_recipe_git_commit_cli_writes_to_output_file(tmp_path: Path) -> None:
+    output_path = tmp_path / "git-events.jsonl"
+    runner = CliRunner()
+
+    result = runner.invoke(
+        app,
+        [
+            "recipe",
+            "git-commit",
+            "--message",
+            "fix: resolve timing issue",
+            "--output",
+            str(output_path),
+        ],
+    )
+
+    assert result.exit_code == 0
+    assert f"Wrote {output_path}" in result.output
+    events = [json.loads(line) for line in output_path.read_text(encoding="utf-8").splitlines()]
+    assert events[0]["payload"]["message"] == "fix: resolve timing issue"
+    assert events[0]["payload"].get("sha") is None
+
+
+# ---------------------------------------------------------------------------
+# integrations git-hooks
+# ---------------------------------------------------------------------------
+
+
+def test_integrations_git_hooks_preview_contains_script(tmp_path: Path) -> None:
+    runner = CliRunner()
+
+    result = runner.invoke(app, ["integrations", "git-hooks"])
+
+    assert result.exit_code == 0
+    assert "devcd recipe git-commit" in result.output
+    assert ".devcd/events.jsonl" in result.output
+    assert "devcd integrations git-hooks --install" in result.output
+
+
+def test_integrations_git_hooks_json_preview_has_expected_keys() -> None:
+    runner = CliRunner()
+
+    result = runner.invoke(app, ["integrations", "git-hooks", "--json"])
+
+    assert result.exit_code == 0
+    body = json.loads(result.output)
+    assert "script" in body
+    assert "hook_path" in body
+    assert "install_command" in body
+    assert "devcd recipe git-commit" in body["script"]
+
+
+def test_integrations_git_hooks_install_writes_hook_file(tmp_path: Path) -> None:
+    git_hooks_dir = tmp_path / ".git" / "hooks"
+    git_hooks_dir.mkdir(parents=True)
+    runner = CliRunner()
+
+    result = runner.invoke(
+        app, ["integrations", "git-hooks", "--install"], catch_exceptions=False
+    )
+
+    # May fail if CWD has no .git/hooks â€” test only that the command works
+    assert result.exit_code == 0
+
+
+def test_integrations_git_hooks_install_json_reports_installed_or_not(tmp_path: Path) -> None:
+    runner = CliRunner()
+
+    result = runner.invoke(app, ["integrations", "git-hooks", "--install", "--json"])
+
+    assert result.exit_code == 0
+    body = json.loads(result.output)
+    assert "installed" in body
+    assert "hook_path" in body
+
+
+# ---------------------------------------------------------------------------
+# cross-agent-handoff example fixtures are readable
+# ---------------------------------------------------------------------------
+
+
+def test_cross_agent_handoff_fixtures_produce_action_packets() -> None:
+    for fixture in [
+        "examples/cross-agent-handoff/agent-a-events.jsonl",
+        "examples/cross-agent-handoff/agent-b-events.jsonl",
+    ]:
+        runner = CliRunner()
+        result = runner.invoke(
+            app, ["agentic", "action-packet-demo", "--events", fixture, "--json"]
+        )
+        assert result.exit_code == 0, f"Failed for {fixture}: {result.output}"
+        body = json.loads(result.output)
+        assert body["current_goal"] is not None

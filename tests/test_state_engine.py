@@ -181,6 +181,31 @@ def test_branch_focus_and_failure_events_populate_work_state_fields() -> None:
     assert len(engine.state.recent_actions) == 3
 
 
+def test_success_event_clears_failure_blocker_state() -> None:
+    engine = build_engine()
+
+    engine.accept_event(
+        DevEvent(
+            event_id="fail-2",
+            source=EventSource.GIT,
+            type="test_failure",
+            payload={"reason": "unit tests failed"},
+        )
+    )
+    engine.accept_event(
+        DevEvent(
+            event_id="pass-1",
+            source=EventSource.GIT,
+            type="test_passed",
+            payload={"suite": "unit"},
+        )
+    )
+
+    assert engine.state.blocked_by is None
+    assert engine.state.interruptibility == "high"
+    assert engine.state.next_best_actions == []
+
+
 def test_state_rebuilds_from_ledger_after_restart(tmp_path: Path) -> None:
     ledger_path = tmp_path / "events.jsonl"
     first_engine = StateEngine(
