@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import json
-from collections.abc import Iterable
+from collections.abc import Callable, Iterable
 from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
@@ -52,6 +52,7 @@ from devcd.slices.ambient_context.models import (
     WorkState,
 )
 from devcd.slices.events.models import DevEvent, EventSensitivity, EventSource
+from devcd.slices.git_source.service import GitEventSource
 from devcd.slices.host_state_engine.service import StateEngine
 from devcd.slices.memory_layer.models import MemoryEntry, MemoryScope
 from devcd.slices.memory_layer.service import MemoryStore
@@ -69,6 +70,22 @@ _ALL_STATE_AREAS = (
     "blockers",
     "suggested_next_steps",
 )
+
+_LOW_SIGNAL_GOAL_SUMMARIES = {
+    "activate devcd continuity for this workspace",
+    "prepare workspace continuity",
+    "ship devcd setup automation",
+}
+
+_LOW_SIGNAL_NEXT_ACTION_SUMMARIES = {
+    "read the action packet and continue from suggested next action",
+    "open the action packet and continue from next action",
+    "continue with the first action packet",
+}
+
+_LOW_SIGNAL_SUCCESS_ATTEMPTS = {
+    "test_passed",
+}
 
 
 @dataclass(frozen=True)
@@ -488,12 +505,16 @@ class AmbientContextService:
         policy_engine: PolicyEngine,
         feedback_path: Path | None = None,
         vision_service: VisionService | None = None,
+        git_event_source: GitEventSource | None = None,
+        repo_path: Path | None = None,
     ) -> None:
         self.state_engine = state_engine
         self.memory_store = memory_store
         self.policy_engine = policy_engine
         self.feedback_path = feedback_path or Path(".devcd/context-feedback.jsonl")
         self._vision_service = vision_service
+        self._git_event_source = git_event_source or GitEventSource()
+        self._repo_path = repo_path.resolve() if repo_path is not None else None
         self._dismissed_suggestions: dict[str, ProactiveSuggestion] = {}
         self._suggestion_cooldown = timedelta(minutes=30)
 
@@ -880,7 +901,7 @@ class AmbientContextService:
             else None
         )
         git_context = (
-            self._git_context_from_memory(surface_memory)
+            self._resolved_git_context(surface_memory)
             if self._surface_allows(surface_definition, "git_context", export_decision.allowed)
             else GitContext()
         )
@@ -1417,6 +1438,7 @@ class AmbientContextService:
                 ("research_goal", "current_goal"),
                 ("research_goal", "goal"),
             ),
+            skip_predicate=self._is_low_signal_goal_summary,
         )
         if latest_goal is None:
             return None
@@ -1432,6 +1454,49 @@ class AmbientContextService:
             latest_commit=commit_sha[0] if commit_sha is not None else None,
             latest_commit_summary=commit_message[0] if commit_message is not None else None,
             repository=repo[0] if repo is not None else None,
+        )
+
+    def _resolved_git_context(self, entries: list[MemoryEntry]) -> GitContext:
+        memory_context = self._git_context_from_memory(entries)
+        live_context = self._git_context_from_repo()
+        if (
+            live_context.branch is None
+            and live_context.latest_commit is None
+            and live_context.latest_commit_summary is None
+            and live_context.repository is None
+        ):
+            return memory_context
+        return GitContext(
+            branch=live_context.branch or memory_context.branch,
+            latest_commit=live_context.latest_commit or memory_context.latest_commit,
+            latest_commit_summary=(
+                live_context.latest_commit_summary or memory_context.latest_commit_summary
+            ),
+            repository=live_context.repository or memory_context.repository,
+        )
+
+    def _git_context_from_repo(self) -> GitContext:
+        if self._repo_path is None:
+            return GitContext()
+
+        branch: str | None = None
+        latest_commit: str | None = None
+        latest_commit_summary: str | None = None
+        repository: str | None = None
+        for event in self._git_event_source.collect_snapshot_events(self._repo_path):
+            if event.type == "branch_change":
+                branch = _optional_string(event.payload.get("branch"))
+                repository = _optional_string(event.payload.get("repo")) or repository
+            elif event.type == "commit":
+                latest_commit = _optional_string(event.payload.get("sha"))
+                latest_commit_summary = _optional_string(event.payload.get("message"))
+                repository = _optional_string(event.payload.get("repo")) or repository
+
+        return GitContext(
+            branch=branch,
+            latest_commit=latest_commit,
+            latest_commit_summary=latest_commit_summary,
+            repository=repository,
         )
 
     def _resurrection_context(
@@ -1462,15 +1527,24 @@ class AmbientContextService:
             entries,
             last_failure,
         )
+        captured_next_action = self._latest_captured_next_action(entries)
         suggested_next_action = None
-        if resolving_attempt is not None:
+        if resolving_attempt is not None and not self._is_low_signal_success_attempt(
+            resolving_attempt.summary
+        ):
             suggested_next_action = (
                 f"Continue from the successful attempt: {resolving_attempt.summary}"
             )
-        elif explicit_suggested_next_action is not None:
+        elif explicit_suggested_next_action is not None and not self._is_low_signal_next_action(
+            explicit_suggested_next_action
+        ):
             suggested_next_action = explicit_suggested_next_action
+        elif captured_next_action is not None:
+            suggested_next_action = captured_next_action
         elif suggested_next_steps:
-            suggested_next_action = suggested_next_steps[0].summary
+            candidate = suggested_next_steps[0].summary
+            if not self._is_low_signal_next_action(candidate):
+                suggested_next_action = candidate
         elif last_failure is not None:
             suggested_next_action = f"Investigate {last_failure.summary}"
 
@@ -1636,6 +1710,25 @@ class AmbientContextService:
                 return value
         return None
 
+    def _latest_captured_next_action(self, entries: list[MemoryEntry]) -> str | None:
+        for entry in sorted(entries, key=lambda item: item.timestamp, reverse=True):
+            event_type = self._string_from_content(entry.content, "type")
+            if event_type != "next_action":
+                continue
+            suggested = self._payload_value(entry.content, "suggested_next_action")
+            if isinstance(suggested, str) and suggested.strip():
+                if not self._is_low_signal_next_action(suggested):
+                    return suggested
+                continue
+            summary = self._payload_value(entry.content, "summary")
+            if (
+                isinstance(summary, str)
+                and summary.strip()
+                and not self._is_low_signal_next_action(summary)
+            ):
+                return summary
+        return None
+
     def _why_attempt_failed(
         self,
         entries: list[MemoryEntry],
@@ -1683,6 +1776,7 @@ class AmbientContextService:
                 ("research_goal", "current_goal"),
                 ("research_goal", "goal"),
             ),
+            skip_predicate=self._is_low_signal_goal_summary,
         )
         latest_branch = self._latest_payload_value(
             entries, event_type="branch_change", key="branch"
@@ -1717,6 +1811,7 @@ class AmbientContextService:
                 ("research_goal", "current_goal"),
                 ("research_goal", "goal"),
             ),
+            skip_predicate=self._is_low_signal_goal_summary,
         )
         latest_branch = self._latest_payload_value(
             entries, event_type="branch_change", key="branch"
@@ -1957,6 +2052,7 @@ class AmbientContextService:
         self,
         entries: list[MemoryEntry],
         candidates: tuple[tuple[str, str], ...],
+        skip_predicate: Callable[[str], bool] | None = None,
     ) -> tuple[str, datetime, str] | None:
         for entry in sorted(entries, key=lambda item: item.timestamp, reverse=True):
             event_type = self._string_from_content(entry.content, "type")
@@ -1965,8 +2061,19 @@ class AmbientContextService:
                     continue
                 value = self._payload_value(entry.content, key)
                 if isinstance(value, str) and value.strip():
+                    if skip_predicate is not None and skip_predicate(value):
+                        continue
                     return value, entry.timestamp, candidate_event_type
         return None
+
+    def _is_low_signal_goal_summary(self, value: str) -> bool:
+        return value.strip().lower() in _LOW_SIGNAL_GOAL_SUMMARIES
+
+    def _is_low_signal_next_action(self, value: str) -> bool:
+        return value.strip().lower() in _LOW_SIGNAL_NEXT_ACTION_SUMMARIES
+
+    def _is_low_signal_success_attempt(self, summary: str) -> bool:
+        return summary.strip().lower() in _LOW_SIGNAL_SUCCESS_ATTEMPTS
 
     def _first_payload_string(
         self,

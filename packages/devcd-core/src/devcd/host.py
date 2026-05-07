@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from pathlib import Path
 from uuid import uuid4
 
 from fastapi import FastAPI
@@ -56,6 +57,7 @@ def create_app(settings: DevCDSettings | None = None) -> FastAPI:
         memory_store=memory_store,
         policy_engine=policy_engine,
         vision_service=vision_service,
+        repo_path=Path.cwd(),
     )
     app.state.ambient_context_service = ambient_context_service
     app.state.agentic_context_service = AgenticContextService(

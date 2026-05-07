@@ -60,6 +60,7 @@ from devcd.slices.events.recipes import (
     events_from_pytest_failure,
     events_from_research_session,
 )
+from devcd.slices.git_source.service import GitEventSource
 from devcd.slices.host_state_engine.service import StateEngine
 from devcd.slices.memory_layer.service import MemoryStore
 from devcd.slices.policy_layer.service import PolicyEngine
@@ -732,6 +733,54 @@ def test_context_brief_contains_agent_handoff_fields_and_policy_boundaries(tmp_p
     assert any("cannot see" in item for item in brief.agent_limitations)
 
 
+def test_context_brief_prefers_live_git_context_over_stale_memory(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    service, state_engine = build_ambient_context_service(tmp_path)
+    state_engine.accept_event(
+        DevEvent(
+            source=EventSource.GIT,
+            type="branch_change",
+            timestamp=datetime(2026, 5, 4, 12, 0, tzinfo=UTC),
+            payload={"repo": str(tmp_path), "branch": "feature/devcd-core"},
+        )
+    )
+
+    def fake_collect_snapshot_events(self: GitEventSource, repo_path: Path) -> list[DevEvent]:
+        assert repo_path == tmp_path
+        return [
+            DevEvent(
+                source=EventSource.GIT,
+                type="branch_change",
+                payload={"repo": str(repo_path), "branch": "main"},
+            ),
+            DevEvent(
+                source=EventSource.GIT,
+                type="commit",
+                payload={
+                    "repo": str(repo_path),
+                    "sha": "abc1234",
+                    "message": "live git snapshot",
+                },
+            ),
+        ]
+
+    monkeypatch.setattr(GitEventSource, "collect_snapshot_events", fake_collect_snapshot_events)
+    service = AmbientContextService(
+        state_engine,
+        service.memory_store,
+        service.policy_engine,
+        feedback_path=tmp_path / "context-feedback.jsonl",
+        repo_path=tmp_path,
+    )
+
+    brief = service.create_context_brief(AgentContextSurface(kind="cli", name="copilot"))
+
+    assert brief.git_context.branch == "main"
+    assert brief.git_context.latest_commit == "abc1234"
+    assert brief.git_context.latest_commit_summary == "live git snapshot"
+
+
 def test_context_brief_derives_agent_resurrection_context(tmp_path) -> None:
     service, state_engine = build_ambient_context_service(tmp_path)
 
@@ -870,6 +919,31 @@ def test_resurrection_context_keeps_failure_history_after_later_success(tmp_path
         brief.resurrection.suggested_next_action
         == "Continue from the successful attempt: Added why_attempt_failed to the JSON contract"
     )
+
+
+def test_context_brief_ignores_low_signal_setup_goal_updates(tmp_path) -> None:
+    service, state_engine = build_ambient_context_service(tmp_path)
+
+    state_engine.accept_event(
+        DevEvent(
+            source=EventSource.TASK,
+            type="goal_update",
+            timestamp=datetime(2026, 5, 4, 12, 0, tzinfo=UTC),
+            payload={"current_goal": "Ship a robust continuity packet"},
+        )
+    )
+    state_engine.accept_event(
+        DevEvent(
+            source=EventSource.TASK,
+            type="goal_update",
+            timestamp=datetime(2026, 5, 4, 12, 1, tzinfo=UTC),
+            payload={"current_goal": "Prepare workspace continuity"},
+        )
+    )
+
+    brief = service.create_context_brief(AgentContextSurface(kind="cli", name="copilot"))
+
+    assert brief.active_goal == "Ship a robust continuity packet"
 
 
 def test_resurrection_context_generates_do_not_repeat_for_failed_attempt(tmp_path) -> None:

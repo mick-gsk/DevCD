@@ -381,7 +381,9 @@ def _resolve_agent_targets(
     requested_agents: list[str] | None,
     detected_targets: list[AgentTarget],
 ) -> list[AgentTarget]:
-    if requested_agents:
+    if requested_agents is not None:
+        if not requested_agents:
+            return []
         if "all" in requested_agents:
             return list(AgentTarget)
         if "auto" in requested_agents:
