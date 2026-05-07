@@ -42,7 +42,7 @@ DevCD is **pre-alpha**. The core local continuity loop is implemented and tested
 | Read-only MCP resources | Working |
 | OpenClaw MCP shape check | Working on the DevCD side |
 | Context Packs | Developer and research packs built in |
-| PyPI release | Published — `devcd 0.2.0` |
+| PyPI release | Published — `devcd 0.2.1` |
 | Hosted/cloud mode | Not planned for alpha |
 
 See [Release Readiness](docs/devcd/release-readiness.md) for the full alpha bar.

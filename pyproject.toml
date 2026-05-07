@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "devcd"
-version = "0.2.0"
+version = "0.2.1"
 description = "Local developer context daemon with explicit state, memory, and policy layers."
 readme = "README.md"
 license = "MIT"

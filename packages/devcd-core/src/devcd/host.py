@@ -6,6 +6,7 @@ from uuid import uuid4
 from fastapi import FastAPI
 from fastapi.responses import JSONResponse
 
+from devcd import __version__
 from devcd.kernel.settings import DevCDSettings
 from devcd.slices.agentic_context.api import router as agentic_context_router
 from devcd.slices.agentic_context.service import AgenticContextService
@@ -50,7 +51,7 @@ def create_app(settings: DevCDSettings | None = None) -> FastAPI:
     )
     vision_service = VisionService(resolved_settings.runtime_dir, event_ledger=event_ledger)
 
-    app = FastAPI(title="DevCD", version="0.2.0")
+    app = FastAPI(title="DevCD", version=__version__)
     app.state.settings = resolved_settings
     app.state.api_token = api_token
     app.state.state_engine = state_engine
