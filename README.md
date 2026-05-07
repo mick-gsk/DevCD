@@ -82,6 +82,15 @@ cd DevCD
 python -m pip install -e ".[dev]"
 ```
 
+For local development loops, use the fast gate first and keep the full gate for
+pre-push confidence:
+
+```bash
+make check-dev  # lint + dmypy + pytest-testmon (falls back automatically)
+make test-fast-parallel  # pytest -m "not slow" with xdist when installed
+make check      # full lint + mypy + full pytest suite
+```
+
 ## Primary Path
 
 DevCD now has one primary first-run path for real workspaces:

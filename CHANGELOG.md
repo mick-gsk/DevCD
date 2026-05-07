@@ -10,6 +10,7 @@ Short version: Initial local-first context daemon foundation with context qualit
 
 ### Added
 
+- Faster local development gate: `make check-dev` now uses `dmypy` and affected-test execution via `pytest-testmon` (with automatic fallback), plus `make test-fast-parallel` for optional `pytest-xdist` parallel runs.
 - New `devcd setup` install-time wizard for interactive multi-project configuration, manual agent-target selection, and automatic initial handoff seeding so `devcd agentic action-packet` is usable immediately after first setup.
 - CLI polish for first-run flows: root `devcd --version`/`-V`, `devcd smoke --compact`, and richer terminal rendering for `welcome`, `onboard`, and `doctor`.
 - `devcd welcome` zero-write first-run guide, Smoke next-step output, and OpenClaw product benchmark notes to make installation and onboarding feel more guided and product-grade.

@@ -55,6 +55,8 @@ dev = [
   "pre-commit>=3.7",
   "pytest>=8.2",
   "pytest-asyncio>=0.23",
+  "pytest-testmon>=2.1",
+  "pytest-xdist>=3.6",
   "ruff>=0.5",
   "twine>=5.1",
 ]
@@ -74,6 +76,9 @@ testpaths = ["tests"]
 pythonpath = ["packages/devcd-core/src"]
 addopts = "--strict-markers"
 asyncio_mode = "auto"
+markers = [
+  "slow: CLI-heavy and integration-like tests excluded from the fast local loop",
+]
 
 [tool.ruff]
 target-version = "py311"
