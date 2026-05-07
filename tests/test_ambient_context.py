@@ -1211,6 +1211,33 @@ def test_context_pack_registry_json_is_stable_and_policy_safe() -> None:
     )
 
 
+def test_continuity_packet_includes_metadata_first_context_pack_catalog(tmp_path) -> None:
+    service, _state_engine = build_ambient_context_service(tmp_path)
+
+    brief = service.create_context_brief(AgentContextSurface(kind="cli", name="copilot"))
+    packet = continuity_packet_from_context_brief(brief, context_pack="developer")
+    dumped = packet.model_dump(mode="json")
+
+    catalog = dumped["available_context_packs"]
+    assert [item["id"] for item in catalog] == ["developer", "research"]
+    assert all(set(item.keys()) == {"id", "display_name", "description"} for item in catalog)
+    assert all(item["description"].strip() for item in catalog)
+
+
+def test_research_packet_still_exposes_same_metadata_first_context_pack_catalog(tmp_path) -> None:
+    service, _state_engine = build_ambient_context_service(tmp_path)
+
+    brief = service.create_context_brief(
+        AgentContextSurface(kind="research-agent", name="research-copilot")
+    )
+    packet = service.create_continuity_packet_from_brief(brief, context_pack="research")
+    dumped = packet.model_dump(mode="json")
+
+    catalog = dumped["available_context_packs"]
+    assert [item["id"] for item in catalog] == ["developer", "research"]
+    assert all(set(item.keys()) == {"id", "display_name", "description"} for item in catalog)
+
+
 def test_subagent_surface_gets_focused_context_without_unnecessary_breadth(tmp_path) -> None:
     service, state_engine = build_ambient_context_service(tmp_path)
     state_engine.accept_event(

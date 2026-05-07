@@ -352,6 +352,8 @@ def test_mcp_server_continuity_packet_contains_core_fields(tmp_path) -> None:
     assert "withheld_context" in body
     assert "policy_decision" in body
     assert body["policy_decision"]["allowed"] is True
+    assert "available_context_packs" in body
+    assert [item["id"] for item in body["available_context_packs"]] == ["developer", "research"]
 
 
 def test_mcp_server_continuity_packet_uses_episodic_context_after_working_ttl(
@@ -669,6 +671,8 @@ def test_mcp_server_continuity_packet_concise_reduces_payload_fields(tmp_path) -
     assert "schema_version" in concise
     assert "context_pack" in concise
     assert "policy_decision" in concise
+    assert "available_context_packs" in concise
+    assert [item["id"] for item in concise["available_context_packs"]] == ["developer", "research"]
 
 
 def test_mcp_server_continuity_packet_detailed_includes_full_context(tmp_path) -> None:

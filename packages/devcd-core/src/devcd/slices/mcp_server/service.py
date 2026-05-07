@@ -334,6 +334,7 @@ class ReadOnlyMCPServer:
         keys = (
             "schema_version",
             "context_pack",
+            "available_context_packs",
             "surface",
             "intent",
             "blockers",

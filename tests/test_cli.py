@@ -689,6 +689,77 @@ def test_handoff_captures_goal_failure_and_next_action_for_next_agent(
     )
 
 
+def test_handoff_creates_copilot_instructions_with_product_intent(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.chdir(tmp_path)
+    (tmp_path / "VISION.md").write_text(
+        "# Vision\n\n"
+        "DevCD is the current working name for one conviction: "
+        "**AI agents should know what you are trying to continue "
+        "without you having to tell them every time.**\n",
+        encoding="utf-8",
+    )
+    config_path = tmp_path / "devcd.toml"
+    config_path.write_text('[devcd]\nruntime_dir = "runtime"\n', encoding="utf-8")
+    runner = CliRunner()
+
+    result = runner.invoke(
+        app,
+        [
+            "handoff",
+            "--goal",
+            "Align next agent with product intent",
+            "--next-action",
+            "Read action packet and continue implementation",
+            "--config",
+            str(config_path),
+        ],
+    )
+
+    assert result.exit_code == 0
+    copilot_path = tmp_path / ".github" / "copilot-instructions.md"
+    assert copilot_path.exists()
+    content = copilot_path.read_text(encoding="utf-8")
+    assert "## Product intent" in content
+    assert "AI agents should know" in content
+
+
+def test_setup_injects_product_intent_into_copilot_instructions(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.chdir(tmp_path)
+    (tmp_path / "VISION.md").write_text(
+        "# Vision\n\n"
+        "DevCD is the current working name for one conviction: "
+        "**AI agents should know what you are trying to continue "
+        "without you having to tell them every time.**\n",
+        encoding="utf-8",
+    )
+    runner = CliRunner()
+
+    result = runner.invoke(
+        app,
+        [
+            "setup",
+            "--projects",
+            str(tmp_path),
+            "--agents",
+            "copilot",
+            "--goal",
+            "Align setup with product intent",
+            "--next-action",
+            "Verify generated instruction content",
+            "--yes",
+        ],
+    )
+
+    assert result.exit_code == 0
+    content = (tmp_path / ".github" / "copilot-instructions.md").read_text(encoding="utf-8")
+    assert "## Product intent" in content
+    assert "AI agents should know" in content
+
+
 def test_agentic_completion_check_requires_handoff_by_default(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
@@ -2523,6 +2594,8 @@ def test_cli_context_control_json_reports_policy_safe_contract(
     assert body["selected_surface"] == "coding-agent"
     assert body["included_data_classes"] == ["metadata"]
     assert body["continuity_packet_preview"]["active_goal"] == "Emit context control JSON"
+    assert body["vision_warnings"]
+    assert body["vision_warnings"][0]["code"] == "vision_not_configured"
     assert "DevCD context control" not in result.output
 
 

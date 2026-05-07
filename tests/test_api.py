@@ -152,7 +152,10 @@ def test_context_brief_api_returns_policy_filtered_brief() -> None:
     assert body["policy_decision"]["operation"] == "export"
 
 
-def test_context_control_plane_api_reports_visible_and_withheld_context() -> None:
+def test_context_control_plane_api_reports_visible_and_withheld_context(
+    tmp_path, monkeypatch
+) -> None:
+    monkeypatch.chdir(tmp_path)
     client = build_client()
     headers = {"Authorization": "Bearer test-token"}
     client.post(
@@ -212,6 +215,8 @@ def test_context_control_plane_api_reports_visible_and_withheld_context() -> Non
     assert body["included_data_classes"] == ["metadata"]
     assert body["memory_counts_by_scope"]["working"] == 2
     assert body["continuity_packet_preview"]["active_goal"] == "Ship the context control plane"
+    assert body["vision_warnings"]
+    assert body["vision_warnings"][0]["code"] == "vision_not_configured"
     assert body["next_commands"]
     assert "private-ticket" not in dumped
     assert "SECRET_TEST_OUTPUT" not in dumped

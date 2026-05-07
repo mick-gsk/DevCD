@@ -36,6 +36,7 @@ from devcd.slices.ambient_context.models import (
     FreshnessState,
     FreshnessStatus,
     GitContext,
+    InstalledContextPackSummary,
     IntentLine,
     IntentStatus,
     MemoryCorrection,
@@ -49,6 +50,7 @@ from devcd.slices.ambient_context.models import (
     RelevantArtifact,
     SessionContract,
     SurfaceKind,
+    VisionWarning,
     WithheldContext,
     WorkState,
 )
@@ -352,6 +354,17 @@ def get_context_pack(pack_id: str) -> ContextPack:
     return _CONTEXT_PACK_REGISTRY.get_pack(pack_id)
 
 
+def installed_context_pack_summaries() -> list[InstalledContextPackSummary]:
+    return [
+        InstalledContextPackSummary(
+            id=pack.id,
+            display_name=pack.display_name,
+            description=pack.description,
+        )
+        for pack in list_context_packs()
+    ]
+
+
 def render_context_packs_json() -> str:
     return json.dumps(
         [pack.model_dump(mode="json") for pack in list_context_packs()],
@@ -441,6 +454,12 @@ def render_context_control_report_text(report: ContextControlReport) -> str:
         lines.append("- No recent visible events.")
     lines.extend(["", "Latest policy reasons"])
     lines.extend(_bullet_lines(report.latest_policy_reasons, empty="No policy reasons recorded."))
+    lines.extend(["", "Vision warnings"])
+    if report.vision_warnings:
+        for warning in report.vision_warnings:
+            lines.append(f"- {warning.code}: {warning.message}")
+    else:
+        lines.append("- None.")
     preview = report.continuity_packet_preview
     lines.extend(
         [
@@ -688,6 +707,21 @@ class AmbientContextService:
             set(work_state.policy_summary.withheld_data_classes)
             | set(brief.policy_decision.withheld_data_classes)
         )
+        vision_warnings: list[VisionWarning] = []
+        if self._vision_service is not None and brief.active_goal:
+            _vision_block, vision_code = self._vision_service.resolve_block(
+                self.policy_engine,
+                surface=brief.surface.kind.value,
+                active_goal=brief.active_goal,
+                workspace_root=self._repo_path,
+            )
+            if vision_code is not None:
+                vision_warnings.append(
+                    VisionWarning(
+                        code=vision_code,
+                        message=_vision_warning_message(vision_code),
+                    )
+                )
         return ContextControlReport(
             active_goal=brief.active_goal,
             selected_pack=pack.id,
@@ -704,6 +738,7 @@ class AmbientContextService:
                 brief=brief,
                 withheld=withheld_sources,
             ),
+            vision_warnings=vision_warnings,
             continuity_packet_preview=ContextControlContinuityPreview(
                 context_pack=packet.context_pack,
                 surface=packet.surface,
@@ -2818,6 +2853,21 @@ def _continuity_packet_has_visible_context(packet: ContinuityPacket) -> bool:
     )
 
 
+def _vision_warning_message(code: str) -> str:
+    if code == "vision_not_configured":
+        return (
+            "Active goal is present but no workspace vision is configured and no VISION.md "
+            "fallback is available."
+        )
+    if code == "vision_withheld_by_policy":
+        return "Active goal is present but vision is withheld from this surface by policy."
+    if code == "vision_derivation_failed":
+        return (
+            "Active goal is present but DevCD could not derive a usable north star from VISION.md."
+        )
+    return "Active goal is present but vision could not be attached."
+
+
 def continuity_packet_from_context_brief(
     brief: ContextBrief,
     *,
@@ -2889,6 +2939,7 @@ def continuity_packet_from_context_brief(
             schema_version=brief.schema_version,
             id=brief.id,
             context_pack=context_pack,
+            available_context_packs=installed_context_pack_summaries(),
             surface=brief.surface.kind.value,
             intent=intent,
             artifacts=[

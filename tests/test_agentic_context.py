@@ -29,6 +29,7 @@ from devcd.slices.host_state_engine.service import StateEngine
 from devcd.slices.memory_layer.service import MemoryStore
 from devcd.slices.policy_layer.models import PolicyDecision, PolicyDecisionKind
 from devcd.slices.policy_layer.service import PolicyEngine
+from devcd.slices.vision_layer.service import VisionService
 
 
 def test_scout_task_defaults_to_metadata_only_context() -> None:
@@ -171,6 +172,33 @@ def test_service_uses_visible_continuity_for_action_packet(tmp_path) -> None:
 
     assert packet.current_goal == "Ship the local scout runner MVP"
     assert packet.evidence
+
+
+def test_action_packet_derives_vision_from_vision_md_when_goal_active(
+    tmp_path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.chdir(tmp_path)
+    (tmp_path / "VISION.md").write_text(
+        "# Vision\n\n"
+        "DevCD is the current working name for one conviction: "
+        "**AI agents should know what you are trying to continue "
+        "without you having to tell them every time.**\n",
+        encoding="utf-8",
+    )
+    service, state_engine = build_agentic_context_service(tmp_path)
+    state_engine.accept_event(
+        DevEvent(
+            source=EventSource.TASK,
+            type="goal_update",
+            timestamp=datetime(2026, 5, 5, 12, 0, tzinfo=UTC),
+            payload={"current_goal": "Keep continuity aligned to product intent"},
+        )
+    )
+
+    packet = service.create_action_packet(surface="coding-agent", context_pack="developer")
+
+    assert packet.vision is not None
+    assert "AI agents should know" in packet.vision.north_star
 
 
 def test_action_packet_projects_session_contract_and_context_budget(tmp_path) -> None:
@@ -571,17 +599,20 @@ def build_agentic_context_service(tmp_path) -> tuple[AgenticContextService, Stat
     policy_engine = PolicyEngine.default()
     memory_store = MemoryStore.with_ttl_seconds(315360000)
     event_ledger = EventLedger(tmp_path / "events.jsonl")
+    vision_service = VisionService(tmp_path, event_ledger=event_ledger)
     state_engine = StateEngine(policy_engine, memory_store, event_ledger)
     ambient_service = AmbientContextService(
         state_engine,
         memory_store,
         policy_engine,
+        vision_service=vision_service,
         feedback_path=tmp_path / "context-feedback.jsonl",
     )
     return (
         AgenticContextService(
             ambient_context_service=ambient_service,
             policy_engine=policy_engine,
+            vision_service=vision_service,
             event_ledger=event_ledger,
         ),
         state_engine,

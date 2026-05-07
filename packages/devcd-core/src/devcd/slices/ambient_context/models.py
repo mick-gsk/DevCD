@@ -142,6 +142,12 @@ class ContextPack(BaseModel):
     renderer_metadata: dict[str, Any] = Field(default_factory=dict)
 
 
+class InstalledContextPackSummary(BaseModel):
+    id: str = Field(min_length=1)
+    display_name: str = Field(min_length=1)
+    description: str = Field(min_length=1)
+
+
 class IntentLine(BaseModel):
     summary: str
     evidence: list[EvidenceItem] = Field(default_factory=list)
@@ -318,6 +324,7 @@ class ContinuityPacket(BaseModel):
     schema_version: str = "1"
     id: str = Field(default_factory=lambda: str(uuid4()), min_length=1)
     context_pack: str = Field(min_length=1)
+    available_context_packs: list[InstalledContextPackSummary] = Field(default_factory=list)
     surface: str = Field(min_length=1)
     intent: ContinuityIntent | None = None
     artifacts: list[ContinuityArtifact] = Field(default_factory=list)
@@ -433,6 +440,11 @@ class ContextControlQualitySummary(BaseModel):
     suggested_next_actions: list[str] = Field(default_factory=list)
 
 
+class VisionWarning(BaseModel):
+    code: str = Field(min_length=1, max_length=80)
+    message: str = Field(min_length=1, max_length=500)
+
+
 class ContextControlReport(BaseModel):
     schema_version: str = "1"
     active_goal: str | None = None
@@ -446,6 +458,7 @@ class ContextControlReport(BaseModel):
     memory_counts_by_scope: dict[str, int] = Field(default_factory=dict)
     recent_timeline_summary: list[RecentAttempt] = Field(default_factory=list)
     latest_policy_reasons: list[str] = Field(default_factory=list)
+    vision_warnings: list[VisionWarning] = Field(default_factory=list)
     continuity_packet_preview: ContextControlContinuityPreview
     context_quality_summary: ContextControlQualitySummary | None = None
     next_commands: list[str] = Field(default_factory=list)

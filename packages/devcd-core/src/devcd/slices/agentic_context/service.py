@@ -129,7 +129,13 @@ class AgenticContextService:
             policy_summary=packet.policy_decision.reason,
         )
         if self._vision_service is not None:
-            vision_block = self._vision_service.get_block(self.policy_engine, surface=surface)
+            workspace_root = getattr(self.ambient_context_service, "_repo_path", None)
+            vision_block, _vision_code = self._vision_service.resolve_block(
+                self.policy_engine,
+                surface=surface,
+                active_goal=current_goal,
+                workspace_root=workspace_root,
+            )
             action_packet = action_packet.model_copy(update={"vision": vision_block})
             if self._event_ledger is not None:
                 decision_kind = (

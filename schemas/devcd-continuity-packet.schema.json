@@ -7,6 +7,7 @@
     "schema_version",
     "id",
     "context_pack",
+    "available_context_packs",
     "surface",
     "artifacts",
     "decisions",
@@ -31,6 +32,19 @@
     "schema_version": { "type": "string" },
     "id": { "type": "string", "minLength": 1 },
     "context_pack": { "type": "string", "minLength": 1 },
+    "available_context_packs": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["id", "display_name", "description"],
+        "properties": {
+          "id": { "type": "string", "minLength": 1 },
+          "display_name": { "type": "string", "minLength": 1 },
+          "description": { "type": "string", "minLength": 1 }
+        },
+        "additionalProperties": false
+      }
+    },
     "surface": { "type": "string", "minLength": 1 },
     "intent": {
       "type": ["object", "null"],

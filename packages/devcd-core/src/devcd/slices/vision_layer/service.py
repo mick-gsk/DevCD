@@ -4,6 +4,7 @@ import json
 import re
 from datetime import UTC, datetime
 from pathlib import Path
+from typing import Literal
 
 from devcd.slices.events.ledger import EventLedger
 from devcd.slices.events.models import DevEvent, EventSource
@@ -40,6 +41,12 @@ _ALIGNMENT_STOP_WORDS = {
     "this",
     "with",
 }
+
+VisionAvailabilityCode = Literal[
+    "vision_not_configured",
+    "vision_withheld_by_policy",
+    "vision_derivation_failed",
+]
 
 
 class VisionService:
@@ -130,18 +137,61 @@ class VisionService:
         policy_engine: PolicyEngine,
         surface: str = "agent",
     ) -> VisionBlock | None:
-        record = self.load()
-        if record is None:
-            return None
+        block, _code = self.resolve_block(
+            policy_engine,
+            surface=surface,
+            active_goal=None,
+            workspace_root=None,
+        )
+        return block
+
+    def resolve_block(
+        self,
+        policy_engine: PolicyEngine,
+        *,
+        surface: str = "agent",
+        active_goal: str | None,
+        workspace_root: Path | None,
+    ) -> tuple[VisionBlock | None, VisionAvailabilityCode | None]:
         decision = policy_engine.decide_vision_inject(surface)
         if not decision.allowed:
-            return None
-        return VisionBlock(
-            domain=record.domain,
-            north_star=record.north_star,
-            active_since=record.updated_at,
-            policy_reason=decision.reason,
-            withheld=False,
+            return None, "vision_withheld_by_policy"
+
+        record = self.load()
+        if record is not None:
+            return (
+                VisionBlock(
+                    domain=record.domain,
+                    north_star=record.north_star,
+                    active_since=record.updated_at,
+                    policy_reason=decision.reason,
+                    withheld=False,
+                ),
+                None,
+            )
+
+        if not active_goal:
+            return None, None
+
+        derived = self._derive_from_vision_markdown(workspace_root=workspace_root)
+        if derived is None:
+            vision_path = (workspace_root or Path.cwd()) / "VISION.md"
+            if not vision_path.exists():
+                return None, "vision_not_configured"
+            return None, "vision_derivation_failed"
+
+        domain, north_star, active_since = derived
+        return (
+            VisionBlock(
+                domain=domain,
+                north_star=north_star,
+                active_since=active_since,
+                policy_reason=(
+                    f"{decision.reason}; derived from local VISION.md fallback"
+                ),
+                withheld=False,
+            ),
+            None,
         )
 
     def assess_alignment(
@@ -251,6 +301,33 @@ class VisionService:
             operation=event_type,
         )
         self._event_ledger.append(event, decision)
+
+    def _derive_from_vision_markdown(
+        self,
+        *,
+        workspace_root: Path | None,
+    ) -> tuple[str, str, datetime] | None:
+        root = workspace_root or Path.cwd()
+        vision_path = root / "VISION.md"
+        if not vision_path.exists():
+            return None
+        text = vision_path.read_text(encoding="utf-8")
+        bold_match = re.search(r"\*\*(.+?)\*\*", text, flags=re.DOTALL)
+        if bold_match is not None:
+            candidate = " ".join(bold_match.group(1).split())
+            if candidate:
+                timestamp = datetime.fromtimestamp(vision_path.stat().st_mtime, tz=UTC)
+                domain = root.name or "workspace"
+                return domain, candidate[:1000], timestamp
+
+        for line in text.splitlines():
+            stripped = line.strip()
+            if not stripped or stripped.startswith("#"):
+                continue
+            timestamp = datetime.fromtimestamp(vision_path.stat().st_mtime, tz=UTC)
+            domain = root.name or "workspace"
+            return domain, stripped[:1000], timestamp
+        return None
 
     @staticmethod
     def _alignment_terms(text: str) -> set[str]:
