@@ -217,9 +217,15 @@ devcd mcp serve
 It exposes only read-only resources:
 
 - `devcd://context/action-packet`
+- `devcd://context/action-packet/concise`
+- `devcd://context/action-packet/detailed`
 - `devcd://context/session-contract`
+- `devcd://context/session-contract/concise`
+- `devcd://context/session-contract/detailed`
 - `devcd://context/agent-handoff-packet`
 - `devcd://context/continuity-packet`
+- `devcd://context/continuity-packet/concise`
+- `devcd://context/continuity-packet/detailed`
 - `devcd://context/brief`
 - `devcd://context/work-state`
 - `devcd://context/recent-events`
@@ -228,7 +234,7 @@ It exposes only read-only resources:
 - `devcd://context/recent-timeline`
 - `devcd://context/policy-summary`
 
-Agents that need the next concrete handoff action should prefer `devcd://context/action-packet`. Agents that only need the next-session contract, budget, and context-reference loading hints can read `devcd://context/session-contract`. Agents that need domain-neutral continuity should use `devcd://context/continuity-packet`. Developer-only compatibility consumers can continue using `devcd://context/agent-handoff-packet`.
+Agents that need the next concrete handoff action should prefer `devcd://context/action-packet/concise` and escalate to `devcd://context/action-packet/detailed` when deeper context is required. Existing consumers can continue using `devcd://context/action-packet` as a compatible default. Agents that only need the next-session contract and budget should start with `devcd://context/session-contract/concise` and escalate to `devcd://context/session-contract/detailed` for full context references. Agents that need domain-neutral continuity should start with `devcd://context/continuity-packet/concise` and escalate to `devcd://context/continuity-packet/detailed` for full context. Developer-only compatibility consumers can continue using `devcd://context/agent-handoff-packet`.
 
 It does not expose MCP tools, prompts, shell execution, browser automation, memory writes, or remote HTTP MCP.
 

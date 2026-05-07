@@ -8,7 +8,6 @@ from devcd.slices.ambient_context.models import AgentContextSurface, SurfaceKind
 from devcd.slices.ambient_context.service import (
     AmbientContextService,
     render_context_brief_json,
-    render_continuity_packet_json,
 )
 from devcd.slices.events.ledger import EventLedger
 from devcd.slices.host_state_engine.service import StateEngine
@@ -24,8 +23,14 @@ READ_ONLY_RESOURCE_URIS: tuple[str, ...] = (
     "devcd://context/withheld-context",
     "devcd://context/agent-handoff-packet",
     "devcd://context/continuity-packet",
+    "devcd://context/continuity-packet/concise",
+    "devcd://context/continuity-packet/detailed",
     "devcd://context/action-packet",
+    "devcd://context/action-packet/concise",
+    "devcd://context/action-packet/detailed",
     "devcd://context/session-contract",
+    "devcd://context/session-contract/concise",
+    "devcd://context/session-contract/detailed",
     "devcd://context/recent-timeline",
     "devcd://context/policy-summary",
 )
@@ -71,6 +76,19 @@ _RESOURCE_METADATA: dict[str, dict[str, str]] = {
             "No sensitive payloads."
         ),
     },
+    "devcd://context/continuity-packet/concise": {
+        "name": "continuity_packet_concise",
+        "description": (
+            "Reduced high-signal continuity packet for low-token startup reads. "
+            "Field-reduced subset of the continuity packet contract."
+        ),
+    },
+    "devcd://context/continuity-packet/detailed": {
+        "name": "continuity_packet_detailed",
+        "description": (
+            "Full policy-filtered continuity packet for deep debugging and reconstruction."
+        ),
+    },
     "devcd://context/action-packet": {
         "name": "action_packet",
         "description": (
@@ -79,12 +97,34 @@ _RESOURCE_METADATA: dict[str, dict[str, str]] = {
             "No sensitive payloads."
         ),
     },
+    "devcd://context/action-packet/concise": {
+        "name": "action_packet_concise",
+        "description": (
+            "Reduced high-signal action packet for low-token startup reads. "
+            "Field-reduced subset of the action packet contract."
+        ),
+    },
+    "devcd://context/action-packet/detailed": {
+        "name": "action_packet_detailed",
+        "description": "Full policy-filtered action packet with all context fields.",
+    },
     "devcd://context/session-contract": {
         "name": "session_contract",
         "description": (
             "Read-only next-session contract with context references, budget, "
             "verification command, and clean-state guidance. No sensitive payloads."
         ),
+    },
+    "devcd://context/session-contract/concise": {
+        "name": "session_contract_concise",
+        "description": (
+            "Reduced session contract for startup guidance: includes next-step contract, "
+            "compact budget summary, and policy summary."
+        ),
+    },
+    "devcd://context/session-contract/detailed": {
+        "name": "session_contract_detailed",
+        "description": "Full session contract payload including context references.",
     },
     "devcd://context/recent-timeline": {
         "name": "recent_timeline",
@@ -213,36 +253,27 @@ class ReadOnlyMCPServer:
             brief = self._ambient_context_service.create_context_brief(surface)
             return render_context_brief_json(brief)
         if uri == "devcd://context/continuity-packet":
-            packet = self._ambient_context_service.create_continuity_packet(
-                self._mcp_surface(),
-                context_pack="developer",
-                include_empty_guidance=True,
-            )
-            return render_continuity_packet_json(packet)
-        if uri == "devcd://context/action-packet":
-            action_packet = self._agentic_context_service.create_action_packet(
-                surface="mcp",
-                context_pack="developer",
-            )
-            return self._json_text(action_packet.model_dump(mode="json"))
-        if uri == "devcd://context/session-contract":
-            packet = self._ambient_context_service.create_continuity_packet(
-                self._mcp_surface(),
-                context_pack="developer",
-                include_empty_guidance=True,
-            )
+            return self._json_text(self._continuity_packet_payload())
+        if uri == "devcd://context/continuity-packet/concise":
             return self._json_text(
-                {
-                    "session_contract": packet.session_contract.model_dump(mode="json")
-                    if packet.session_contract is not None
-                    else None,
-                    "context_budget": packet.context_budget.model_dump(mode="json"),
-                    "context_references": [
-                        reference.model_dump(mode="json") for reference in packet.context_references
-                    ],
-                    "policy_summary": packet.policy_decision.reason,
-                }
+                self._concise_continuity_packet(self._continuity_packet_payload())
             )
+        if uri == "devcd://context/continuity-packet/detailed":
+            return self._json_text(self._continuity_packet_payload())
+        if uri == "devcd://context/action-packet":
+            return self._json_text(self._action_packet_payload())
+        if uri == "devcd://context/action-packet/concise":
+            return self._json_text(self._concise_action_packet(self._action_packet_payload()))
+        if uri == "devcd://context/action-packet/detailed":
+            return self._json_text(self._action_packet_payload())
+        if uri == "devcd://context/session-contract":
+            return self._json_text(self._session_contract_payload())
+        if uri == "devcd://context/session-contract/concise":
+            return self._json_text(
+                self._concise_session_contract(self._session_contract_payload())
+            )
+        if uri == "devcd://context/session-contract/detailed":
+            return self._json_text(self._session_contract_payload())
         if uri == "devcd://context/recent-timeline":
             return self._json_text({"recent_timeline": self._recent_timeline()})
         if uri == "devcd://context/policy-summary":
@@ -252,6 +283,93 @@ class ReadOnlyMCPServer:
 
     def _mcp_surface(self) -> AgentContextSurface:
         return AgentContextSurface(kind=SurfaceKind.MCP, name="devcd-mcp")
+
+    def _action_packet_payload(self) -> JsonObject:
+        action_packet = self._agentic_context_service.create_action_packet(
+            surface="mcp",
+            context_pack="developer",
+        )
+        return action_packet.model_dump(mode="json")
+
+    def _continuity_packet_payload(self) -> JsonObject:
+        packet = self._ambient_context_service.create_continuity_packet(
+            self._mcp_surface(),
+            context_pack="developer",
+            include_empty_guidance=True,
+        )
+        return packet.model_dump(mode="json")
+
+    def _session_contract_payload(self) -> JsonObject:
+        packet = self._ambient_context_service.create_continuity_packet(
+            self._mcp_surface(),
+            context_pack="developer",
+            include_empty_guidance=True,
+        )
+        return {
+            "session_contract": packet.session_contract.model_dump(mode="json")
+            if packet.session_contract is not None
+            else None,
+            "context_budget": packet.context_budget.model_dump(mode="json"),
+            "context_references": [
+                reference.model_dump(mode="json") for reference in packet.context_references
+            ],
+            "policy_summary": packet.policy_decision.reason,
+        }
+
+    def _concise_action_packet(self, payload: JsonObject) -> JsonObject:
+        keys = (
+            "schema_version",
+            "current_goal",
+            "next_action",
+            "recommended_agent_mode",
+            "blockers",
+            "do_not_repeat",
+            "withheld_context",
+            "policy_summary",
+            "ready_for_agent",
+            "created_at",
+        )
+        return {key: payload[key] for key in keys if key in payload}
+
+    def _concise_continuity_packet(self, payload: JsonObject) -> JsonObject:
+        keys = (
+            "schema_version",
+            "context_pack",
+            "surface",
+            "intent",
+            "blockers",
+            "do_not_repeat",
+            "suggested_next_steps",
+            "unknowns",
+            "withheld_context",
+            "policy_decision",
+            "confidence",
+            "generated_at",
+        )
+        return {key: payload[key] for key in keys if key in payload}
+
+    def _concise_session_contract(self, payload: JsonObject) -> JsonObject:
+        context_budget = payload.get("context_budget")
+        compact_budget: JsonObject
+        if isinstance(context_budget, dict):
+            compact_budget = {
+                key: context_budget[key]
+                for key in (
+                    "estimated_tokens",
+                    "reference_count",
+                    "withheld_context_count",
+                    "suggested_actions",
+                )
+                if key in context_budget
+            }
+        else:
+            compact_budget = {}
+
+        return {
+            "session_contract": payload.get("session_contract"),
+            "context_budget": compact_budget,
+            "policy_summary": payload.get("policy_summary", ""),
+        }
 
     def _recent_events(self) -> list[JsonObject]:
         recent_events: list[JsonObject] = []

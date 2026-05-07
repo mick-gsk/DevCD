@@ -558,3 +558,136 @@ def test_mcp_server_continuity_packet_and_handoff_packet_both_present(tmp_path) 
     uris = [r["uri"] for r in resources_response["result"]["resources"]]
     assert "devcd://context/agent-handoff-packet" in uris
     assert "devcd://context/continuity-packet" in uris
+
+
+def test_mcp_server_lists_additive_detail_level_resource_uris(tmp_path) -> None:
+    server, _state_engine = build_mcp_server(tmp_path)
+
+    resources_response = server.handle_message(
+        {"jsonrpc": "2.0", "id": 24, "method": "resources/list"}
+    )
+
+    assert resources_response is not None
+    uris = [r["uri"] for r in resources_response["result"]["resources"]]
+    assert "devcd://context/action-packet" in uris
+    assert "devcd://context/action-packet/concise" in uris
+    assert "devcd://context/action-packet/detailed" in uris
+    assert "devcd://context/continuity-packet" in uris
+    assert "devcd://context/continuity-packet/concise" in uris
+    assert "devcd://context/continuity-packet/detailed" in uris
+    assert "devcd://context/session-contract" in uris
+    assert "devcd://context/session-contract/concise" in uris
+    assert "devcd://context/session-contract/detailed" in uris
+
+
+def test_mcp_server_action_packet_concise_reduces_payload_fields(tmp_path) -> None:
+    server, state_engine = build_mcp_server(tmp_path)
+    state_engine.accept_event(
+        DevEvent(
+            source=EventSource.TASK,
+            type="goal_update",
+            timestamp=datetime(2026, 5, 5, 10, 0, tzinfo=UTC),
+            payload={"current_goal": "Use concise action packet by default"},
+        )
+    )
+
+    base = read_resource(server, "devcd://context/action-packet")
+    concise = read_resource(server, "devcd://context/action-packet/concise")
+
+    assert concise["current_goal"] == "Use concise action packet by default"
+    assert len(concise.keys()) < len(base.keys())
+    assert "context_references" not in concise
+    assert "context_budget" not in concise
+    assert "session_contract" not in concise
+    assert "schema_version" in concise
+    assert "next_action" in concise
+    assert "ready_for_agent" in concise
+    assert "policy_summary" in concise
+
+
+def test_mcp_server_action_packet_detailed_includes_full_context(tmp_path) -> None:
+    server, state_engine = build_mcp_server(tmp_path)
+    state_engine.accept_event(
+        DevEvent(
+            source=EventSource.TASK,
+            type="goal_update",
+            timestamp=datetime(2026, 5, 5, 10, 0, tzinfo=UTC),
+            payload={"current_goal": "Use detailed action packet for deep debugging"},
+        )
+    )
+
+    detailed = read_resource(server, "devcd://context/action-packet/detailed")
+
+    assert detailed["current_goal"] == "Use detailed action packet for deep debugging"
+    assert "context_references" in detailed
+    assert "context_budget" in detailed
+    assert "session_contract" in detailed
+    assert "verification_required" in detailed
+
+
+def test_mcp_server_continuity_packet_concise_reduces_payload_fields(tmp_path) -> None:
+    server, state_engine = build_mcp_server(tmp_path)
+    state_engine.accept_event(
+        DevEvent(
+            source=EventSource.TASK,
+            type="goal_update",
+            timestamp=datetime(2026, 5, 5, 10, 0, tzinfo=UTC),
+            payload={"current_goal": "Keep continuity packet concise for startup"},
+        )
+    )
+
+    base = read_resource(server, "devcd://context/continuity-packet")
+    concise = read_resource(server, "devcd://context/continuity-packet/concise")
+
+    assert concise["intent"]["summary"] == "Keep continuity packet concise for startup"
+    assert len(concise.keys()) < len(base.keys())
+    assert "context_references" not in concise
+    assert "context_budget" not in concise
+    assert "state_snapshot" not in concise
+    assert "schema_version" in concise
+    assert "context_pack" in concise
+    assert "policy_decision" in concise
+
+
+def test_mcp_server_continuity_packet_detailed_includes_full_context(tmp_path) -> None:
+    server, _state_engine = build_mcp_server(tmp_path)
+
+    detailed = read_resource(server, "devcd://context/continuity-packet/detailed")
+
+    assert "context_references" in detailed
+    assert "context_budget" in detailed
+    assert "session_contract" in detailed
+    assert "state_snapshot" in detailed
+
+
+def test_mcp_server_session_contract_concise_removes_context_references(tmp_path) -> None:
+    server, state_engine = build_mcp_server(tmp_path)
+    state_engine.accept_event(
+        DevEvent(
+            source=EventSource.TASK,
+            type="test_failure",
+            timestamp=datetime(2026, 5, 5, 10, 1, tzinfo=UTC),
+            payload={
+                "reason": "Session contract too broad for startup",
+                "suggested_next_action": "Prefer concise session-contract reads",
+            },
+        )
+    )
+
+    concise = read_resource(server, "devcd://context/session-contract/concise")
+
+    assert "session_contract" in concise
+    assert "context_budget" in concise
+    assert "policy_summary" in concise
+    assert "context_references" not in concise
+
+
+def test_mcp_server_session_contract_detailed_includes_context_references(tmp_path) -> None:
+    server, _state_engine = build_mcp_server(tmp_path)
+
+    detailed = read_resource(server, "devcd://context/session-contract/detailed")
+
+    assert "session_contract" in detailed
+    assert "context_budget" in detailed
+    assert "policy_summary" in detailed
+    assert "context_references" in detailed

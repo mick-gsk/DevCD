@@ -868,7 +868,11 @@ def _write_devcd_skill_templates(workspace_root: Path) -> None:
             "   - If ready_for_agent is true → proceed directly to next_action.",
             "   - If not ready → run: devcd agentic tasks (see Scout Tasks).",
             "2. If the packet is still insufficient → run: devcd context passport",
-            "3. If shell execution is unavailable → read the MCP resource devcd://context/action-packet",
+            (
+                "3. If shell execution is unavailable → read the MCP resource "
+                "devcd://context/action-packet/concise "
+                "(or devcd://context/action-packet for compatibility)"
+            ),
             "",
             "## First reply must state",
             "- current_goal (from packet or 'unknown')",
@@ -1014,7 +1018,8 @@ def _write_devcd_skill_templates(workspace_root: Path) -> None:
             "   - Pick the first safe Scout Task and start from there.",
             "   - Run: devcd context passport for broader orientation.",
             "2. If shell is unavailable but MCP is configured:",
-            "   - Read: devcd://context/action-packet",
+            "   - Read: devcd://context/action-packet/concise",
+            "   - If you need full context: devcd://context/action-packet/detailed",
             "   - Read: devcd://context/policy-summary",
             "   - Proceed from visible goal and next_action.",
             "3. If neither shell nor MCP is available:",
@@ -4754,7 +4759,11 @@ def _build_demo_agentic_context_service(
         policy_engine,
         feedback_path=temporary_directory / "context-feedback.jsonl",
     )
-    return AgenticContextService(ambient_service, policy_engine), state_engine
+    return AgenticContextService(
+        ambient_service,
+        policy_engine,
+        event_ledger=event_ledger,
+    ), state_engine
 
 
 def _build_mcp_server(settings: DevCDSettings) -> ReadOnlyMCPServer:
@@ -4788,6 +4797,8 @@ def _build_mcp_server(settings: DevCDSettings) -> ReadOnlyMCPServer:
 def _build_local_context_service(config: Path | None = None) -> AmbientContextService:
     settings = DevCDSettings.load(config)
     policy_engine = PolicyEngine.from_settings(settings)
+    # TODO(ADR-014): Switch to per-event-class TTL configuration once kernel settings
+    # support [memory.ttl_by_event_class] and memory.max_entries.
     memory_store = MemoryStore.with_ttl_seconds(
         settings.working_memory_ttl_seconds,
         settings.episodic_memory_ttl_seconds,
@@ -4834,6 +4845,7 @@ def _build_local_agentic_context_service(config: Path | None = None) -> AgenticC
     return AgenticContextService(
         ambient_context_service=ambient_context_service,
         policy_engine=policy_engine,
+        event_ledger=event_ledger,
     )
 
 

@@ -82,7 +82,9 @@ Where DevCD helps today:
   one suggested next action, and withheld-context notes
 - accessible via CLI (`devcd agentic action-packet` or
   `devcd agentic action-packet-demo`) and MCP
-  (`devcd://context/action-packet`)
+  (`devcd://context/action-packet/concise` for low-token starts,
+  `devcd://context/action-packet/detailed` for full context,
+  with `devcd://context/action-packet` remaining the compatible default)
 - keeps the broader Agent Passport and Continuity Packet available when an agent
   needs more than the first handoff
 
