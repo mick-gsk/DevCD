@@ -282,6 +282,8 @@ class ContextBudget(BaseModel):
     estimated_tokens: int = Field(default=0, ge=0)
     reference_count: int = Field(default=0, ge=0)
     withheld_context_count: int = Field(default=0, ge=0)
+    sync_warning_ab: float = Field(default=0.5, ge=0.0, le=1.0)
+    switch_recommended_ab: float = Field(default=0.7, ge=0.0, le=1.0)
     included_sources: list[str] = Field(default_factory=list)
     suggested_actions: list[str] = Field(default_factory=list)
 
@@ -296,6 +298,8 @@ class SessionContract(BaseModel):
     definition_of_done: str = Field(min_length=1)
     verification_command: str = Field(min_length=1)
     clean_state_required: bool = True
+    sync_warning_ab: float = Field(default=0.5, ge=0.0, le=1.0)
+    switch_recommended_ab: float = Field(default=0.7, ge=0.0, le=1.0)
 
 
 class ContinuityPacket(BaseModel):

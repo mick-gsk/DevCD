@@ -292,10 +292,14 @@ def test_continuity_packet_includes_context_budget_and_session_contract(tmp_path
         "definition_of_done": "Run make check and leave the workspace in a clean state.",
         "verification_command": "make check",
         "clean_state_required": True,
+        "sync_warning_ab": 0.5,
+        "switch_recommended_ab": 0.7,
     }
     assert body["context_budget"]["reference_count"] == len(body["context_references"])
     assert body["context_budget"]["withheld_context_count"] == 1
     assert body["context_budget"]["estimated_tokens"] > 0
+    assert body["context_budget"]["sync_warning_ab"] == 0.5
+    assert body["context_budget"]["switch_recommended_ab"] == 0.7
     assert {reference["kind"] for reference in body["context_references"]} >= {
         "intent",
         "artifact",

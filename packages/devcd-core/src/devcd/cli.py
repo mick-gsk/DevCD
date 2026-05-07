@@ -858,6 +858,20 @@ def _write_devcd_skill_templates(workspace_root: Path) -> None:
             "description: Mandatory first move for local DevCD continuity before asking for recap.",
             "---",
             "",
+            "## Progressive Disclosure",
+            "",
+            "### Level 1 - Metadata (Auto-Loaded)",
+            (
+                "The YAML frontmatter keys `name` and `description` are the discovery signal "
+                "loaded automatically."
+            ),
+            "",
+            "### Level 2 - Full Instructions",
+            "The remaining SKILL.md body is the complete skill guidance and is loaded on demand.",
+            "",
+            "### Level 3 - Referenced Supporting Files",
+            "- .devcd/templates/devcd-first-turn.template.md",
+            "",
             "# DevCD Startup Gate",
             "",
             "## When to invoke",
@@ -904,6 +918,20 @@ def _write_devcd_skill_templates(workspace_root: Path) -> None:
             "name: devcd-capture-loop",
             "description: Capture continuity metadata on key execution triggers during work.",
             "---",
+            "",
+            "## Progressive Disclosure",
+            "",
+            "### Level 1 - Metadata (Auto-Loaded)",
+            (
+                "The YAML frontmatter keys `name` and `description` are the discovery signal "
+                "loaded automatically."
+            ),
+            "",
+            "### Level 2 - Full Instructions",
+            "The remaining SKILL.md body is the complete skill guidance and is loaded on demand.",
+            "",
+            "### Level 3 - Referenced Supporting Files",
+            "- .devcd/templates/devcd-capture-loop.template.md",
             "",
             "# DevCD Capture Loop",
             "",
@@ -955,6 +983,20 @@ def _write_devcd_skill_templates(workspace_root: Path) -> None:
             "description: Close a session with a compact handoff before switching agents.",
             "---",
             "",
+            "## Progressive Disclosure",
+            "",
+            "### Level 1 - Metadata (Auto-Loaded)",
+            (
+                "The YAML frontmatter keys `name` and `description` are the discovery signal "
+                "loaded automatically."
+            ),
+            "",
+            "### Level 2 - Full Instructions",
+            "The remaining SKILL.md body is the complete skill guidance and is loaded on demand.",
+            "",
+            "### Level 3 - Referenced Supporting Files",
+            "- .devcd/templates/devcd-handoff-close.template.md",
+            "",
             "# DevCD Handoff Close",
             "",
             "## When to invoke",
@@ -1002,6 +1044,20 @@ def _write_devcd_skill_templates(workspace_root: Path) -> None:
             "name: devcd-recovery-fallback",
             "description: Recovery path when continuity packet readiness or tooling is limited.",
             "---",
+            "",
+            "## Progressive Disclosure",
+            "",
+            "### Level 1 - Metadata (Auto-Loaded)",
+            (
+                "The YAML frontmatter keys `name` and `description` are the discovery signal "
+                "loaded automatically."
+            ),
+            "",
+            "### Level 2 - Full Instructions",
+            "The remaining SKILL.md body is the complete skill guidance and is loaded on demand.",
+            "",
+            "### Level 3 - Referenced Supporting Files",
+            "- None.",
             "",
             "# DevCD Recovery Fallback",
             "",
@@ -1184,10 +1240,16 @@ def _render_action_packet(packet: ActionPacket) -> str:
         lines.append(
             f"- clean_state_required: {str(packet.session_contract.clean_state_required).lower()}"
         )
+        lines.append(f"- sync_warning_ab: {packet.session_contract.sync_warning_ab}")
+        lines.append(
+            f"- switch_recommended_ab: {packet.session_contract.switch_recommended_ab}"
+        )
     lines.extend(["", "## Context Budget"])
     lines.append(f"- estimated_tokens: {packet.context_budget.estimated_tokens}")
     lines.append(f"- references: {packet.context_budget.reference_count}")
     lines.append(f"- withheld_context: {packet.context_budget.withheld_context_count}")
+    lines.append(f"- sync_warning_ab: {packet.context_budget.sync_warning_ab}")
+    lines.append(f"- switch_recommended_ab: {packet.context_budget.switch_recommended_ab}")
     lines.extend(["", "## Withheld Context"])
     if packet.withheld_context:
         for withheld in packet.withheld_context:

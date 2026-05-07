@@ -182,6 +182,8 @@
         "estimated_tokens",
         "reference_count",
         "withheld_context_count",
+        "sync_warning_ab",
+        "switch_recommended_ab",
         "included_sources",
         "suggested_actions"
       ],
@@ -189,6 +191,8 @@
         "estimated_tokens": { "type": "integer", "minimum": 0 },
         "reference_count": { "type": "integer", "minimum": 0 },
         "withheld_context_count": { "type": "integer", "minimum": 0 },
+        "sync_warning_ab": { "type": "number", "minimum": 0, "maximum": 1 },
+        "switch_recommended_ab": { "type": "number", "minimum": 0, "maximum": 1 },
         "included_sources": { "type": "array", "items": { "type": "string" } },
         "suggested_actions": { "type": "array", "items": { "type": "string" } }
       },
@@ -200,13 +204,17 @@
         "next_action",
         "definition_of_done",
         "verification_command",
-        "clean_state_required"
+        "clean_state_required",
+        "sync_warning_ab",
+        "switch_recommended_ab"
       ],
       "properties": {
         "next_action": { "type": "string", "minLength": 1 },
         "definition_of_done": { "type": "string", "minLength": 1 },
         "verification_command": { "type": "string", "minLength": 1 },
-        "clean_state_required": { "type": "boolean" }
+        "clean_state_required": { "type": "boolean" },
+        "sync_warning_ab": { "type": "number", "minimum": 0, "maximum": 1 },
+        "switch_recommended_ab": { "type": "number", "minimum": 0, "maximum": 1 }
       },
       "additionalProperties": false
     }

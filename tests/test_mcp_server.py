@@ -530,7 +530,11 @@ def test_mcp_server_reads_session_contract_resource(tmp_path) -> None:
         "Add read-only MCP session-contract resource"
     )
     assert body["session_contract"]["verification_command"] == "make check"
+    assert body["session_contract"]["sync_warning_ab"] == 0.5
+    assert body["session_contract"]["switch_recommended_ab"] == 0.7
     assert body["context_budget"]["reference_count"] == len(body["context_references"])
+    assert body["context_budget"]["sync_warning_ab"] == 0.5
+    assert body["context_budget"]["switch_recommended_ab"] == 0.7
     assert body["policy_summary"]
 
 
@@ -623,6 +627,10 @@ def test_mcp_server_action_packet_detailed_includes_full_context(tmp_path) -> No
     assert "context_budget" in detailed
     assert "session_contract" in detailed
     assert "verification_required" in detailed
+    assert detailed["context_budget"]["sync_warning_ab"] == 0.5
+    assert detailed["context_budget"]["switch_recommended_ab"] == 0.7
+    assert detailed["session_contract"]["sync_warning_ab"] == 0.5
+    assert detailed["session_contract"]["switch_recommended_ab"] == 0.7
 
 
 def test_mcp_server_continuity_packet_concise_reduces_payload_fields(tmp_path) -> None:
@@ -680,6 +688,10 @@ def test_mcp_server_session_contract_concise_removes_context_references(tmp_path
     assert "context_budget" in concise
     assert "policy_summary" in concise
     assert "context_references" not in concise
+    assert concise["session_contract"]["sync_warning_ab"] == 0.5
+    assert concise["session_contract"]["switch_recommended_ab"] == 0.7
+    assert concise["context_budget"]["sync_warning_ab"] == 0.5
+    assert concise["context_budget"]["switch_recommended_ab"] == 0.7
 
 
 def test_mcp_server_session_contract_detailed_includes_context_references(tmp_path) -> None:

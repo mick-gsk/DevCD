@@ -358,6 +358,8 @@ class ReadOnlyMCPServer:
                     "estimated_tokens",
                     "reference_count",
                     "withheld_context_count",
+                    "sync_warning_ab",
+                    "switch_recommended_ab",
                     "suggested_actions",
                 )
                 if key in context_budget

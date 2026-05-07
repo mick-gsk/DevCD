@@ -131,6 +131,7 @@ def test_init_preserves_existing_agent_file_with_managed_block(
     assert "DevCD Continuity Capture Routine" in content
 
 
+@pytest.mark.slow
 def test_onboard_creates_config_and_agent_ready_workspace(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
@@ -168,6 +169,7 @@ def test_onboard_creates_config_and_agent_ready_workspace(
     assert not (tmp_path / "home" / ".openclaw").exists()
 
 
+@pytest.mark.slow
 def test_onboard_defaults_to_agent_ready_workspace(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
@@ -201,6 +203,7 @@ def test_onboard_defaults_to_agent_ready_workspace(
     assert 'devcd capture --kind next_action --summary "..."' in copilot_text
 
 
+@pytest.mark.slow
 def test_onboard_preserves_existing_config_without_force(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
@@ -218,6 +221,7 @@ def test_onboard_preserves_existing_config_without_force(
     assert "DEVCD AGENT CONTINUITY START" in (tmp_path / "AGENTS.md").read_text(encoding="utf-8")
 
 
+@pytest.mark.slow
 def test_onboard_json_contract_is_stable(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.chdir(tmp_path)
     runner = CliRunner()
@@ -337,6 +341,7 @@ def test_onboard_json_contract_is_stable(tmp_path: Path, monkeypatch: pytest.Mon
     ]
 
 
+@pytest.mark.slow
 def test_onboard_preview_reports_agent_layer_without_writing(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
@@ -361,6 +366,7 @@ def test_onboard_preview_reports_agent_layer_without_writing(
     assert not (tmp_path / ".devcd" / "agent-layer-profile.json").exists()
 
 
+@pytest.mark.slow
 def test_onboard_yes_applies_recommended_profile_non_interactive(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
@@ -399,6 +405,7 @@ def test_onboard_yes_applies_recommended_profile_non_interactive(
     assert (tmp_path / ".devcd" / "templates" / "devcd-handoff-close.template.md").exists()
 
 
+@pytest.mark.slow
 def test_onboard_yes_with_no_agent_ready_does_not_write_skills_or_templates(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
@@ -429,6 +436,7 @@ def test_onboard_yes_with_no_agent_ready_does_not_write_skills_or_templates(
     assert not (tmp_path / ".devcd" / "templates" / "devcd-handoff-close.template.md").exists()
 
 
+@pytest.mark.slow
 def test_onboard_json_includes_agent_layer_proposal_and_receipts(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
@@ -458,6 +466,7 @@ def test_onboard_json_includes_agent_layer_proposal_and_receipts(
     assert "requested archetype override: researcher" in body["agent_layer"]["trust_receipts"]
 
 
+@pytest.mark.slow
 def test_setup_interactive_configures_multiple_projects_and_seeds_handoff(
     tmp_path: Path,
 ) -> None:
@@ -502,6 +511,7 @@ def test_setup_interactive_configures_multiple_projects_and_seeds_handoff(
         assert packet_body["ready_for_agent"] is True
 
 
+@pytest.mark.slow
 def test_setup_yes_flag_configures_current_dir_without_prompts(tmp_path: Path) -> None:
     runner = CliRunner()
     result = runner.invoke(
@@ -514,6 +524,7 @@ def test_setup_yes_flag_configures_current_dir_without_prompts(tmp_path: Path) -
     assert (tmp_path / "devcd.toml").exists()
 
 
+@pytest.mark.slow
 def test_setup_continues_when_a_project_path_is_missing(tmp_path: Path) -> None:
     project_ok = tmp_path / "project-ok"
     project_ok.mkdir()
@@ -1124,6 +1135,7 @@ def test_setup_help_positions_it_as_install_time_wizard() -> None:
     assert "--next-action" in output
 
 
+@pytest.mark.slow
 def test_smoke_command_verifies_local_first_run() -> None:
     runner = CliRunner()
 
@@ -1138,6 +1150,7 @@ def test_smoke_command_verifies_local_first_run() -> None:
     assert "Next: devcd onboard" in result.output
 
 
+@pytest.mark.slow
 def test_smoke_json_verifies_agent_layer_quickstart_contract() -> None:
     runner = CliRunner()
 
@@ -1163,6 +1176,7 @@ def test_smoke_help_positions_it_as_install_check() -> None:
     assert "--compact" in output
 
 
+@pytest.mark.slow
 def test_smoke_compact_hides_ascii_banner() -> None:
     runner = CliRunner()
 
@@ -2808,6 +2822,10 @@ def test_agentic_action_packet_json_returns_ready_field(tmp_path: Path) -> None:
     body = json.loads(result.output)
     assert "ready_for_agent" in body
     assert body["schema_version"] == "1.0"
+    assert body["session_contract"]["sync_warning_ab"] == 0.5
+    assert body["session_contract"]["switch_recommended_ab"] == 0.7
+    assert body["context_budget"]["sync_warning_ab"] == 0.5
+    assert body["context_budget"]["switch_recommended_ab"] == 0.7
 
 
 def test_agentic_action_packet_human_output_is_agent_start_brief(
@@ -2865,6 +2883,8 @@ def test_agentic_action_packet_human_output_is_agent_start_brief(
     assert "## Blockers" in result.output
     assert "## Do Not Repeat" in result.output
     assert "Do not tweak the renderer without checking the contract" in result.output
+    assert "- sync_warning_ab: 0.5" in result.output
+    assert "- switch_recommended_ab: 0.7" in result.output
     assert "## Withheld Context" in result.output
     assert "No policy-withheld context is attached." in result.output
     assert "## Policy" in result.output
@@ -3453,6 +3473,7 @@ def test_doctor_ledger_integrity_warns_when_ledger_missing(
     assert check["status"] == "warn"
 
 
+@pytest.mark.slow
 def test_quickstart_prioritizes_action_packet_and_reports_next_steps(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:

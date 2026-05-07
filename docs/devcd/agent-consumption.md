@@ -57,6 +57,17 @@ back to `devcd agentic tasks` or `devcd context passport` before asking the user
 to recap. The same block gives shell-capable agents a small continuity capture
 routine so the user does not need to perform DevCD bookkeeping after onboarding.
 
+## Skill loading contract (progressive disclosure)
+
+DevCD workspace skills use a three-level structure:
+
+- Level 1: YAML frontmatter (`name`, `description`) is the discovery signal.
+- Level 2: the SKILL.md body is the full instruction text loaded on demand.
+- Level 3: optional referenced support files (for example templates) provide deeper detail.
+
+Only Level-1 metadata should be treated as auto-loaded discovery context.
+Skills without frontmatter remain usable, but lose Level-1 discoverability.
+
 ## Action Packet path
 
 Use the Action Packet when you need to continue work, not just inspect state:
@@ -70,7 +81,13 @@ The JSON Action Packet includes a `session_contract` with one next action, a
 definition of done, the local verification command, and whether the next agent
 should leave a clean state. It also includes `context_references` and a
 `context_budget` so agents can load details just in time instead of asking for a
-raw recap.
+raw recap. Both `session_contract` and `context_budget` now expose two additive
+rotation thresholds for long-running sessions:
+
+- `sync_warning_ab`: advisory threshold where an agent should start actively
+	syncing progress into compact continuity metadata
+- `switch_recommended_ab`: stronger threshold where agent/session rotation is
+	recommended before context exhaustion risk increases
 
 Before handing off to a fresh agent, inspect the same budget directly:
 
@@ -218,6 +235,10 @@ It exposes only read-only resources:
 
 - `devcd://context/action-packet`
 - `devcd://context/action-packet/concise`
+
+The MCP server does not discover, parse, or stream SKILL.md content. It serves
+DevCD context resources only, so skill full-text context loading remains a host
+runtime concern, not an MCP resource behavior.
 - `devcd://context/action-packet/detailed`
 - `devcd://context/session-contract`
 - `devcd://context/session-contract/concise`
@@ -235,6 +256,11 @@ It exposes only read-only resources:
 - `devcd://context/policy-summary`
 
 Agents that need the next concrete handoff action should prefer `devcd://context/action-packet/concise` and escalate to `devcd://context/action-packet/detailed` when deeper context is required. Existing consumers can continue using `devcd://context/action-packet` as a compatible default. Agents that only need the next-session contract and budget should start with `devcd://context/session-contract/concise` and escalate to `devcd://context/session-contract/detailed` for full context references. Agents that need domain-neutral continuity should start with `devcd://context/continuity-packet/concise` and escalate to `devcd://context/continuity-packet/detailed` for full context. Developer-only compatibility consumers can continue using `devcd://context/agent-handoff-packet`.
+
+`devcd://context/session-contract` and `devcd://context/session-contract/concise`
+include the same additive two-stage rotation thresholds in both
+`session_contract` and `context_budget`: `sync_warning_ab` and
+`switch_recommended_ab`.
 
 It does not expose MCP tools, prompts, shell execution, browser automation, memory writes, or remote HTTP MCP.
 

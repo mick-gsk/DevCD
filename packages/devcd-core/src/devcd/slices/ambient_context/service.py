@@ -87,6 +87,9 @@ _LOW_SIGNAL_SUCCESS_ATTEMPTS = {
     "test_passed",
 }
 
+_SYNC_WARNING_AB = 0.5
+_SWITCH_RECOMMENDED_AB = 0.7
+
 
 @dataclass(frozen=True)
 class ContextSurfaceDefinition:
@@ -3008,6 +3011,8 @@ def _context_budget_from_packet(
         estimated_tokens=estimated_tokens,
         reference_count=len(context_references),
         withheld_context_count=len(packet.withheld_context),
+        sync_warning_ab=_SYNC_WARNING_AB,
+        switch_recommended_ab=_SWITCH_RECOMMENDED_AB,
         included_sources=included_sources,
         suggested_actions=suggested_actions,
     )
@@ -3024,6 +3029,8 @@ def _session_contract_from_packet(packet: ContinuityPacket) -> SessionContract:
         definition_of_done="Run make check and leave the workspace in a clean state.",
         verification_command="make check",
         clean_state_required=True,
+        sync_warning_ab=_SYNC_WARNING_AB,
+        switch_recommended_ab=_SWITCH_RECOMMENDED_AB,
     )
 
 
