@@ -29,7 +29,8 @@ Use this skill when the normal startup-gate sequence cannot complete cleanly:
    - Pick the first safe Scout Task and start from there.
    - Run: devcd context passport for broader orientation.
 2. If shell is unavailable but MCP is configured:
-   - Read: devcd://context/action-packet
+   - Read: devcd://context/action-packet/concise
+   - If you need full context: devcd://context/action-packet/detailed
    - Read: devcd://context/policy-summary
    - Proceed from visible goal and next_action.
 3. If neither shell nor MCP is available:

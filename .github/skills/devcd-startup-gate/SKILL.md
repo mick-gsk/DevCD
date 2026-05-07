@@ -24,9 +24,7 @@ At session start — before asking the user to recap, summarize, or explain thei
    - If ready_for_agent is true → proceed directly to next_action.
    - If not ready → run: devcd agentic tasks (see Scout Tasks).
 2. If the packet is still insufficient → run: devcd context passport
-3. If shell execution is unavailable → read the MCP resource devcd://context/action-packet/concise
-   - Compatibility fallback: devcd://context/action-packet
-   - For full context: devcd://context/action-packet/detailed
+3. If shell execution is unavailable → read the MCP resource devcd://context/action-packet/concise (or devcd://context/action-packet for compatibility)
 
 ## First reply must state
 - current_goal (from packet or 'unknown')
