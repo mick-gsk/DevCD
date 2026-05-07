@@ -293,7 +293,7 @@ def test_onboard_json_contract_is_stable(tmp_path: Path, monkeypatch: pytest.Mon
                 ),
                 (
                     "When the next safe step changes materially, capture it with devcd "
-                    "capture --kind next_action --summary \"...\"."
+                    'capture --kind next_action --summary "...".'
                 ),
             ],
             "fallback_when_shell_unavailable": (
@@ -3712,9 +3712,10 @@ def test_quickstart_json_reports_live_first_readiness(
     assert body["action_packet_first"]["packet"]["ready_for_agent"] is False
     assert body["live_first"]["daemon_required"] is False
     assert body["live_first"]["packet"]["intent"] is None
-    assert "Original chat history is not available in the handoff packet." in body[
-        "live_first"
-    ]["packet"]["unknowns"]
+    assert (
+        "Original chat history is not available in the handoff packet."
+        in body["live_first"]["packet"]["unknowns"]
+    )
     assert "demo_preview" not in body
     assert body["local_state"]["config_exists"] is False
     assert body["local_state"]["token_source"] == "missing"
@@ -4098,9 +4099,7 @@ def test_integrations_git_hooks_install_writes_hook_file(tmp_path: Path) -> None
     git_hooks_dir.mkdir(parents=True)
     runner = CliRunner()
 
-    result = runner.invoke(
-        app, ["integrations", "git-hooks", "--install"], catch_exceptions=False
-    )
+    result = runner.invoke(app, ["integrations", "git-hooks", "--install"], catch_exceptions=False)
 
     # May fail if CWD has no .git/hooks â€” test only that the command works
     assert result.exit_code == 0

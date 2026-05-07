@@ -270,12 +270,10 @@ def test_action_packet_rejected_paths_include_dead_end_events(tmp_path) -> None:
 
     assert len(packet.rejected_paths) == 1
     assert (
-        packet.rejected_paths[0].approach_summary
-        == "Retry the same patch without changing tests"
+        packet.rejected_paths[0].approach_summary == "Retry the same patch without changing tests"
     )
     assert (
-        packet.rejected_paths[0].reason
-        == "Already failed twice with unchanged assertion strategy"
+        packet.rejected_paths[0].reason == "Already failed twice with unchanged assertion strategy"
     )
     assert packet.rejected_paths[0].timestamp == datetime(2026, 5, 5, 12, 10, tzinfo=UTC)
 

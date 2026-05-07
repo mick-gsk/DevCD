@@ -44,9 +44,7 @@ class DevEvent(BaseModel):
         if self.event_class == "goal.done_when":
             value = self.payload.get("done_when")
             if not isinstance(value, str) or not value.strip():
-                raise ValueError(
-                    "event_class 'goal.done_when' requires payload field 'done_when'"
-                )
+                raise ValueError("event_class 'goal.done_when' requires payload field 'done_when'")
         return self
 
 

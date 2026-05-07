@@ -909,7 +909,7 @@ def _write_devcd_skill_templates(workspace_root: Path) -> None:
             ),
             (
                 "- If no goal exists yet, capture the first obvious one: devcd capture "
-                "--kind goal --summary \"...\""
+                '--kind goal --summary "..."'
             ),
         ]
     )
@@ -954,16 +954,16 @@ def _write_devcd_skill_templates(workspace_root: Path) -> None:
             "- Session ending or agent switch imminent → use devcd handoff instead",
             "",
             "## Commands",
-            "- goal:         devcd capture --kind goal --summary \"...\"",
-            "- next_action:  devcd capture --kind next_action --summary \"...\"",
-            "- failure:      devcd capture --kind failure --summary \"...\" --next-action \"...\"",
-            "- decision:     devcd capture --kind decision --summary \"...\"",
-            "- blocker:      devcd capture --kind blocker --summary \"...\"",
+            '- goal:         devcd capture --kind goal --summary "..."',
+            '- next_action:  devcd capture --kind next_action --summary "..."',
+            '- failure:      devcd capture --kind failure --summary "..." --next-action "..."',
+            '- decision:     devcd capture --kind decision --summary "..."',
+            '- blocker:      devcd capture --kind blocker --summary "..."',
             (
-                "- artifact_ref: devcd capture --kind artifact_ref --summary \"...\" "
-                "--artifact \"path=...\""
+                '- artifact_ref: devcd capture --kind artifact_ref --summary "..." '
+                '--artifact "path=..."'
             ),
-            "- session close: devcd handoff --goal \"...\" --next-action \"...\"",
+            '- session close: devcd handoff --goal "..." --next-action "..."',
             "",
             "## What to capture",
             "- Metadata summaries only: intent, outcome, path references.",
@@ -1016,12 +1016,12 @@ def _write_devcd_skill_templates(workspace_root: Path) -> None:
             "",
             "## Commands",
             "Minimal (no failure):",
-            "devcd handoff --goal \"<current_goal>\" --next-action \"<next_action>\"",
+            'devcd handoff --goal "<current_goal>" --next-action "<next_action>"',
             "",
             "With failure or blocker:",
             (
-                "devcd handoff --goal \"<current_goal>\" --failure "
-                '\"<failure_or_blocker>\" --next-action \"<next_action>\"'
+                'devcd handoff --goal "<current_goal>" --failure '
+                '"<failure_or_blocker>" --next-action "<next_action>"'
             ),
             "",
             "## Required fields",
@@ -1116,24 +1116,24 @@ def _write_devcd_skill_templates(workspace_root: Path) -> None:
             "- DevCD does not capture chat automatically.",
             (
                 "- On the first substantive user request in a session, if no visible goal "
-                "exists: devcd capture --kind goal --summary \"...\""
+                'exists: devcd capture --kind goal --summary "..."'
             ),
-            "- At start: devcd capture --kind goal --summary \"...\"",
+            '- At start: devcd capture --kind goal --summary "..."',
             (
                 "- When the next safe step changes materially: devcd capture --kind "
-                "next_action --summary \"...\""
+                'next_action --summary "..."'
             ),
             (
                 "- After failed attempt: devcd capture --kind failure --summary "
-                '\"...\" --next-action \"...\"'
+                '"..." --next-action "..."'
             ),
-            "- Important decision: devcd capture --kind decision --summary \"...\"",
-            "- Blocker: devcd capture --kind blocker --summary \"...\"",
+            '- Important decision: devcd capture --kind decision --summary "..."',
+            '- Blocker: devcd capture --kind blocker --summary "..."',
             (
                 "- Artifact ref only: devcd capture --kind artifact_ref --summary "
-                '\"...\" --artifact \"path=...\"'
+                '"..." --artifact "path=..."'
             ),
-            "- Session close or agent switch: devcd handoff --goal \"...\" --next-action \"...\"",
+            '- Session close or agent switch: devcd handoff --goal "..." --next-action "..."',
             "",
             "Use short metadata summaries only:",
             "- goal: <goal summary>",
@@ -1153,11 +1153,11 @@ def _write_devcd_skill_templates(workspace_root: Path) -> None:
             "Completion check: devcd agentic completion-check",
             "",
             "Minimal command:",
-            "devcd handoff --goal \"<current_goal>\" --next-action \"<next_action>\"",
+            'devcd handoff --goal "<current_goal>" --next-action "<next_action>"',
             "Command with failure:",
             (
-                "devcd handoff --goal \"<current_goal>\" --failure \"<failure>\" "
-                "--next-action \"<next_action>\""
+                'devcd handoff --goal "<current_goal>" --failure "<failure>" '
+                '--next-action "<next_action>"'
             ),
             "",
             "Rules:",
@@ -1242,8 +1242,7 @@ def _render_action_packet(packet: ActionPacket) -> str:
         lines.append(f"- next_action: {packet.session_contract.next_action}")
         lines.append(f"- done_when: {packet.session_contract.done_when}")
         lines.append(
-            "- verification_required: "
-            f"{str(packet.session_contract.verification_required).lower()}"
+            f"- verification_required: {str(packet.session_contract.verification_required).lower()}"
         )
         lines.append(f"- withheld_count: {packet.session_contract.withheld_count}")
     lines.extend(["", "## Rejected Paths"])
@@ -1294,8 +1293,7 @@ def onboard(
         typer.Option(
             "--agents",
             help=(
-                "Comma-separated targets: copilot, claude, codex, auto. "
-                "Optional: openclaw, or all."
+                "Comma-separated targets: copilot, claude, codex, auto. Optional: openclaw, or all."
             ),
         ),
     ] = None,
@@ -1684,7 +1682,7 @@ def _build_onboard_warm_start_report(
                 ),
                 (
                     "When the next safe step changes materially, capture it with devcd "
-                    "capture --kind next_action --summary \"...\"."
+                    'capture --kind next_action --summary "...".'
                 ),
             ],
             "fallback_when_shell_unavailable": (
@@ -2347,9 +2345,7 @@ def recipe_git_commit(
     branch: Annotated[
         str | None, typer.Option("--branch", help="Branch name at commit time.")
     ] = None,
-    repo: Annotated[
-        str | None, typer.Option("--repo", help="Repo path or identifier.")
-    ] = None,
+    repo: Annotated[str | None, typer.Option("--repo", help="Repo path or identifier.")] = None,
     output: Annotated[
         Path | None,
         typer.Option("--output", help="Optional JSONL output path."),
@@ -3092,7 +3088,7 @@ def _build_agentic_compliance_report(
         },
         "notes": [vision_alignment.note] if vision_alignment.configured else [],
         "warnings": vision_alignment.warnings,
-        "next_step": "devcd handoff --goal \"...\" --next-action \"...\"" if not ready else "done",
+        "next_step": 'devcd handoff --goal "..." --next-action "..."' if not ready else "done",
     }
     return {
         "metrics": metrics,
@@ -5131,8 +5127,7 @@ def _render_policy_audit_report(report: dict[str, Any]) -> str:
         lines.append(f"Withheld events ({len(report['withheld_events'])})")
         for item in report["withheld_events"][:10]:
             lines.append(
-                f"  [{item['source']}] {item['type']} "
-                f"\u2014 {item['operation']}: {item['reason']}"
+                f"  [{item['source']}] {item['type']} \u2014 {item['operation']}: {item['reason']}"
             )
         if len(report["withheld_events"]) > 10:
             lines.append(f"  ... and {len(report['withheld_events']) - 10} more")
@@ -5172,8 +5167,7 @@ def _install_git_hook(hook_path: Path, script: str) -> dict[str, Any]:
         "installed": True,
         "hook_path": str(hook_path),
         "note": (
-            "Hook installed. Every commit will append"
-            " a git/commit event to .devcd/events.jsonl."
+            "Hook installed. Every commit will append a git/commit event to .devcd/events.jsonl."
         ),
     }
 

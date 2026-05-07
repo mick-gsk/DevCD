@@ -118,16 +118,12 @@ def _session_metrics(
         raise ValueError(f"No capture events found for session '{session}'")
 
     attempt_events = [
-        event
-        for event in session_events
-        if event.payload.get("capture_kind") == "attempt"
+        event for event in session_events if event.payload.get("capture_kind") == "attempt"
     ]
     succeeded_attempts = sum(
         1 for event in attempt_events if event.payload.get("outcome") == "succeeded"
     )
-    failed_attempts = sum(
-        1 for event in attempt_events if event.payload.get("outcome") == "failed"
-    )
+    failed_attempts = sum(1 for event in attempt_events if event.payload.get("outcome") == "failed")
 
     first_timestamp = min(event.timestamp for event in session_events)
     last_timestamp = max(event.timestamp for event in session_events)
