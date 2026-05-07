@@ -15,6 +15,13 @@ from devcd.slices.policy_layer.service import PolicyEngine
 
 JsonObject = dict[str, Any]
 
+_CONCISE_LIST_LIMITS: dict[str, int] = {
+    "blockers": 3,
+    "do_not_repeat": 3,
+    "suggested_next_steps": 3,
+    "unknowns": 3,
+}
+
 READ_ONLY_RESOURCE_URIS: tuple[str, ...] = (
     "devcd://context/brief",
     "devcd://context/work-state",
@@ -86,7 +93,8 @@ _RESOURCE_METADATA: dict[str, dict[str, str]] = {
     "devcd://context/continuity-packet/detailed": {
         "name": "continuity_packet_detailed",
         "description": (
-            "Full policy-filtered continuity packet for deep debugging and reconstruction."
+            "Full policy-filtered continuity packet for deep debugging and reconstruction. "
+            "Startup step 3: use detailed resources only after concise startup reads."
         ),
     },
     "devcd://context/action-packet": {
@@ -101,12 +109,16 @@ _RESOURCE_METADATA: dict[str, dict[str, str]] = {
         "name": "action_packet_concise",
         "description": (
             "Reduced high-signal action packet for low-token startup reads. "
+            "Startup step 1: read this first. "
             "Field-reduced subset of the action packet contract."
         ),
     },
     "devcd://context/action-packet/detailed": {
         "name": "action_packet_detailed",
-        "description": "Full policy-filtered action packet with all context fields.",
+        "description": (
+            "Full policy-filtered action packet with all context fields. "
+            "Startup step 3: use detailed resources only after concise startup reads."
+        ),
     },
     "devcd://context/session-contract": {
         "name": "session_contract",
@@ -119,12 +131,16 @@ _RESOURCE_METADATA: dict[str, dict[str, str]] = {
         "name": "session_contract_concise",
         "description": (
             "Reduced session contract for startup guidance: includes next-step contract, "
-            "compact budget summary, and policy summary."
+            "compact budget summary, and policy summary. "
+            "Startup step 2: if uncertain after action-packet/concise, escalate to this."
         ),
     },
     "devcd://context/session-contract/detailed": {
         "name": "session_contract_detailed",
-        "description": "Full session contract payload including context references.",
+        "description": (
+            "Full session contract payload including context references. "
+            "Startup step 3: use detailed resources only after concise startup reads."
+        ),
     },
     "devcd://context/recent-timeline": {
         "name": "recent_timeline",
@@ -328,7 +344,8 @@ class ReadOnlyMCPServer:
             "ready_for_agent",
             "created_at",
         )
-        return {key: payload[key] for key in keys if key in payload}
+        concise = {key: payload[key] for key in keys if key in payload}
+        return self._trim_concise_lists(concise)
 
     def _concise_continuity_packet(self, payload: JsonObject) -> JsonObject:
         keys = (
@@ -346,7 +363,8 @@ class ReadOnlyMCPServer:
             "confidence",
             "generated_at",
         )
-        return {key: payload[key] for key in keys if key in payload}
+        concise = {key: payload[key] for key in keys if key in payload}
+        return self._trim_concise_lists(concise)
 
     def _concise_session_contract(self, payload: JsonObject) -> JsonObject:
         context_budget = payload.get("context_budget")
@@ -372,6 +390,14 @@ class ReadOnlyMCPServer:
             "context_budget": compact_budget,
             "policy_summary": payload.get("policy_summary", ""),
         }
+
+    def _trim_concise_lists(self, payload: JsonObject) -> JsonObject:
+        trimmed = dict(payload)
+        for key, limit in _CONCISE_LIST_LIMITS.items():
+            value = trimmed.get(key)
+            if isinstance(value, list):
+                trimmed[key] = value[:limit]
+        return trimmed
 
     def _recent_events(self) -> list[JsonObject]:
         recent_events: list[JsonObject] = []

@@ -11,6 +11,7 @@ Short version: Action Packet now projects verification-ready session contracts, 
 ### Added
 
 - New scaffold helpers: `devcd workflow new`, `devcd workflow list`, `devcd preset new`, `devcd recipe new`, and `devcd recipe run`, plus built-in starter workflows and custom recipe YAML loading under `.devcd/`.
+- Continuity packets now rank high-signal references by kind and freshness, while concise MCP resources trim long lists and annotate the intended startup read order.
 - New `workflow_layer` slice: resumable YAML workflow runner with human-gate pause/resume, `WorkflowEngine` persisting run state under `.devcd/workflows/runs/`, and `CommandStep`/`ShellStep`/`GateStep` step types.
 - `WorkflowCatalog` with trust-bounded resolution stack (builtin → user → project → env); env-supplied URLs validated for HTTPS/localhost; `CatalogTrustError` on invalid sources.
 - `InstructionLayerResolver` composing agent instruction content from managed-core, team-preset (`.devcd/presets/<target>-*.md`), and workspace-override (`.devcd/instructions/<target>.md`) layers with replace/wrap strategies.

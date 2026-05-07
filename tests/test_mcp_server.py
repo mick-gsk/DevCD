@@ -43,6 +43,33 @@ def test_mcp_resource_descriptions_state_no_mutation_boundary(tmp_path) -> None:
     assert all("No MCP tools, prompts, or mutations" in description for description in descriptions)
 
 
+def test_mcp_resource_descriptions_include_startup_read_order_guidance(tmp_path) -> None:
+    server, _state_engine = build_mcp_server(tmp_path)
+
+    resources = server.handle_message({"jsonrpc": "2.0", "id": 2, "method": "resources/list"})
+
+    assert resources is not None
+    descriptions_by_uri = {
+        resource["uri"]: resource["description"] for resource in resources["result"]["resources"]
+    }
+    assert "Startup step 1: read this first." in descriptions_by_uri[
+        "devcd://context/action-packet/concise"
+    ]
+    assert (
+        "Startup step 2: if uncertain after action-packet/concise, escalate to this."
+        in descriptions_by_uri["devcd://context/session-contract/concise"]
+    )
+    assert "Startup step 3: use detailed resources only after concise startup reads." in (
+        descriptions_by_uri["devcd://context/action-packet/detailed"]
+    )
+    assert "Startup step 3: use detailed resources only after concise startup reads." in (
+        descriptions_by_uri["devcd://context/session-contract/detailed"]
+    )
+    assert "Startup step 3: use detailed resources only after concise startup reads." in (
+        descriptions_by_uri["devcd://context/continuity-packet/detailed"]
+    )
+
+
 def test_mcp_server_reads_context_brief_without_external_client(tmp_path) -> None:
     server, state_engine = build_mcp_server(tmp_path)
     state_engine.accept_event(
@@ -623,6 +650,35 @@ def test_mcp_server_action_packet_concise_reduces_payload_fields(tmp_path) -> No
     assert "next_action" in concise
     assert "ready_for_agent" in concise
     assert "policy_summary" in concise
+
+
+def test_mcp_server_action_packet_concise_trims_do_not_repeat_to_high_signal_subset(
+    tmp_path,
+) -> None:
+    server, state_engine = build_mcp_server(tmp_path)
+    state_engine.accept_event(
+        DevEvent(
+            source=EventSource.TASK,
+            type="test_failure",
+            timestamp=datetime(2026, 5, 5, 10, 0, tzinfo=UTC),
+            payload={
+                "reason": "Avoid repeating stale fixes",
+                "do_not_repeat": [
+                    "Do not repeat stale fix A",
+                    "Do not repeat stale fix B",
+                    "Do not repeat stale fix C",
+                    "Do not repeat stale fix D",
+                    "Do not repeat stale fix E",
+                ],
+                "suggested_next_action": "Prefer concise high-signal do_not_repeat entries",
+            },
+        )
+    )
+
+    concise = read_resource(server, "devcd://context/action-packet/concise")
+
+    assert "do_not_repeat" in concise
+    assert len(concise["do_not_repeat"]) == 3
 
 
 def test_mcp_server_action_packet_detailed_includes_full_context(tmp_path) -> None:

@@ -312,6 +312,49 @@ def test_continuity_packet_includes_context_budget_and_session_contract(tmp_path
     assert "PRIVATE_NOTE_PAYLOAD" not in json.dumps(body)
 
 
+def test_continuity_packet_prioritizes_recent_blockers_over_older_artifacts(tmp_path) -> None:
+    service, state_engine = build_ambient_context_service(tmp_path)
+    state_engine.accept_event(
+        DevEvent(
+            source=EventSource.TASK,
+            type="goal_update",
+            timestamp=datetime(2026, 5, 5, 9, 0, tzinfo=UTC),
+            payload={"current_goal": "Prefer high-signal continuity entries"},
+        )
+    )
+    state_engine.accept_event(
+        DevEvent(
+            source=EventSource.IDE,
+            type="file_focus",
+            timestamp=datetime(2026, 5, 5, 9, 1, tzinfo=UTC),
+            payload={"path": "packages/devcd-core/src/devcd/slices/ambient_context/service.py"},
+        )
+    )
+    state_engine.accept_event(
+        DevEvent(
+            source=EventSource.TASK,
+            type="test_failure",
+            timestamp=datetime(2026, 5, 5, 10, 2, tzinfo=UTC),
+            payload={
+                "reason": "fresh blocker should outrank stale artifact",
+                "suggested_next_action": "Fix blocker-first prioritization",
+            },
+        )
+    )
+
+    packet = service.create_continuity_packet(
+        AgentContextSurface(kind="coding-agent", name="copilot"),
+        include_empty_guidance=True,
+    )
+
+    non_intent_references = [
+        reference for reference in packet.context_references if reference.kind != "intent"
+    ]
+
+    assert non_intent_references
+    assert non_intent_references[0].kind == "blocker"
+
+
 def test_all_feedback_categories_surface_safe_packet_quality_notes(tmp_path) -> None:
     service, state_engine = build_ambient_context_service(tmp_path)
     state_engine.accept_event(

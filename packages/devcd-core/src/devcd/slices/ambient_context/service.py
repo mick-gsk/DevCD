@@ -93,6 +93,23 @@ _LOW_SIGNAL_SUCCESS_ATTEMPTS = {
 _SYNC_WARNING_AB = 0.5
 _SWITCH_RECOMMENDED_AB = 0.7
 
+_REFERENCE_KIND_WEIGHTS: dict[str, float] = {
+    "intent": 3.0,
+    "blocker": 2.6,
+    "attempt": 2.0,
+    "artifact": 1.5,
+}
+
+_REFERENCE_KIND_RANKS: dict[str, int] = {
+    "intent": 0,
+    "blocker": 1,
+    "attempt": 2,
+    "artifact": 3,
+}
+
+_FRESHNESS_STALE_AFTER = timedelta(hours=24)
+_FRESHNESS_EXPIRED_AFTER = timedelta(days=7)
+
 
 @dataclass(frozen=True)
 class ContextSurfaceDefinition:
@@ -2986,8 +3003,8 @@ def continuity_packet_from_context_brief(
 def _with_context_contracts(packet: ContinuityPacket) -> ContinuityPacket:
     context_references = _context_references_from_packet(packet)
     context_budget = _context_budget_from_packet(packet, context_references)
-    session_contract = _session_contract_from_packet(packet)
-    priority_queue = packet.priority_queue or list(packet.suggested_next_steps)
+    priority_queue = _priority_queue_from_packet(packet, context_references)
+    session_contract = _session_contract_from_packet(packet, priority_queue)
     return packet.model_copy(
         update={
             "context_references": context_references,
@@ -3009,9 +3026,9 @@ def _context_references_from_packet(packet: ContinuityPacket) -> list[ContextRef
                 source="devcd",
                 load_hint="Use this summary as the current goal; do not request raw history first.",
                 include_reason="active goal is the strongest continuity signal",
-                freshness=FreshnessState(
-                    status=FreshnessStatus.CURRENT,
-                    last_seen_at=packet.intent.updated_at,
+                freshness=_freshness_for_observation(
+                    observed_at=packet.intent.updated_at,
+                    generated_at=packet.generated_at,
                 ),
                 confidence=packet.intent.confidence,
                 policy_reason=packet.policy_decision.reason,
@@ -3026,9 +3043,9 @@ def _context_references_from_packet(packet: ContinuityPacket) -> list[ContextRef
                 source=artifact.source,
                 load_hint="Load this path only if the next action needs file-level detail.",
                 include_reason="artifact was selected by surface relevance limits",
-                freshness=FreshnessState(
-                    status=FreshnessStatus.CURRENT,
-                    last_seen_at=artifact.last_seen_at,
+                freshness=_freshness_for_observation(
+                    observed_at=artifact.last_seen_at,
+                    generated_at=packet.generated_at,
                 ),
                 confidence=artifact.relevance,
                 policy_reason=artifact.policy_reason,
@@ -3043,9 +3060,9 @@ def _context_references_from_packet(packet: ContinuityPacket) -> list[ContextRef
                 source="devcd",
                 load_hint="Use this blocker summary before repeating earlier attempts.",
                 include_reason="visible blocker changes the safest next action",
-                freshness=FreshnessState(
-                    status=FreshnessStatus.CURRENT,
-                    last_seen_at=blocker.detected_at,
+                freshness=_freshness_for_observation(
+                    observed_at=blocker.detected_at,
+                    generated_at=packet.generated_at,
                 ),
                 confidence=blocker.confidence,
                 policy_reason=blocker.policy_reason,
@@ -3060,15 +3077,110 @@ def _context_references_from_packet(packet: ContinuityPacket) -> list[ContextRef
                 source=attempt.source,
                 load_hint="Use this attempt summary to avoid rediscovering recent work.",
                 include_reason="recent attempts preserve continuity across agent sessions",
-                freshness=FreshnessState(
-                    status=FreshnessStatus.CURRENT,
-                    last_seen_at=attempt.timestamp,
+                freshness=_freshness_for_observation(
+                    observed_at=attempt.timestamp,
+                    generated_at=packet.generated_at,
                 ),
                 confidence=0.8 if attempt.outcome != "unknown" else 0.5,
                 policy_reason=attempt.policy_reason,
             )
         )
-    return references
+    return _rank_context_references(references, generated_at=packet.generated_at)
+
+
+def _freshness_for_observation(
+    *,
+    observed_at: datetime,
+    generated_at: datetime,
+) -> FreshnessState:
+    age = generated_at - observed_at
+    if age >= _FRESHNESS_EXPIRED_AFTER:
+        status = FreshnessStatus.EXPIRED
+    elif age >= _FRESHNESS_STALE_AFTER:
+        status = FreshnessStatus.STALE
+    else:
+        status = FreshnessStatus.CURRENT
+    return FreshnessState(status=status, last_seen_at=observed_at)
+
+
+def _reference_priority_score(reference: ContextReference, *, generated_at: datetime) -> float:
+    age_seconds = max(0.0, (generated_at - reference.freshness.last_seen_at).total_seconds())
+    recency_score = max(0.0, 1.0 - (age_seconds / (48 * 60 * 60)))
+    stale_penalty = 0.0
+    if reference.freshness.status is FreshnessStatus.STALE:
+        stale_penalty = 1.0
+    elif reference.freshness.status is FreshnessStatus.EXPIRED:
+        stale_penalty = 2.0
+    kind_weight = _REFERENCE_KIND_WEIGHTS.get(reference.kind, 1.0)
+    return kind_weight + recency_score + reference.confidence - stale_penalty
+
+
+def _rank_context_references(
+    references: list[ContextReference],
+    *,
+    generated_at: datetime,
+) -> list[ContextReference]:
+    return sorted(
+        references,
+        key=lambda reference: (
+            -_reference_priority_score(reference, generated_at=generated_at),
+            -reference.freshness.last_seen_at.timestamp(),
+            _REFERENCE_KIND_RANKS.get(reference.kind, 99),
+            reference.identifier,
+            reference.summary,
+        ),
+    )
+
+
+def _priority_queue_from_packet(
+    packet: ContinuityPacket,
+    context_references: list[ContextReference],
+) -> list[str]:
+    if packet.priority_queue:
+        return _dedupe_strings(packet.priority_queue)
+
+    candidate_actions = _dedupe_strings(list(packet.suggested_next_steps))
+    if not candidate_actions:
+        candidate_actions = _dedupe_strings(
+            [f"Investigate {blocker.summary}" for blocker in packet.blockers]
+        )
+    if not candidate_actions:
+        return []
+
+    reference_signals = [reference.summary.casefold() for reference in context_references[:8]]
+    blocker_signals = [blocker.summary.casefold() for blocker in packet.blockers]
+    ranked = sorted(
+        enumerate(candidate_actions),
+        key=lambda pair: (
+            -_priority_action_score(
+                pair[1],
+                original_index=pair[0],
+                reference_signals=reference_signals,
+                blocker_signals=blocker_signals,
+            ),
+            pair[0],
+            pair[1],
+        ),
+    )
+    return [action for _index, action in ranked]
+
+
+def _priority_action_score(
+    action: str,
+    *,
+    original_index: int,
+    reference_signals: list[str],
+    blocker_signals: list[str],
+) -> float:
+    normalized = action.casefold()
+    score = 2.0 - min(original_index, 20) * 0.01
+    if any(signal and signal in normalized for signal in blocker_signals):
+        score += 1.2
+    if any(signal and signal in normalized for signal in reference_signals):
+        score += 0.6
+    if normalized in _LOW_SIGNAL_NEXT_ACTION_SUMMARIES:
+        score -= 1.0
+    return score
 
 
 def _context_budget_from_packet(
@@ -3099,8 +3211,11 @@ def _context_budget_from_packet(
     )
 
 
-def _session_contract_from_packet(packet: ContinuityPacket) -> SessionContract:
-    next_action = packet.suggested_next_steps[0] if packet.suggested_next_steps else None
+def _session_contract_from_packet(
+    packet: ContinuityPacket,
+    priority_queue: list[str],
+) -> SessionContract:
+    next_action = priority_queue[0] if priority_queue else None
     if next_action is None and packet.intent is not None:
         next_action = "Continue from the visible goal and inspect the context references first."
     if next_action is None:
