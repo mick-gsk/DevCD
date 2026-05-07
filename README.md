@@ -50,14 +50,16 @@ See [Release Readiness](docs/devcd/release-readiness.md) for the full alpha bar.
 ## Install
 
 ```bash
-python -m pip install --disable-pip-version-check --quiet devcd && devcd setup
+python -m pip install --disable-pip-version-check --quiet devcd && devcd setup --yes
 ```
 
-Use this as the default first-run flow. `devcd setup` is the install-time
-wizard: it configures one or multiple projects, lets you select your agent
-targets, and seeds an initial local handoff so the next agent can continue
-without an extra manual setup step. The `--quiet` install keeps first-run
-output focused.
+Use this as the default first-run flow. `devcd setup --yes` is the install-time
+wizard: it configures the current directory, selects default agent targets
+(Copilot, Claude, Codex), and seeds an initial local handoff so the next agent can continue
+without an extra manual setup step. The `--yes` flag accepts all defaults without
+interactive prompts — ideal for one-liner installs. Drop `--yes` to run the
+interactive wizard and customise projects, agents, and initial goal.
+The `--quiet` install keeps first-run output focused.
 
 Want a quick install confirmation first?
 

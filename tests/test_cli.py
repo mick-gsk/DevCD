@@ -13,7 +13,8 @@ from devcd import __version__
 from devcd.cli import _ensure_mcp_token, _post_event, app
 from devcd.kernel.settings import DevCDSettings
 from devcd.slices.events.ledger import EventLedger
-from devcd.slices.events.models import DevEvent
+from devcd.slices.events.models import DevEvent, EventSource
+from devcd.slices.git_source.service import GitEventSource
 from devcd.slices.host_state_engine.service import StateEngine
 from devcd.slices.memory_layer.service import MemoryStore
 from devcd.slices.policy_layer.service import PolicyEngine
@@ -192,6 +193,12 @@ def test_onboard_defaults_to_agent_ready_workspace(
     assert (tmp_path / ".github" / "skills" / "devcd-recovery-fallback" / "SKILL.md").exists()
     assert (tmp_path / ".devcd" / "templates" / "devcd-first-turn.template.md").exists()
     assert (tmp_path / ".devcd" / "templates" / "devcd-handoff-close.template.md").exists()
+    assert "DevCD does not capture chat automatically" in result.output
+    assert "the agent must write metadata with devcd capture or devcd handoff" in result.output
+    copilot_text = (tmp_path / ".github" / "copilot-instructions.md").read_text(encoding="utf-8")
+    assert "DevCD does not capture chat automatically." in copilot_text
+    assert "On the first substantive user request in a session" in copilot_text
+    assert 'devcd capture --kind next_action --summary "..."' in copilot_text
 
 
 def test_onboard_preserves_existing_config_without_force(
@@ -266,6 +273,28 @@ def test_onboard_json_contract_is_stable(tmp_path: Path, monkeypatch: pytest.Mon
             },
         ],
         "live_context_empty": True,
+        "capture_contract": {
+            "automatic_chat_capture": False,
+            "requires_agent_commands": True,
+            "start_trigger": (
+                "On the first substantive user request in a session, if no visible goal "
+                "exists and shell access is available, the agent should run devcd capture "
+                '--kind goal --summary "...".'
+            ),
+            "update_triggers": [
+                (
+                    "After a failed attempt or blocker, capture failure or blocker with a "
+                    "safe next action."
+                ),
+                (
+                    "When the next safe step changes materially, capture it with devcd "
+                    "capture --kind next_action --summary \"...\"."
+                ),
+            ],
+            "fallback_when_shell_unavailable": (
+                "Read DevCD context only and do not claim automatic capture."
+            ),
+        },
         "next_agent_can": [
             "read the current goal when one is captured",
             "see the latest failure or blocker when present",
@@ -361,6 +390,43 @@ def test_onboard_yes_applies_recommended_profile_non_interactive(
     body = json.loads(profile_path.read_text(encoding="utf-8"))
     assert body["archetype"] == "builder"
     assert body["agent_targets"] == ["copilot"]
+    assert (tmp_path / ".github" / "skills" / "devcd-startup-gate" / "SKILL.md").exists()
+    assert (tmp_path / ".github" / "skills" / "devcd-capture-loop" / "SKILL.md").exists()
+    assert (tmp_path / ".github" / "skills" / "devcd-handoff-close" / "SKILL.md").exists()
+    assert (tmp_path / ".github" / "skills" / "devcd-recovery-fallback" / "SKILL.md").exists()
+    assert (tmp_path / ".devcd" / "templates" / "devcd-first-turn.template.md").exists()
+    assert (tmp_path / ".devcd" / "templates" / "devcd-capture-loop.template.md").exists()
+    assert (tmp_path / ".devcd" / "templates" / "devcd-handoff-close.template.md").exists()
+
+
+def test_onboard_yes_with_no_agent_ready_does_not_write_skills_or_templates(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.chdir(tmp_path)
+    runner = CliRunner()
+
+    result = runner.invoke(
+        app,
+        [
+            "onboard",
+            "--yes",
+            "--no-agent-ready",
+            "--endpoint",
+            "http://127.0.0.1:9/state",
+            "--no-tui",
+        ],
+    )
+
+    assert result.exit_code == 0
+    assert (tmp_path / "devcd.toml").exists()
+    assert not (tmp_path / ".devcd" / "agent-layer-profile.json").exists()
+    assert not (tmp_path / ".github" / "skills" / "devcd-startup-gate" / "SKILL.md").exists()
+    assert not (tmp_path / ".github" / "skills" / "devcd-capture-loop" / "SKILL.md").exists()
+    assert not (tmp_path / ".github" / "skills" / "devcd-handoff-close" / "SKILL.md").exists()
+    assert not (tmp_path / ".github" / "skills" / "devcd-recovery-fallback" / "SKILL.md").exists()
+    assert not (tmp_path / ".devcd" / "templates" / "devcd-first-turn.template.md").exists()
+    assert not (tmp_path / ".devcd" / "templates" / "devcd-capture-loop.template.md").exists()
+    assert not (tmp_path / ".devcd" / "templates" / "devcd-handoff-close.template.md").exists()
 
 
 def test_onboard_json_includes_agent_layer_proposal_and_receipts(
@@ -413,7 +479,7 @@ def test_setup_interactive_configures_multiple_projects_and_seeds_handoff(
     )
 
     assert result.exit_code == 0
-    assert "Setup summary" in result.output
+    assert "DevCD setup" in result.output
     assert "configured: 2" in result.output
     assert "failed: 0" in result.output
     for project in (project_alpha, project_beta):
@@ -434,6 +500,18 @@ def test_setup_interactive_configures_multiple_projects_and_seeds_handoff(
         assert packet.exit_code == 0
         packet_body = json.loads(packet.output)
         assert packet_body["ready_for_agent"] is True
+
+
+def test_setup_yes_flag_configures_current_dir_without_prompts(tmp_path: Path) -> None:
+    runner = CliRunner()
+    result = runner.invoke(
+        app,
+        ["setup", "--yes", "--projects", str(tmp_path)],
+    )
+    assert result.exit_code == 0, result.output
+    assert "configured: 1" in result.output
+    assert "failed: 0" in result.output
+    assert (tmp_path / "devcd.toml").exists()
 
 
 def test_setup_continues_when_a_project_path_is_missing(tmp_path: Path) -> None:
@@ -2787,7 +2865,7 @@ def test_agentic_action_packet_human_output_is_agent_start_brief(
     assert "## Policy" in result.output
 
 
-def test_agentic_action_packet_prefers_recent_success_over_stale_failure_next_action(
+def test_agentic_action_packet_prefers_explicit_failure_next_action_when_success_is_low_signal(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     monkeypatch.chdir(tmp_path)
@@ -2837,10 +2915,8 @@ def test_agentic_action_packet_prefers_recent_success_over_stale_failure_next_ac
     assert result.exit_code == 0
     body = json.loads(result.output)
     assert body["current_goal"] == "Stabilize action packet guidance"
-    assert body["next_action"] == "Continue from the successful attempt: test_passed"
-    assert body["session_contract"]["next_action"] == (
-        "Continue from the successful attempt: test_passed"
-    )
+    assert body["next_action"] == "Investigate test_failure"
+    assert body["session_contract"]["next_action"] == "Investigate test_failure"
 
 
 def test_agentic_action_packet_demo_renders_fixture_without_daemon() -> None:
@@ -3156,6 +3232,67 @@ def test_doctor_reports_missing_token_and_config(tmp_path, monkeypatch) -> None:
     assert "token_exists: warn" in result.output
     assert "Next steps" in result.output
     assert "devcd init" in result.output
+
+
+def test_status_prefers_live_git_branch_over_stale_ledger(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    config_path = tmp_path / "devcd.toml"
+    runtime_dir = tmp_path / ".devcd"
+    runtime_dir.mkdir()
+    (runtime_dir / "token").write_text("local-token", encoding="utf-8")
+    config_path.write_text(
+        "\n".join(
+            [
+                "[devcd]",
+                f'runtime_dir = "{runtime_dir.as_posix()}"',
+            ]
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+    (runtime_dir / "events.jsonl").write_text(
+        json.dumps(
+            {
+                "event": {
+                    "source": "git",
+                    "type": "branch_change",
+                    "timestamp": "2026-05-04T12:01:00+00:00",
+                    "payload": {"repo": str(tmp_path), "branch": "feature/devcd-core"},
+                },
+                "policy_decision": {
+                    "decision_id": "branch-decision",
+                    "kind": "allow",
+                    "reason": "local storage is allowed by policy",
+                    "operation": "store",
+                    "source": "git",
+                    "data_class": "metadata",
+                },
+            },
+            sort_keys=True,
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+
+    def fake_collect_snapshot_events(self: GitEventSource, repo_path: Path) -> list[DevEvent]:
+        assert repo_path == tmp_path
+        return [
+            DevEvent(
+                source=EventSource.GIT,
+                type="branch_change",
+                payload={"repo": str(repo_path), "branch": "main"},
+            )
+        ]
+
+    monkeypatch.setattr(GitEventSource, "collect_snapshot_events", fake_collect_snapshot_events)
+    monkeypatch.chdir(tmp_path)
+    runner = CliRunner()
+
+    result = runner.invoke(app, ["status", "--config", str(config_path)])
+
+    assert result.exit_code == 0
+    assert "Current branch: main" in result.output
 
 
 def test_doctor_fix_creates_missing_config_with_policy_receipt(tmp_path, monkeypatch) -> None:
