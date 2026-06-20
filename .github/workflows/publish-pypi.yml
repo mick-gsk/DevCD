@@ -21,7 +21,7 @@ jobs:
     name: Build, verify, and publish to PyPI
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
         with:
           # On release events use the tag that triggered the release;
           # on manual dispatch use the explicitly provided ref.
